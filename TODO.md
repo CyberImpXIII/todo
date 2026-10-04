@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (9 open, 2 closed in todo-history.json): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (10 open, 3 closed in todo-history.json): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -12,13 +12,6 @@
   · added: 2026-10-04
 
 ## Open decisions
-
-- **td-1 · Imported closed items may lack a resolution, which PLAN §5 says is red**
-  PLAN-todo-tool.md §5 says a done without a resolution is red in check for imported items. A DONE bullet carries a date but no resolution field, and history is append-only with no edit command, so a red there could never be cleared. Built instead: check counts them as INFO and their evidence keeps the bullet text. Hinges on: accept the INFO (recommend), or let import copy the bullet text into resolution (a guess, which the rules prefer null over).
-  · status: waiting-jacob
-  · work: decision
-  · done when: PLAN §5 records the choice and check follows it
-  · added: 2026-10-04
 
 - **td-2 · The shared hooks are not live in this repo until settings.json exists**
   tools/setup wrote .claude/settings.proposed.json and never touches settings.json. Jacob's step, in tools/todo: cp .claude/settings.proposed.json .claude/settings.json. ./dev.sh hooks prints a NOTE until then, and requires registration once the file exists.
@@ -74,4 +67,17 @@
   · work: test
   · files: dev.sh, devtools/mutate.py, tests/test_dev.py
   · done when: a mutant breaks the self gate and goes red without a red baseline, or the README says why it cannot
+  · added: 2026-10-04
+
+- **td-12 · dev.sh check does not run tools/checks on this repo**
+  tools/checks' CLAUDE.md says a repo's ./dev.sh check calls 'checks run .'. This one does not: checks.json is held by tests/test_audit.py (exclusions are files devtools/audit.py also skips), but whether no-roster is green here was seen only by hand on 2026-10-04 (cd ../checks && ./checks run ../todo --names <the roster copy in devtools/audit.json>: no-roster OK; without --names it is UNCHECKED by that tool's design). Wiring it needs the sibling path and roster names passed in, which this repo may not read.
+  · work: tooling
+  · files: dev.sh, checks.json
+  · done when: ./dev.sh check runs checks run . (or the README says why not) and fails when no-roster is red
+  · added: 2026-10-04
+
+- **td-13 · check cannot tell done-deprecated set by hand on an imported item**
+  The vocab gate fails done-deprecated only on an item with imported null. An item imported open (imported set) and later given done-deprecated by a hand edit of todo-history.json passes check; todo done refuses the value, so only a hand edit reaches it, and the history append-only audit catches that edit once a version is committed. Accepted for now.
+  · work: audit
+  · files: todolib/checks.py
   · added: 2026-10-04

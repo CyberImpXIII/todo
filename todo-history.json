@@ -41,6 +41,25 @@
       "done": "2026-10-04",
       "resolution": "Never pairs, by design (PLAN §8 decision 4: todo never reads the delegation layer). report, check (INFO, not the unpaired WARN) and the render say so; init refuses a hidden repo name; README Across repos. tests/test_reports.py, four mutants.",
       "imported": null
+    },
+    {
+      "id": "td-1",
+      "title": "Imported closed items may lack a resolution, which PLAN §5 says is red",
+      "kind": "decision",
+      "status": "done",
+      "evidence": "PLAN-todo-tool.md §5 says a done without a resolution is red in check for imported items. A DONE bullet carries a date but no resolution field, and history is append-only with no edit command, so a red there could never be cleared. Built instead: check counts them as INFO and their evidence keeps the bullet text. Hinges on: accept the INFO (recommend), or let import copy the bullet text into resolution (a guess, which the rules prefer null over).",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "decision",
+      "files": null,
+      "done_when": "PLAN §5 records the choice and check follows it",
+      "retire": null,
+      "added": "2026-10-04",
+      "done": "2026-10-04",
+      "resolution": "Jacob 2026-10-04 (PLAN-todo-tool.md end, decision 11): imported closed bullets get resolution done-deprecated (vocab.json resolutions + roles.import_resolution); todo done refuses it; check fails a closed item without a resolution wherever it came from, and done-deprecated on an item not imported. 9843e2d; tests test_import, test_required.ImportResolution, test_vocab; seven mutants.",
+      "imported": null
     }
   ]
 }

@@ -2,7 +2,7 @@
   "format": 1,
   "repo": "todo",
   "prefix": "td",
-  "next": 12,
+  "next": 14,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -12,25 +12,6 @@
     }
   ],
   "items": [
-    {
-      "id": "td-1",
-      "title": "Imported closed items may lack a resolution, which PLAN §5 says is red",
-      "kind": "decision",
-      "status": "waiting-jacob",
-      "evidence": "PLAN-todo-tool.md §5 says a done without a resolution is red in check for imported items. A DONE bullet carries a date but no resolution field, and history is append-only with no edit command, so a red there could never be cleared. Built instead: check counts them as INFO and their evidence keeps the bullet text. Hinges on: accept the INFO (recommend), or let import copy the bullet text into resolution (a guess, which the rules prefer null over).",
-      "probe": null,
-      "reported_to": null,
-      "parent": null,
-      "repo": "todo",
-      "work": "decision",
-      "files": null,
-      "done_when": "PLAN §5 records the choice and check follows it",
-      "retire": null,
-      "added": "2026-10-04",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
     {
       "id": "td-2",
       "title": "The shared hooks are not live in this repo until settings.json exists",
@@ -202,6 +183,49 @@
         "tests/test_dev.py"
       ],
       "done_when": "a mutant breaks the self gate and goes red without a red baseline, or the README says why it cannot",
+      "retire": null,
+      "added": "2026-10-04",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-12",
+      "title": "dev.sh check does not run tools/checks on this repo",
+      "kind": "note",
+      "status": "open",
+      "evidence": "tools/checks' CLAUDE.md says a repo's ./dev.sh check calls 'checks run .'. This one does not: checks.json is held by tests/test_audit.py (exclusions are files devtools/audit.py also skips), but whether no-roster is green here was seen only by hand on 2026-10-04 (cd ../checks && ./checks run ../todo --names <the roster copy in devtools/audit.json>: no-roster OK; without --names it is UNCHECKED by that tool's design). Wiring it needs the sibling path and roster names passed in, which this repo may not read.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "tooling",
+      "files": [
+        "dev.sh",
+        "checks.json"
+      ],
+      "done_when": "./dev.sh check runs checks run . (or the README says why not) and fails when no-roster is red",
+      "retire": null,
+      "added": "2026-10-04",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-13",
+      "title": "check cannot tell done-deprecated set by hand on an imported item",
+      "kind": "note",
+      "status": "open",
+      "evidence": "The vocab gate fails done-deprecated only on an item with imported null. An item imported open (imported set) and later given done-deprecated by a hand edit of todo-history.json passes check; todo done refuses the value, so only a hand edit reaches it, and the history append-only audit catches that edit once a version is committed. Accepted for now.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "audit",
+      "files": [
+        "todolib/checks.py"
+      ],
+      "done_when": null,
       "retire": null,
       "added": "2026-10-04",
       "done": null,
