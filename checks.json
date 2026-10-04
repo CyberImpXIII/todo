@@ -1,0 +1,5 @@
+{
+  "no-roster": {
+    "exclude": ["devtools/audit.json", "devtools/mutants.json"]
+  }
+}

@@ -58,7 +58,7 @@ cmd_files() {
   for f in todo dev.sh devtools/audit.py devtools/mutate.py; do
     [ -x "$f" ] || { echo "  FAIL  $f missing or not executable"; fails=$((fails+1)); }
   done
-  for f in vocab.json devtools/audit.json devtools/mutants.json todo.json todo-history.json; do
+  for f in vocab.json devtools/audit.json devtools/mutants.json checks.json todo.json todo-history.json; do
     jq -e . "$f" >/dev/null 2>&1 || { echo "  FAIL  $f missing or does not parse"; fails=$((fails+1)); }
   done
   for f in CLAUDE.md README.md TODO.md .gitignore todolib/__init__.py; do

@@ -220,3 +220,9 @@ given; `--json` prints `{"ok": bool, "gates": {gate: bool}}` and nothing else.
 `tests/test_dev.py` holds that contract on the cheap gates. A check run inside
 another check refuses the `test` and `mutants` gates, since either would run that
 test again without end.
+
+`checks.json` is read by tools/checks (`checks run .`): its `no-roster` check
+skips `devtools/audit.json` and `devtools/mutants.json`, which hold the direction
+audit's own terms and planted violations. `tests/test_audit.py` holds every
+exclusion there to a file that exists and that `devtools/audit.py` skips too, so
+`checks.json` never widens the exemptions beyond the ones `audit.json` documents.

@@ -1,4 +1,5 @@
 """The direction audit finds what it is for, and skips only what it says it skips."""
+import json
 import shutil
 import sys
 import tempfile
@@ -40,6 +41,20 @@ class Direction(unittest.TestCase):
             self.write(rel, text)
         hits, _ = audit.audit(self.root)
         self.assertEqual(sorted({h.split()[2].split(":")[0] for h in hits}), sorted(cases))
+
+    def test_checks_json_excludes_only_what_this_audit_skips(self):
+        """checks.json (read by tools/checks' no-roster) and audit.json's skip list both
+        exempt the files holding the audit's terms and planted violations. An exclusion
+        there that this audit does not also skip would hide a file from both; one naming
+        a missing file would be a guard that guards nothing."""
+        cfg = json.loads((ROOT / "checks.json").read_text())
+        self.assertEqual(sorted(cfg), ["no-roster"], "checks.json holds only what this repo needs")
+        excluded = cfg["no-roster"]["exclude"]
+        skip = json.loads((ROOT / "devtools" / "audit.json").read_text())["skip"]
+        self.assertTrue(excluded)
+        for rel in excluded:
+            self.assertIn(rel, skip, f"{rel} is excluded from no-roster but not skipped by devtools/audit.py")
+            self.assertTrue((ROOT / rel).is_file(), f"{rel} is excluded but does not exist")
 
     def test_lookalike_words_and_fixtures_pass(self):
         self.write("a.md", "harnessing the planner-free design; a harness-like rig\n")
