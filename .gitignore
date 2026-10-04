@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+*.env
+.DS_Store
+.claude/settings.local.json
+.claude/settings.proposed.json
+.mutants/
+TODO-HISTORY.md
+.*.tmp-*

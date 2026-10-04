@@ -1,0 +1,262 @@
+"""`todo check`: every gate over one store, its history and its cross-repo links.
+
+Each finding is (level, gate, where, message); FAIL makes the exit non-zero,
+WARN and INFO never do. Every gate prints an `ok` line when it found nothing,
+so a gate that silently stopped running shows up as a missing line.
+"""
+import json
+import re
+import subprocess
+
+from .render import HEADER_PREFIX, render_store
+from .store import (DATE_RE, HISTORY_KEYS, ID_RE, STORE_KEYS, HISTORY_FILE, RENDER_FILE,
+                    git_toplevel, id_number, today)
+from .vocab import VOCAB
+
+GATES = ["schema", "vocab", "required", "ids", "parents", "reports", "workspace", "render", "history"]
+SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
+
+
+def render_state(store):
+    """absent | clean | hand-edited (a render, changed) | hand-written (never rendered)."""
+    if not store.render_path.is_file():
+        return "absent"
+    text = store.render_path.read_text()
+    if text == render_store(store):
+        return "clean"
+    return "hand-edited" if text.startswith(HEADER_PREFIX) else "hand-written"
+
+
+def _empty(v):
+    return v is None or v == "" or v == []
+
+
+def check_item(it, where, store, out):
+    iid = it.get("id", "?")
+    fields = set(VOCAB.field_names())
+    if set(it) != fields:
+        extra, missing = sorted(set(it) - fields), sorted(fields - set(it))
+        out.append(("FAIL", "schema", iid, f"fields differ from vocab.json: extra {extra}, missing {missing}"))
+    kind, status, work = it.get("kind"), it.get("status"), it.get("work")
+    if kind not in VOCAB.kinds:
+        out.append(("FAIL", "vocab", iid, f"kind {kind!r} is not declared"))
+    if status not in VOCAB.statuses:
+        out.append(("FAIL", "vocab", iid, f"status {status!r} is not declared"))
+    if work is not None and work not in VOCAB.works:
+        out.append(("FAIL", "vocab", iid, f"work {work!r} is not declared"))
+    if where == "store" and status == VOCAB.closed:
+        out.append(("FAIL", "schema", iid, f"status {status} in {store.path.name}: closed items live in {HISTORY_FILE} (todo done moves them)"))
+    if where == "history" and status != VOCAB.closed:
+        out.append(("FAIL", "schema", iid, f"status {status} in {HISTORY_FILE}: only closed items live there"))
+    if where == "store":
+        for f in ("done", "resolution"):
+            if not _empty(it.get(f)):
+                out.append(("FAIL", "schema", iid, f"{f} is set on an open item"))
+    for f in SINGLE_LINE:
+        v = it.get(f)
+        if isinstance(v, str) and "\n" in v:
+            out.append(("FAIL", "schema", iid, f"{f} spans lines; only evidence may"))
+    title = it.get("title")
+    if not isinstance(title, str) or not title.strip() or "**" in title:
+        out.append(("FAIL", "schema", iid, "title must be one non-empty line without **"))
+    if isinstance(it.get("evidence"), str) and any(ln.startswith("· ") for ln in it["evidence"].split("\n")):
+        out.append(("FAIL", "schema", iid, "an evidence line starts with '· ', the render's field mark"))
+    for f in ("added", "done"):
+        v = it.get(f)
+        if v is not None and not (isinstance(v, str) and DATE_RE.match(v)):
+            out.append(("FAIL", "schema", iid, f"{f} {v!r} is not YYYY-MM-DD"))
+    files = it.get("files")
+    if files is not None and not (isinstance(files, list) and all(isinstance(x, str) for x in files)):
+        out.append(("FAIL", "schema", iid, "files must be a list of paths"))
+    rt = it.get("reported_to")
+    if rt is not None:
+        if not isinstance(rt, dict) or set(rt) != {"repo", "date", "their_id"} or not DATE_RE.match(str(rt.get("date"))):
+            out.append(("FAIL", "schema", iid, "reported_to must be {repo, date (YYYY-MM-DD), their_id}"))
+    imported = it.get("imported") is not None
+    for f in VOCAB.required(it):
+        if _empty(it.get(f)):
+            if where == "history" and imported and f in VOCAB.statuses[VOCAB.closed]["requires"]:
+                continue  # counted below: an imported closed bullet may carry no date or resolution
+            out.append(("FAIL", "required", iid, f"{kind}/{status} requires {f}"))
+
+
+def check_ids(store, out):
+    seen = {}
+    for where, items in (("store", store.items), ("history", store.closed)):
+        for it in items:
+            iid = it.get("id")
+            m = ID_RE.match(iid or "")
+            if not m or m.group(1) != store.prefix:
+                out.append(("FAIL", "ids", str(iid), f"id is not {store.prefix}-N"))
+                continue
+            if iid in seen:
+                where_both = "both files" if seen[iid] != where else f"{where} twice"
+                hint = " (an interrupted close: `todo done ID` finishes it)" if seen[iid] != where else ""
+                out.append(("FAIL", "ids", iid, f"id appears in {where_both}{hint}"))
+            seen[iid] = where
+            if id_number(iid) >= store.data.get("next", 0):
+                out.append(("FAIL", "ids", iid, f"id number is not below next ({store.data.get('next')}): it could be handed out again"))
+
+
+def check_parents(store, ws, out):
+    for where, items in (("store", store.items), ("history", store.closed)):
+        for it in items:
+            p = it.get("parent")
+            if p is None:
+                continue
+            if ws.find(p)[0] is None:
+                out.append(("FAIL", "parents", it["id"], f"parent {p} resolves in no scanned store or history"))
+                continue
+            chain, cur = {it["id"]}, p
+            while cur:
+                if cur in chain:
+                    out.append(("FAIL", "parents", it["id"], f"parent chain loops back through {cur}"))
+                    break
+                chain.add(cur)
+                nxt = ws.find(cur)[0]
+                cur = nxt.get("parent") if nxt else None
+
+
+def check_reports(store, ws, out):
+    for it in store.items:
+        rt = it.get("reported_to")
+        if not isinstance(rt, dict):
+            continue
+        owner = ws.by_repo(rt.get("repo"))
+        if owner is None:
+            out.append(("WARN", "reports", it["id"], f"unpaired: no store for repo {rt.get('repo')!r} in the scan (not migrated yet?); pair it later with `todo report {it['id']} --to {rt.get('repo')}`"))
+            continue
+        their = rt.get("their_id")
+        if not their:
+            out.append(("FAIL", "reports", it["id"], f"{rt['repo']} has a store now: pair it with `todo report {it['id']} --to {rt['repo']}`"))
+            continue
+        c, where = owner.find(their)
+        if c is None:
+            out.append(("FAIL", "reports", it["id"], f"counterpart {their} is in neither {rt['repo']}'s store nor its history"))
+        elif c.get("parent") != it["id"]:
+            out.append(("FAIL", "reports", it["id"], f"counterpart {their} has parent {c.get('parent')}, not {it['id']}"))
+        elif where == "history":
+            out.append(("INFO", "reports", it["id"], f"counterpart {their} closed {c.get('done') or '(undated)'}: {c.get('resolution') or ''} -- close yours with todo done"))
+    answered = []
+    for it in store.items:
+        p = it.get("parent")
+        if not p or store.owns(p):
+            continue
+        parent, _, pstore = ws.find(p)
+        rt = (parent or {}).get("reported_to")
+        if isinstance(rt, dict) and rt.get("repo") == store.repo:
+            if rt.get("their_id") != it["id"]:
+                out.append(("FAIL", "reports", it["id"], f"parent {p} in {pstore.repo} points at {rt.get('their_id')}, not here"))
+            else:
+                answered.append(it["id"])
+    if answered:
+        out.append(("INFO", "reports", "-", f"{len(answered)} report(s) from other repos still open here: {', '.join(answered)}"))
+
+
+def check_workspace(store, ws, out):
+    for s in ws.stores:
+        if s is store or not s.data:
+            continue
+        if s.data.get("prefix") == store.prefix:
+            out.append(("FAIL", "workspace", "-", f"prefix {store.prefix} is also used by {s.dir}: ids would collide"))
+        if s.data.get("repo") == store.repo:
+            out.append(("FAIL", "workspace", "-", f"repo name {store.repo} is also used by {s.dir}: reports could not tell them apart"))
+    for e in ws.errors:
+        out.append(("WARN", "workspace", "-", f"a scanned store did not load: {e}"))
+
+
+def check_render(store, out):
+    state = render_state(store)
+    if state == "clean":
+        pass
+    elif state == "absent":
+        out.append(("FAIL", "render", "-", f"{RENDER_FILE} missing: run todo render"))
+    else:
+        gate_from = store.data.get("render_gate_from") or "0000-00-00"
+        level = "WARN" if today() < gate_from else "FAIL"
+        what = "edited by hand since it was rendered" if state == "hand-edited" else "hand-written, never rendered"
+        tail = f" (a counted warning until {gate_from})" if level == "WARN" else ""
+        out.append((level, "render", "-", f"{RENDER_FILE} is {what}: `todo import {RENDER_FILE}` recovers new bullets, `todo render --force` keeps the diff in todo.json and rewrites it{tail}"))
+    edits = store.data.get("hand_edits") or []
+    if edits:
+        out.append(("INFO", "render", "-", f"hand edits recorded: {len(edits)} (todo.json hand_edits)"))
+
+
+def history_versions(store):
+    """[(sha, items-by-id)] for every committed version of the history file."""
+    top = git_toplevel(store.dir)
+    if not top:
+        return None
+    rel = store.history_path.resolve().relative_to(top.resolve())
+    log = subprocess.run(["git", "log", "--format=%h", "--", str(rel)], cwd=top, capture_output=True, text=True)
+    versions = []
+    for sha in log.stdout.split():
+        shown = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=top, capture_output=True, text=True)
+        if shown.returncode != 0:
+            continue  # the commit deleted the file; the next older one still counts
+        try:
+            items = json.loads(shown.stdout).get("items", [])
+        except ValueError:
+            versions.append((sha, None))
+            continue
+        versions.append((sha, {it.get("id"): it for it in items}))
+    return versions
+
+
+def check_history(store, out):
+    if store.history is None:
+        out.append(("FAIL", "history", "-", f"{HISTORY_FILE} missing (todo init writes it; it is never deleted)"))
+        return
+    if set(store.history) != set(HISTORY_KEYS) or store.history.get("repo") != store.repo:
+        out.append(("FAIL", "history", "-", f"{HISTORY_FILE} must hold exactly {HISTORY_KEYS}, repo {store.repo}"))
+    undated = [it["id"] for it in store.closed if it.get("imported") and (not it.get("done") or not it.get("resolution"))]
+    if undated:
+        out.append(("INFO", "history", "-", f"{len(undated)} imported closed item(s) carry no date or resolution; their evidence holds the bullet text"))
+    versions = history_versions(store)
+    if versions is None:
+        out.append(("INFO", "history", "-", "not a git repo: the append-only audit against the git log is skipped here"))
+        return
+    now = {it.get("id"): it for it in store.closed}
+    for sha, items in versions:
+        if items is None:
+            out.append(("FAIL", "history", "-", f"{HISTORY_FILE} at {sha} does not parse"))
+            continue
+        for iid, it in items.items():
+            if iid not in now:
+                out.append(("FAIL", "history", iid, f"was in {HISTORY_FILE} at {sha} and is gone: history is append-only"))
+            elif now[iid] != it:
+                out.append(("FAIL", "history", iid, f"changed since {sha}: history entries are never edited"))
+
+
+def check_store(store, ws):
+    out = []
+    if set(store.data) != set(STORE_KEYS):
+        out.append(("FAIL", "schema", "-", f"todo.json keys {sorted(store.data)}, expected {STORE_KEYS}"))
+    for it in store.items:
+        check_item(it, "store", store, out)
+    for it in store.closed:
+        check_item(it, "history", store, out)
+    check_ids(store, out)
+    check_parents(store, ws, out)
+    check_reports(store, ws, out)
+    check_workspace(store, ws, out)
+    check_render(store, out)
+    check_history(store, out)
+    return out
+
+
+def report(store, findings):
+    """Lines to print, and the exit code."""
+    lines = []
+    for gate in GATES:
+        mine = [f for f in findings if f[1] == gate]
+        bad = [f for f in mine if f[0] in ("FAIL", "WARN")]
+        for level, _, where, msg in mine:
+            lines.append(f"  {level:<5} {gate:<9} {where:<8} {msg}")
+        if not bad:
+            lines.append(f"  ok    {gate}")
+    fails = sum(f[0] == "FAIL" for f in findings)
+    warns = sum(f[0] == "WARN" for f in findings)
+    lines.append(f"todo check {store.repo}: {len(store.items)} open, {len(store.closed)} closed; "
+                 f"{fails} failed, {warns} warning(s)")
+    return lines, (1 if fails else 0)

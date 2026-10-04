@@ -1,0 +1,64 @@
+{
+  "_comment": "The one vocabulary. The parser, the renderer, the importer, the checks, README.md and the tests all read this file; tests/test_vocab.py fails when the code, the render or the README disagree with it, in either direction. Order is render order.",
+  "kinds": {
+    "bug":       {"doc": "a bug of this repo's own, including one you caused and worked around", "heading": "Own bugs", "always": true, "requires": []},
+    "decision":  {"doc": "an open decision, with what it hinges on", "heading": "Open decisions", "always": true, "requires": []},
+    "suspicion": {"doc": "an unconfirmed suspicion, with the probe that would settle it", "heading": "Unconfirmed suspicions", "always": true, "requires": ["probe"]},
+    "report":    {"doc": "a problem reported to another repo's owner; its counterpart lives in their store", "heading": "Reported to other owners", "always": true, "requires": ["reported_to"]},
+    "temp":      {"doc": "an interim rule, with the check that retires it", "heading": "Interim rules", "always": false, "requires": ["retire"]},
+    "note":      {"doc": "anything else worth keeping; the import default", "heading": "Notes", "always": false, "requires": []}
+  },
+  "statuses": {
+    "open":          {"doc": "workable now", "requires": []},
+    "waiting-jacob": {"doc": "needs Jacob's answer before anyone can move it", "requires": []},
+    "blocked":       {"doc": "waits on something other than Jacob; the evidence says what", "requires": []},
+    "done":          {"doc": "closed; the item lives in todo-history.json from then on", "requires": ["done", "resolution"]}
+  },
+  "works": {
+    "code":     {"doc": "a change to the tool's own code"},
+    "test":     {"doc": "a test or a fixture"},
+    "audit":    {"doc": "an audit or a check over the repo"},
+    "tooling":  {"doc": "helpers, dev.sh subcommands, scripts around the tool"},
+    "docs":     {"doc": "README, CLAUDE.md, comments"},
+    "decision": {"doc": "nothing to build until someone decides"}
+  },
+  "roles": {
+    "default_kind": "note",
+    "default_status": "open",
+    "closed_status": "done",
+    "report_kind": "report"
+  },
+  "fields": {
+    "id":          {"doc": "repo prefix + counter, stable, never reused (todo:td-3 points at it)", "label": null},
+    "title":       {"doc": "one line, no **", "label": null},
+    "kind":        {"doc": "one of the kinds", "label": "kind"},
+    "status":      {"doc": "one of the statuses", "label": "status"},
+    "evidence":    {"doc": "what you ran, what you saw, what you concluded; may span lines", "label": null},
+    "probe":       {"doc": "the run that would settle a suspicion", "label": "probe"},
+    "reported_to": {"doc": "{repo, date, their_id}: whom it was reported to, and the counterpart's id there", "label": "reported to"},
+    "parent":      {"doc": "any item's id, in any scanned repo, open or closed", "label": "parent"},
+    "repo":        {"doc": "where the work lives: a repo name, never an agent", "label": "repo"},
+    "work":        {"doc": "one of the works", "label": "work"},
+    "files":       {"doc": "paths the work touches", "label": "files"},
+    "done_when":   {"doc": "the observable that closes it", "label": "done when"},
+    "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
+    "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},
+    "done":        {"doc": "date closed, YYYY-MM-DD; null while open (or when an imported DONE bullet carried no date)", "label": "done"},
+    "resolution":  {"doc": "how it closed; null while open (or for an imported closed bullet)", "label": "resolution"},
+    "imported":    {"doc": "{sha, section, title_from, sep}: set by todo import (the block's sha, its headings, where the title came from), null otherwise", "label": null}
+  },
+  "import": {
+    "_comment": "Kind and status of an imported block come from its section headings, deepest heading first, first rule that matches (case-insensitive substring). A block whose own text starts with the done marker goes to history whatever its heading.",
+    "headings": [
+      {"match": "needs jacob",   "kind": "decision", "status": "waiting-jacob"},
+      {"match": "waiting on jacob", "kind": "decision", "status": "waiting-jacob"},
+      {"match": "decision",      "kind": "decision"},
+      {"match": "unconfirmed",   "kind": "suspicion"},
+      {"match": "suspicion",     "kind": "suspicion"},
+      {"match": "reported",      "kind": "report"},
+      {"match": "bug",           "kind": "bug"},
+      {"match": "resolved",      "status": "done"}
+    ],
+    "done_marker": "^(?:\\*\\*|~~)*DONE (\\d{4}-\\d{2}-\\d{2})\\b"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "The direction audit (PLAN-todo-tool.md §5, §8 decision 4): todo never reads the delegation layer's files and never names a roster agent; items name repos, not agents. devtools/audit.py fails on any match in any file of this repo outside `skip`. The roster names below are the ones that are not also repo names; they are a copy, taken 2026-10-04, and a new roster agent needs adding here by hand (TODO.md records that this copy can go stale: the tool may not read the roster to refresh it).",
+  "skip": ["tests/fixtures/", "devtools/audit.json", "tests/test_audit.py", ".git/", ".mutants/"],
+  "_skip": "fixtures are other repos' text; audit.json and test_audit.py hold the terms and the planted violations that prove the audit can fail",
+  "patterns": [
+    {"re": "agents\\.manifest", "why": "the roster's manifest"},
+    {"re": "agents\\.sh", "why": "the roster's CLI"},
+    {"re": "wiring\\.json", "why": "the delegation layer's wiring"},
+    {"re": "temp-rules\\.json", "why": "the interim-rules register (a later harness job reads todo, not the reverse)"},
+    {"re": "resolve-owner", "why": "the owner resolver: the mapping from repo+work to an agent stays outside todo"},
+    {"re": "\\.claude/(agents|lib|archive)\\b", "why": "the delegation layer's folders"},
+    {"re": "\\.\\./[^\\s\"']*\\.claude", "why": "reaching a .claude/ above this repo"}
+  ],
+  "roster_names": ["dispatcher", "planner", "harness", "deep-work", "email-tools", "job-import-scripts", "cron-scheduler"]
+}
