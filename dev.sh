@@ -7,7 +7,8 @@ usage() {
   cat <<'EOF'
 ./dev.sh <command>
 
-  check      every gate below, in order; non-zero if any fails (--json: {"ok": bool, "gates": {...}})
+  check      every gate below, in order; non-zero if any fails. [--json] [GATE ...]: --json prints
+             {"ok": bool, "gates": {...}}; named gates run alone, in the order given (tests/test_dev.py)
   test       the unit tests (tests/), trimmed to the result unless something fails
   hooks      the shared hook copies: present, executable, parse, their own tests pass; registered once settings.json exists
   files      the files the tool needs: present, executable where they must be, data parses
@@ -77,9 +78,21 @@ cmd_mutants() { python3 devtools/mutate.py "$@"; }
 GATES=(test hooks files audit self mutants)
 
 cmd_check() {
-  local json=0 g code fails=0 results=""
-  [ "${1:-}" = "--json" ] && json=1
-  for g in "${GATES[@]}"; do
+  local json=0 g code fails=0 results="" run=()
+  [ "${1:-}" = "--json" ] && { json=1; shift; }
+  for g in "$@"; do
+    case " ${GATES[*]} " in *" $g "*) run+=("$g") ;; *) echo "check: unknown gate '$g' (gates: ${GATES[*]})" >&2; return 2 ;; esac
+  done
+  [ ${#run[@]} -eq 0 ] && run=("${GATES[@]}")
+  # A check inside a check (tests/test_dev.py runs one) never runs the tests or the
+  # mutants again: either would run that test again, and so on without end.
+  if [ -n "${TODO_DEV_CHECK:-}" ]; then
+    case " ${run[*]} " in *" test "*|*" mutants "*)
+      echo "check: refusing test/mutants inside another ./dev.sh check (TODO_DEV_CHECK is set): name the gates to run" >&2; return 2 ;;
+    esac
+  fi
+  export TODO_DEV_CHECK=1
+  for g in "${run[@]}"; do
     if [ $json -eq 1 ]; then "cmd_$g" >/dev/null 2>&1; code=$?
     else echo "== $g"; "cmd_$g"; code=$?; fi
     [ $code -ne 0 ] && fails=$((fails+1))
@@ -88,7 +101,7 @@ cmd_check() {
   if [ $json -eq 1 ]; then
     printf '{"ok": %s, "gates": {%s}}\n' "$([ $fails -eq 0 ] && echo true || echo false)" "${results%, }"
   else
-    [ $fails -eq 0 ] && echo "check: all ${#GATES[@]} gates green" || echo "check: $fails of ${#GATES[@]} gates FAILED"
+    [ $fails -eq 0 ] && echo "check: all ${#run[@]} gates green" || echo "check: $fails of ${#run[@]} gates FAILED"
   fi
   return $((fails > 0))
 }

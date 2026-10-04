@@ -203,3 +203,9 @@ the files the tool needs, the direction audit (`devtools/audit.py`: no file here
 reads the delegation layer's files or names a roster agent), `todo check` on this
 repo's own store, and the mutants (`devtools/mutate.py`: each gate broken once
 in a throwaway copy, which must turn its test red).
+
+`./dev.sh check [--json] [GATE ...]` runs only the named gates, in the order
+given; `--json` prints `{"ok": bool, "gates": {gate: bool}}` and nothing else.
+`tests/test_dev.py` holds that contract on the cheap gates. A check run inside
+another check refuses the `test` and `mutants` gates, since either would run that
+test again without end.
