@@ -13,6 +13,7 @@ can compare. One item renders as
 """
 import re
 
+from .store import never_scanned
 from .vocab import VOCAB
 
 HEADER_PREFIX = "<!-- rendered by todo"
@@ -31,7 +32,11 @@ NOT_FIELD_LINES = {"id", "title", "evidence", "imported"}
 def field_value(name, value):
     if name == "reported_to":
         their = value.get("their_id")
-        return f"{value.get('repo')} on {value.get('date')}" + (f" as {their}" if their else " (no counterpart yet)")
+        if their:
+            tail = f" as {their}"
+        else:
+            tail = " (relayed by hand; never pairs)" if never_scanned(value.get("repo")) else " (no counterpart yet)"
+        return f"{value.get('repo')} on {value.get('date')}" + tail
     if name == "files":
         return ", ".join(value)
     return str(value)

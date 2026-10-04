@@ -171,6 +171,14 @@ Under it, every git repo with a `todo.json`, three levels down, is a store. Hidd
 folders, `node_modules`, `venv` and test fixtures are never entered. A prefix or
 a repo name used twice is a failure.
 
+So a report to a hidden folder **never pairs**, and that is by design: the
+delegation layer (`.claude`) is one, and todo never reads it (PLAN-todo-tool.md
+§8 decision 4). `todo report ID --to .claude` still records whom it went to; the
+command, `check` (an `INFO` line, not the "not migrated yet" warning) and the
+render (`(relayed by hand; never pairs)`) all say it never pairs. Relay it by
+hand and close it by its `done_when`. No store may take a hidden repo name, so
+"never" holds (`tests/test_reports.py`).
+
 ## Checks
 
 `todo check` prints one line per finding and an `ok` line per clean gate, so a

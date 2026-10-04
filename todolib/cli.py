@@ -9,7 +9,7 @@ from pathlib import Path
 from . import checks, importer
 from .render import render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, Store, TodoError, Workspace, add_days, id_number,
-                    new_item, scan_root, store_dir_for, today, write_atomic)
+                    never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
 from .vocab import VOCAB
 
 HAND_EDIT_DIFF_MAX = 4000
@@ -204,7 +204,8 @@ def cmd_report(args):
     ws = workspace(args, store)
     if args.to == store.repo:
         raise TodoError("an item is reported to another repo, not to its own")
-    owner = ws.by_repo(args.to)
+    hidden = never_scanned(args.to)
+    owner = None if hidden else ws.by_repo(args.to)
     stores = sorted([s for s in (store, owner) if s], key=lambda s: str(s.dir))
     locks = [s.lock() for s in stores]
     for lk in locks:
@@ -245,6 +246,9 @@ def cmd_report(args):
             lk.__exit__(None, None, None)
     if their:
         print(f"reported {args.id} to {args.to} as {their} ({owner.path}; commit it there)")
+    elif hidden:
+        print(f"reported {args.id} to {args.to}: a hidden folder, which the scan never enters, so this report "
+              f"never pairs. Relay it to its owner by hand (your final report) and close {args.id} by its done_when.")
     else:
         print(f"reported {args.id} to {args.to}: no store for {args.to} in the scan, so no counterpart yet. "
               f"`todo check` lists it as unpaired; re-run this once {args.to} has a todo.json.")

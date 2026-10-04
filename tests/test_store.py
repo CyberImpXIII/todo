@@ -2,7 +2,7 @@
 import ast
 import re
 
-from tests.helpers import ROOT, Case
+from tests.helpers import ROOT, Case, git_repo
 
 
 class Ids(Case):
@@ -96,8 +96,11 @@ class Workspace(Case):
 
     def test_the_scan_never_enters_hidden_folders(self):
         a = self.repo("a", "aa")
-        self.repo(".hidden", "hh")
-        self.assertNotIn(".hidden", self.todo("-C", a, "repos").stdout)
+        d = git_repo(self.ws / ".hidden")
+        self.todo("-C", d, "init", "--prefix", "hh", "--repo", "inhidden")  # a hidden name itself is refused
+        out = self.todo("-C", a, "repos").stdout
+        self.assertNotIn(".hidden", out)
+        self.assertNotIn("inhidden", out)
 
 
 class OneWayIn(Case):

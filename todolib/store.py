@@ -62,6 +62,13 @@ def new_item(**values):
     return {name: values.get(name) for name in VOCAB.field_names()}
 
 
+def never_scanned(name):
+    """A folder or repo name the scan never enters: a hidden one. The delegation
+    layer is one, and todo never reads it (PLAN-todo-tool.md §8 decision 4), so a
+    report to such a name never pairs and no store may take one as its repo."""
+    return str(name or "").startswith(".")
+
+
 def git_toplevel(path):
     try:
         r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=path,
@@ -160,6 +167,9 @@ class Store:
             raise TodoError(f"prefix {prefix!r}: 1-8 characters, a lowercase letter then letters or digits")
         if not repo or "/" in repo:
             raise TodoError(f"repo name {repo!r}: a folder-style name, no slash")
+        if never_scanned(repo):
+            raise TodoError(f"repo name {repo!r} is hidden: the scan never enters a hidden folder, "
+                            "so no report could ever pair with this store; pass --repo NAME")
         if self.history_path.exists():
             raise TodoError(f"{self.history_path} exists without {STORE_FILE}; refusing to start over a history")
         self.data = {"format": FORMAT, "repo": repo, "prefix": prefix, "next": 1,
@@ -230,7 +240,7 @@ def scan_stores(root, depth=SCAN_DEPTH):
         rel = Path(dirpath).relative_to(root)
         level = 0 if str(rel) == "." else len(rel.parts)
         dirnames[:] = sorted(d for d in dirnames
-                             if not d.startswith(".") and d not in SCAN_PRUNE) if level < depth else []
+                             if not never_scanned(d) and d not in SCAN_PRUNE) if level < depth else []
         d = Path(dirpath)
         if d != root and (d / ".git").exists() and (d / STORE_FILE).is_file():
             found.append(d)

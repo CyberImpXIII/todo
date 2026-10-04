@@ -10,7 +10,7 @@ import subprocess
 
 from .render import HEADER_PREFIX, render_store
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, STORE_KEYS, HISTORY_FILE, RENDER_FILE,
-                    git_toplevel, id_number, today)
+                    git_toplevel, id_number, never_scanned, today)
 from .vocab import VOCAB
 
 GATES = ["schema", "vocab", "required", "ids", "parents", "reports", "workspace", "render", "history"]
@@ -121,6 +121,9 @@ def check_reports(store, ws, out):
     for it in store.items:
         rt = it.get("reported_to")
         if not isinstance(rt, dict):
+            continue
+        if never_scanned(rt.get("repo")):
+            out.append(("INFO", "reports", it["id"], f"relayed by hand: {rt.get('repo')!r} is a hidden folder, which the scan never enters, so this report never pairs; close it by its done_when"))
             continue
         owner = ws.by_repo(rt.get("repo"))
         if owner is None:

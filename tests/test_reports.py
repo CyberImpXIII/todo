@@ -47,6 +47,28 @@ class Reports(Case):
         self.assertIn("as cc-1", self.todo("-C", self.a, "report", "aa-1", "--to", "c").stdout)
         self.check(self.a)
 
+    def test_a_report_to_a_hidden_folder_never_pairs_and_says_so(self):
+        """The scan never enters a hidden folder (and todo never reads the delegation
+        layer), so a report there can never pair: say so, not "not migrated yet"."""
+        out = self.todo("-C", self.a, "report", "aa-1", "--to", ".layer").stdout
+        self.assertIn("never pairs", out)
+        self.assertNotIn("re-run this once", out)
+        self.assertEqual(self.store(self.a)["items"][0]["reported_to"],
+                         {"repo": ".layer", "date": "2026-10-04", "their_id": None})
+        out = self.check(self.a).stdout
+        lines = [ln for ln in out.splitlines() if ln.split()[:3] == ["INFO", "reports", "aa-1"]]
+        self.assertTrue(lines and "never pairs" in lines[0], out)
+        self.assertNotIn("WARN", out)
+        self.assertNotIn("unpaired", out)
+        self.assertIn("(relayed by hand; never pairs)", (self.a / "TODO.md").read_text())
+
+    def test_no_store_takes_a_hidden_repo_name(self):
+        d = self.ws / "c"
+        d.mkdir()
+        r = self.todo("-C", d, "init", "--prefix", "cc", "--repo", ".layer", ok=False)
+        self.assertIn("hidden", r.stdout + r.stderr)
+        self.assertFalse((d / "todo.json").exists())
+
     def test_a_missing_counterpart_is_red(self):
         self.todo("-C", self.a, "report", "aa-1", "--to", "b")
         data = self.store(self.b)
