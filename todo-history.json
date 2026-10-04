@@ -1,5 +1,46 @@
 {
   "format": 1,
   "repo": "todo",
-  "items": []
+  "items": [
+    {
+      "id": "td-6",
+      "title": "dev.sh check --json has no test of its own",
+      "kind": "note",
+      "status": "done",
+      "evidence": "A test that runs ./dev.sh check would run the mutants, which copy the repo and run the tests again. The JSON contract ({\"ok\": bool, \"gates\": {...}}) is read by eye at each commit. The self gate also has no mutant: in a mutant copy it shares this repo's prefix and is red at baseline.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "test",
+      "files": [
+        "dev.sh"
+      ],
+      "done_when": "dev.sh check accepts a gate list, and a test runs it without mutants and parses the JSON",
+      "retire": null,
+      "added": "2026-10-04",
+      "done": "2026-10-04",
+      "resolution": "dev.sh check takes --json and a gate list; tests/test_dev.py runs files+audit, green and red, and parses the JSON; mutants check-json-ok-always-true and check-json-gate-always-true. The self-gate and guard mutant gap moved to td-11.",
+      "imported": null
+    },
+    {
+      "id": "td-3",
+      "title": "A report to the delegation layer stays unpaired forever",
+      "kind": "decision",
+      "status": "done",
+      "evidence": "The scan never enters hidden folders (tests/test_store.py), so a store in .claude/ is never found and todo report --to .claude gives a counterpart-less WARN for good. Hinges on: whether the delegation layer keeps a todo.json at all, and if so whether the scan admits that one folder by name.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "decision",
+      "files": null,
+      "done_when": "a report to that layer pairs, or the README says it never will",
+      "retire": null,
+      "added": "2026-10-04",
+      "done": "2026-10-04",
+      "resolution": "Never pairs, by design (PLAN §8 decision 4: todo never reads the delegation layer). report, check (INFO, not the unpaired WARN) and the render say so; init refuses a hidden repo name; README Across repos. tests/test_reports.py, four mutants.",
+      "imported": null
+    }
+  ]
 }
