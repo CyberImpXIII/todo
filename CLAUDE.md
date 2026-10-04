@@ -1,12 +1,29 @@
 # todo
 
-What this repo is for: not written yet. Its owner fills this in, outside the
-shared block below.
+Structured TODO items per repo (PLAN-todo-tool.md in the workspace). Each repo
+keeps open items in `todo.json` and closed ones in an append-only
+`todo-history.json`; `TODO.md` is rendered from `todo.json`, read-only, and the
+`todo` CLI is the only way in. Python 3 standard library only. `README.md` is
+the manual: commands, the vocabulary, the gates.
 
 | doing this | use |
 |---|---|
-| before committing | `./dev.sh check` (a stub that fails until the owner fills in the contract) |
-| what is open | `TODO.md` |
+| before committing | `./dev.sh check` (unit tests, hook copies, files, direction audit, `todo check` on this repo, mutants); `--json` prints `{"ok": bool, "gates": {...}}` |
+| what is open here | `./todo list`, or read `TODO.md` (rendered; never edit it by hand) |
+| add, change, close an item | `./todo add` / `./todo edit` / `./todo done ID --resolution ...` |
+| what was closed, and how | `./todo history [ID]` |
+| a new gate | its test in `tests/`, and a mutant in `devtools/mutants.json` proving the test can go red |
+
+Rules of this repo alone:
+
+- **One way in.** Only `todolib/store.py` writes files (`tests/test_store.py`
+  audits it); kinds, statuses, works and fields come from `vocab.json`, never a
+  literal (`tests/test_vocab.py`).
+- **Items name repos, never agents.** This tool reads no file of the delegation
+  layer and names no roster agent; `devtools/audit.py` fails on either. Mapping
+  repo + work to an agent belongs outside this repo.
+- **This repo's own TODO.md is a render.** Record what you notice with
+  `./todo add`, not by editing the file; `./dev.sh check` fails on a hand edit.
 
 <!-- shared:rules@7867132c3871 -->
 ## Shared rules

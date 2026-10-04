@@ -48,6 +48,6 @@ class Required(Case):
         self.todo("-C", b, "init", "--prefix", "bb")
         out = self.todo("-C", b, "import", "TODO.md").stdout
         self.assertIn("1 lack a field", out)
-        self.assertIn("requires probe", self.check(b, ok=False).stdout)
+        self.assertFails(b, "required", "requires probe")
         self.todo("-C", b, "edit", "bb-1", "--probe", "run y")
         self.check(b)

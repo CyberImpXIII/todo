@@ -81,6 +81,19 @@ class Declared(Case):
                 for f in spec["requires"]:
                     self.assertIn(f, VOCAB.fields, f"{name} requires undeclared field {f}")
 
+    def test_check_is_red_on_an_undeclared_kind_status_or_work(self):
+        a = self.repo("a", "aa")
+        self.todo("-C", a, "add", "one", "--kind", VOCAB.role("default_kind"))
+        for field in ("kind", "status", "work"):
+            with self.subTest(field=field):
+                data = self.store(a)
+                saved = data["items"][0][field]
+                data["items"][0][field] = "undeclared-name"
+                self.write_json(a / "todo.json", data)
+                self.assertFails(a, "vocab", f"{field} 'undeclared-name' is not declared")
+                data["items"][0][field] = saved
+                self.write_json(a / "todo.json", data)
+
 
 class Handled(Case):
     def test_every_kind_status_work_and_field_renders(self):

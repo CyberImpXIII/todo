@@ -43,7 +43,7 @@ class Reports(Case):
         self.assertIn("WARN  reports", out)
         self.assertIn("unpaired", out)
         self.repo("c", "cc")
-        self.assertIn("has a store now", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "reports", "has a store now")
         self.assertIn("as cc-1", self.todo("-C", self.a, "report", "aa-1", "--to", "c").stdout)
         self.check(self.a)
 
@@ -52,7 +52,7 @@ class Reports(Case):
         data = self.store(self.b)
         data["items"] = []
         self.write_json(self.b / "todo.json", data)
-        self.assertIn("counterpart bb-1 is in neither", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "reports", "counterpart bb-1 is in neither")
 
     def test_a_counterpart_whose_parent_does_not_point_back_is_red(self):
         self.todo("-C", self.a, "add", "other", "--kind", "note")
@@ -60,7 +60,7 @@ class Reports(Case):
         data = self.store(self.b)
         data["items"][0]["parent"] = "aa-2"
         self.write_json(self.b / "todo.json", data)
-        self.assertIn("has parent aa-2, not aa-1", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "reports", "has parent aa-2, not aa-1")
 
     def test_report_to_its_own_repo_is_refused(self):
         self.todo("-C", self.a, "report", "aa-1", "--to", "a", ok=False)

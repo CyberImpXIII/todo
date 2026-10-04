@@ -75,6 +75,14 @@ class Case(unittest.TestCase):
     def check(self, d, ok=True, today=TODAY):
         return self.todo("-C", d, "check", ok=ok, today=today)
 
+    def assertFails(self, d, gate, text, today=TODAY):
+        """check exits 1 AND that gate itself prints a FAIL line holding text: a red
+        exit caused by another gate (the render's counts, say) does not count."""
+        out = self.check(d, ok=False, today=today).stdout
+        hits = [ln for ln in out.splitlines() if ln.split()[:2] == ["FAIL", gate] and text in ln]
+        self.assertTrue(hits, f"no 'FAIL {gate}' line holding {text!r} in:\n{out}")
+        return out
+
     def write_json(self, path, data):
         path = Path(path)
         os.chmod(path, 0o644)

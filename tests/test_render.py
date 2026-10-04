@@ -24,9 +24,7 @@ class Render(Case):
 
     def test_a_hand_edit_is_red(self):
         self.edit_md(self.md.read_text() + "\n- a bullet typed by hand\n")
-        out = self.check(self.a, ok=False).stdout
-        self.assertIn("FAIL  render", out)
-        self.assertIn("edited by hand", out)
+        self.assertFails(self.a, "render", "edited by hand")
 
     def test_a_hand_edit_is_a_warning_during_the_import_grace(self):
         b = self.ws / "b"

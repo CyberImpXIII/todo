@@ -83,16 +83,16 @@ class AppendOnly(Case):
 
     def test_a_removed_entry_is_red_even_uncommitted(self):
         self.rewrite(lambda items: items.pop(0))
-        self.assertIn("aa-1     was in todo-history.json at", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "history", "aa-1     was in todo-history.json at")
 
     def test_a_changed_entry_is_red(self):
         self.rewrite(lambda items: items[1].update(resolution="rewritten"))
-        self.assertIn("aa-2     changed since", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "history", "aa-2     changed since")
 
     def test_a_removal_committed_later_is_still_red(self):
         self.rewrite(lambda items: items.pop(0))
         git_commit(self.a, "drop aa-1")
-        self.assertIn("aa-1     was in todo-history.json at", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "history", "aa-1     was in todo-history.json at")
 
     def test_an_unparseable_history_is_refused_not_guessed(self):
         (self.a / "todo-history.json").write_text("{not json")
@@ -101,7 +101,7 @@ class AppendOnly(Case):
 
     def test_a_missing_history_is_red(self):
         (self.a / "todo-history.json").unlink()
-        self.assertIn("todo-history.json missing", self.check(self.a, ok=False).stdout)
+        self.assertFails(self.a, "history", "todo-history.json missing")
         r = self.todo("-C", self.a, "add", "x", "--kind", "note", ok=False)
         self.assertIn("todo-history.json is missing", r.stderr)
         self.assertFalse((self.a / "todo-history.json").exists(), "history is never recreated empty")

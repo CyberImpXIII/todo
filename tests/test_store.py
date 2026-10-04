@@ -21,7 +21,7 @@ class Ids(Case):
         data = self.store(a)
         data["next"] = 1
         self.write_json(a / "todo.json", data)
-        self.assertIn("could be handed out again", self.check(a, ok=False).stdout)
+        self.assertFails(a, "ids", "could be handed out again")
 
     def test_a_foreign_prefix_is_red(self):
         a = self.repo("a", "aa")
@@ -29,7 +29,7 @@ class Ids(Case):
         data = self.store(a)
         data["items"][0]["id"] = "zz-1"
         self.write_json(a / "todo.json", data)
-        self.assertIn("id is not aa-N", self.check(a, ok=False).stdout)
+        self.assertFails(a, "ids", "id is not aa-N")
 
 
 class OneFilePerId(Case):
@@ -43,8 +43,7 @@ class OneFilePerId(Case):
         data["items"].insert(0, dict(self.history(a)["items"][0], status="open", done=None, resolution=None))
         self.write_json(a / "todo.json", data)
         self.todo("-C", a, "render", "--force")
-        out = self.check(a, ok=False).stdout
-        self.assertIn("id appears in both files", out)
+        out = self.assertFails(a, "ids", "id appears in both files")
         self.assertIn("todo done ID", out)
         self.assertIn("finished an interrupted close", self.todo("-C", a, "done", "aa-1", "--resolution", "x").stdout)
         self.check(a)
@@ -56,7 +55,7 @@ class OneFilePerId(Case):
         data = self.store(a)
         data["items"][0].update(status="done", done="2026-10-04", resolution="x")
         self.write_json(a / "todo.json", data)
-        self.assertIn("closed items live in todo-history.json", self.check(a, ok=False).stdout)
+        self.assertFails(a, "schema", "closed items live in todo-history.json")
 
 
 class Parents(Case):
@@ -76,7 +75,7 @@ class Parents(Case):
         data["items"][0]["parent"] = "zz-9"
         self.write_json(a / "todo.json", data)
         self.todo("-C", a, "render", "--force")
-        self.assertIn("parent zz-9 resolves in no scanned store", self.check(a, ok=False).stdout)
+        self.assertFails(a, "parents", "parent zz-9 resolves in no scanned store")
 
     def test_a_parent_loop_is_red(self):
         a = self.repo("a", "aa")
@@ -86,14 +85,14 @@ class Parents(Case):
         data["items"][0]["parent"] = "aa-2"
         self.write_json(a / "todo.json", data)
         self.todo("-C", a, "render", "--force")
-        self.assertIn("loops back", self.check(a, ok=False).stdout)
+        self.assertFails(a, "parents", "loops back")
 
 
 class Workspace(Case):
     def test_a_shared_prefix_is_red(self):
         a = self.repo("a", "aa")
         self.repo("b", "aa")
-        self.assertIn("prefix aa is also used", self.check(a, ok=False).stdout)
+        self.assertFails(a, "workspace", "prefix aa is also used")
 
     def test_the_scan_never_enters_hidden_folders(self):
         a = self.repo("a", "aa")
