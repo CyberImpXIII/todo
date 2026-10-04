@@ -29,7 +29,7 @@ class Declared(Case):
         silently stop matching when vocab.json is renamed. Field names and command
         names are allowed where they act as such: a key, a .get() argument, a tuple of
         field names, a COMMANDS key."""
-        names = set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works)
+        names = set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works) | set(VOCAB.resolutions)
         fields = set(VOCAB.field_names())
         commands = set(cli.COMMANDS)
         hits = []
@@ -74,6 +74,19 @@ class Declared(Case):
         with self.assertRaises(ValueError):
             Vocab(Path(fh.name))
         Path(fh.name).unlink()
+
+    def test_every_resolution_is_named_by_a_role_and_every_role_is_declared(self):
+        """A declared resolution no role names would be set and guarded by nothing; a
+        role naming an undeclared one would set a value check cannot recognise."""
+        self.assertTrue(VOCAB.resolutions)
+        for bad in (dict(RAW, resolutions=dict(RAW["resolutions"], **{"done-other": {"doc": "x"}})),
+                    dict(RAW, roles=dict(RAW["roles"], import_resolution="done-undeclared"))):
+            with self.subTest(bad=sorted(bad["resolutions"]) + [bad["roles"]["import_resolution"]]):
+                with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+                    json.dump(bad, fh)
+                with self.assertRaises(ValueError):
+                    Vocab(Path(fh.name))
+                Path(fh.name).unlink()
 
     def test_every_declared_requirement_is_a_field(self):
         for group in (VOCAB.kinds, VOCAB.statuses):
@@ -138,7 +151,8 @@ class Handled(Case):
 class Documented(Case):
     def test_readme_vocab_tables_equal_vocab_json(self):
         for name, declared in (("kinds", VOCAB.kinds), ("statuses", VOCAB.statuses),
-                               ("works", VOCAB.works), ("fields", VOCAB.fields)):
+                               ("works", VOCAB.works), ("resolutions", VOCAB.resolutions),
+                               ("fields", VOCAB.fields)):
             doc = readme_table(name)
             self.assertIsNotNone(doc, f"README.md has no <!-- vocab:{name} --> table")
             self.assertEqual(doc, list(declared), f"README vocab:{name} vs vocab.json")

@@ -3,7 +3,8 @@
 One top-level bullet, or one paragraph, is one item; nothing is dropped. A
 block's kind and status come from its headings (vocab.json "import"); a block
 whose own text starts with the done marker ("DONE 2026-10-03: ...") goes to
-history with that date. A bold lead becomes the title and the rest the
+history with that date; every closed block gets the resolution vocab.json
+names for the import (done-deprecated), since a bullet carries none. A bold lead becomes the title and the rest the
 evidence; otherwise the title is the first sentence and the evidence the whole
 text. Each imported item records the sha of its block, so a second import of
 the same file adds nothing.
@@ -208,8 +209,11 @@ def plan_import(text, store, today):
         dm = VOCAB.done_marker.match(body)
         if dm:
             status, done = VOCAB.closed, dm.group(1)
+        # A bullet carries no resolution field: a closed one gets the import's own
+        # value, never a guess from its text (td-1, PLAN-todo-tool.md end).
+        resolution = VOCAB.role("import_resolution") if status == VOCAB.closed else None
         item = new_item(title=title, kind=kind, status=status, evidence=evidence, repo=store.repo,
-                        added=today, done=done,
+                        added=today, done=done, resolution=resolution,
                         imported={"sha": sha, "section": section, "title_from": title_from, "sep": sep})
         plan.new.append((item, "history" if status == VOCAB.closed else "store"))
     if plan.rendered:

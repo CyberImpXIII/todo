@@ -53,7 +53,7 @@ flag by flag, and the command list in `PLAN-todo-tool.md` §3 equal to it too
 ## Items
 
 One item is one JSON object with every field below, unset ones `null`.
-`vocab.json` is the one source for kinds, statuses, works and fields: the parser,
+`vocab.json` is the one source for kinds, statuses, works, reserved resolutions and fields: the parser,
 the renderer, the importer, the checks and these tables all follow it, and
 `tests/test_vocab.py` fails when any of them disagree, in either direction.
 
@@ -84,6 +84,14 @@ the renderer, the importer, the checks and these tables all follow it, and
 | `tooling` | helpers, dev.sh subcommands, scripts around the tool |
 | `docs` | README, CLAUDE.md, comments |
 | `decision` | nothing to build until someone decides |
+
+A resolution is free text written by `todo done`, except the values below, which
+each have one setter and are refused everywhere else:
+
+<!-- vocab:resolutions -->
+| resolution | meaning |
+|---|---|
+| `done-deprecated` | an imported closed bullet (DONE marker or Resolved heading) that carried no resolution: set by `todo import` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that was not imported |
 
 <!-- vocab:fields -->
 | field | meaning |
@@ -142,9 +150,12 @@ Closed items leave `todo.json` and are appended to `todo-history.json`, so
   so, so it is closed here rather than reported again).
 - `todo import` sends a bullet whose text starts `DONE 2026-10-03` (bold or
   struck-through markers allowed) to history with that date; a bullet under a
-  "Resolved" heading goes there with no date. Imported closed items may lack a
-  date or a resolution; `check` counts them (`INFO`), and their evidence holds the
-  bullet text.
+  "Resolved" heading goes there with no date. A bullet carries no resolution, so
+  every imported closed item gets the resolution `done-deprecated` (Jacob, td-1),
+  shown as such by `todo history`, `show` and `render --history`; its evidence
+  holds the bullet text. A closed item without a resolution is a FAIL wherever it
+  came from (PLAN §5). An imported one may still lack a date; `check` counts those
+  (`INFO`).
 
 ## Import
 
@@ -187,8 +198,8 @@ gate that stopped running shows as a missing line:
 | gate | fails when |
 |---|---|
 | schema | a key or field differs from `vocab.json`, a date is not `YYYY-MM-DD`, a one-line field spans lines, a closed item sits in the store |
-| vocab | a kind, status or work is not declared |
-| required | an item lacks a field its kind or status requires |
+| vocab | a kind, status or work is not declared, or a reserved resolution is on an item its setter did not write |
+| required | an item lacks a field its kind or status requires (an imported closed item may lack only its date) |
 | ids | an id lacks the repo's prefix, appears twice (or in both files), or is not below the counter |
 | parents | a parent resolves in no scanned store or history, or the chain loops |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere |

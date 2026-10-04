@@ -13,6 +13,7 @@ from collections import Counter
 from tests.helpers import FIXTURES, Case
 from todolib.importer import md_blocks, reconstruct
 from todolib.render import parse_blocks
+from todolib.vocab import VOCAB
 
 REAL = ["site-scrapers", "setup", "hub"]
 FENCE = re.compile(r"^\s*(```+|~~~+)")
@@ -128,4 +129,34 @@ class DoneBullets(Case):
         self.assertNotIn("DONE 2026-10-02", (d / "TODO.md").read_text())
         out = self.check(d).stdout
         self.assertIn("4 open, 4 closed", out)
-        self.assertIn("carry no date or resolution", out)
+        self.assertIn("ok    required", out)
+        self.assertIn("1 imported closed item(s) carry no date", out)
+
+    def test_a_closed_bullet_gets_the_import_resolution_and_an_open_one_none(self):
+        """td-1 (PLAN-todo-tool.md, end): a bullet carries no resolution, so a closed
+        one gets done-deprecated, shown as such; the same text without the DONE
+        marker stays open with none. The marker is the input that changes it."""
+        deprecated = VOCAB.role("import_resolution")
+        self.assertEqual(deprecated, "done-deprecated")
+        for marker, where, resolution in (("DONE 2026-10-02: ", "history", deprecated), ("", "store", None)):
+            with self.subTest(marker=marker):
+                d = self.ws / f"m{len(marker)}"
+                d.mkdir()
+                (d / "TODO.md").write_text(f"# m\n\n## Own bugs\n\n- {marker}the parser drops tabs\n")
+                self.todo("-C", d, "init", "--prefix", "mm")
+                self.todo("-C", d, "import", "TODO.md")
+                got = {"history": self.history(d)["items"], "store": self.store(d)["items"]}
+                self.assertEqual(len(got[where]), 1)
+                self.assertEqual(got[where][0]["resolution"], resolution)
+                self.check(d)
+        d = self.ws / "d"
+        d.mkdir()
+        shutil.copy(FIXTURES / "done.TODO.md", d / "TODO.md")
+        self.todo("-C", d, "init", "--prefix", "dd")
+        self.todo("-C", d, "import", "TODO.md")
+        self.assertEqual({it["resolution"] for it in self.history(d)["items"]}, {deprecated})
+        self.assertEqual({it["resolution"] for it in self.store(d)["items"]}, {None})
+        shown = self.todo("-C", d, "history").stdout
+        self.assertEqual(shown.count(f"-> {deprecated}"), 4)
+        self.todo("-C", d, "render", "--history")
+        self.assertEqual((d / "TODO-HISTORY.md").read_text().count(f"· resolution: {deprecated}"), 4)

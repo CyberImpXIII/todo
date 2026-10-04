@@ -22,11 +22,16 @@
     "docs":     {"doc": "README, CLAUDE.md, comments"},
     "decision": {"doc": "nothing to build until someone decides"}
   },
+  "resolutions": {
+    "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
+    "done-deprecated": {"doc": "an imported closed bullet (DONE marker or Resolved heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
+  },
   "roles": {
     "default_kind": "note",
     "default_status": "open",
     "closed_status": "done",
-    "report_kind": "report"
+    "report_kind": "report",
+    "import_resolution": "done-deprecated"
   },
   "fields": {
     "id":          {"doc": "repo prefix + counter, stable, never reused (todo:td-3 points at it)", "label": null},
@@ -44,7 +49,7 @@
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
     "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},
     "done":        {"doc": "date closed, YYYY-MM-DD; null while open (or when an imported DONE bullet carried no date)", "label": "done"},
-    "resolution":  {"doc": "how it closed; null while open (or for an imported closed bullet)", "label": "resolution"},
+    "resolution":  {"doc": "how it closed; null while open; done-deprecated for an imported closed bullet", "label": "resolution"},
     "imported":    {"doc": "{sha, section, title_from, sep}: set by todo import (the block's sha, its headings, where the title came from), null otherwise", "label": null}
   },
   "import": {

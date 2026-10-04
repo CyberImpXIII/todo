@@ -191,6 +191,9 @@ def cmd_done(args):
         if item is None:
             raise TodoError(f"{args.id} is not in {store.path}" + ("" if store.owns(args.id) else
                             f" (its prefix is not {store.prefix}: close it in its own repo)"))
+        if args.resolution.strip() == VOCAB.role("import_resolution"):
+            raise TodoError(f"resolution {args.resolution!r} is set by todo import only, for a closed bullet "
+                            "that carried none: say how this one closed")
         closed = dict(item, status=VOCAB.closed, done=today(), resolution=args.resolution)
         validate(closed, "history")
         store.history["items"].append(closed)

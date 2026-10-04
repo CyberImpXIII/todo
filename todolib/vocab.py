@@ -18,13 +18,18 @@ class Vocab:
         self.statuses = data["statuses"]
         self.works = data["works"]
         self.fields = data["fields"]
+        self.resolutions = {k: v for k, v in data["resolutions"].items() if not k.startswith("_")}
         self.roles = data["roles"]
         self.import_rules = data["import"]["headings"]
         self.done_marker = re.compile(data["import"]["done_marker"])
         for name, value in self.roles.items():
-            pool = self.statuses if name.endswith("_status") else self.kinds
+            pool = (self.statuses if name.endswith("_status") else
+                    self.resolutions if name.endswith("_resolution") else self.kinds)
             if value not in pool:
                 raise ValueError(f"vocab.json: role {name} names {value!r}, which is not declared")
+        unnamed = set(self.resolutions) - {v for k, v in self.roles.items() if k.endswith("_resolution")}
+        if unnamed:
+            raise ValueError(f"vocab.json: resolution(s) {sorted(unnamed)} named by no role: nothing would set or guard them")
 
     def role(self, name):
         return self.roles[name]

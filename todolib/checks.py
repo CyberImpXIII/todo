@@ -15,6 +15,10 @@ from .vocab import VOCAB
 
 GATES = ["schema", "vocab", "required", "ids", "parents", "reports", "workspace", "render", "history"]
 SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
+# What an imported closed item may lack: its date (a Resolved bullet has none). Its
+# resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
+# so a closed item without one is red wherever it came from (PLAN §5).
+IMPORT_MAY_LACK = ("done",)
 
 
 def render_state(store):
@@ -75,9 +79,12 @@ def check_item(it, where, store, out):
     imported = it.get("imported") is not None
     for f in VOCAB.required(it):
         if _empty(it.get(f)):
-            if where == "history" and imported and f in VOCAB.statuses[VOCAB.closed]["requires"]:
-                continue  # counted below: an imported closed bullet may carry no date or resolution
+            if where == "history" and imported and f in IMPORT_MAY_LACK:
+                continue  # counted below: a Resolved bullet carries no date
             out.append(("FAIL", "required", iid, f"{kind}/{status} requires {f}"))
+    reserved = VOCAB.role("import_resolution")
+    if it.get("resolution") == reserved and not imported:
+        out.append(("FAIL", "vocab", iid, f"resolution {reserved!r} is set by todo import only, and this item was not imported"))
 
 
 def check_ids(store, out):
@@ -212,9 +219,9 @@ def check_history(store, out):
         return
     if set(store.history) != set(HISTORY_KEYS) or store.history.get("repo") != store.repo:
         out.append(("FAIL", "history", "-", f"{HISTORY_FILE} must hold exactly {HISTORY_KEYS}, repo {store.repo}"))
-    undated = [it["id"] for it in store.closed if it.get("imported") and (not it.get("done") or not it.get("resolution"))]
+    undated = [it["id"] for it in store.closed if it.get("imported") and not it.get("done")]
     if undated:
-        out.append(("INFO", "history", "-", f"{len(undated)} imported closed item(s) carry no date or resolution; their evidence holds the bullet text"))
+        out.append(("INFO", "history", "-", f"{len(undated)} imported closed item(s) carry no date (a Resolved bullet has none); their evidence holds the bullet text"))
     versions = history_versions(store)
     if versions is None:
         out.append(("INFO", "history", "-", "not a git repo: the append-only audit against the git log is skipped here"))
