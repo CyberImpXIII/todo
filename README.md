@@ -134,6 +134,19 @@ new bullets in as items (and refuses if a rendered item itself was changed), and
 week after a repo's first import, a hand edit is a counted warning, not a failure
 (`render_gate_from` in `todo.json`).
 
+The header carries a **seal**: a digest of the file with the seal left out. A
+file whose seal matches is exactly what some render wrote, so when it differs
+from today's render it is a **stale render**, not a hand edit: the render format
+changed (a new version of this tool), or `todo.json` changed without a
+re-render (a merge, say). `check` fails it as stale, `todo render` (no
+`--force`) and every mutating command rewrite it, and nothing goes into
+`hand_edits`, since nothing was typed. So a format change turns other repos'
+checks red with that message, and `todo render --all` clears every stale store
+at once while still refusing hand-edited ones. An edit anywhere, the header and
+the seal included, breaks the seal and reads as a hand edit. A file from before
+seals reads as stale when it equals today's render without its seal, and as a
+hand edit otherwise (td-10, `tests/test_render.py`).
+
 ## History
 
 Closed items leave `todo.json` and are appended to `todo-history.json`, so
@@ -204,7 +217,7 @@ gate that stopped running shows as a missing line:
 | parents | a parent resolves in no scanned store or history, or the chain loops |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere |
 | workspace | two stores share a prefix or a repo name |
-| render | `TODO.md` is not the render of `todo.json` |
+| render | `TODO.md` is not the render of `todo.json`: missing, stale (an unedited render of another store or format), hand-edited or hand-written |
 | history | the file is missing or malformed, or an entry was removed or changed since a commit |
 
 ## Development

@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 
-from .render import HEADER_PREFIX, render_store
+from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, STORE_KEYS, HISTORY_FILE, RENDER_FILE,
                     git_toplevel, id_number, never_scanned, today)
 from .vocab import VOCAB
@@ -21,13 +21,22 @@ SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", 
 IMPORT_MAY_LACK = ("done",)
 
 
+HAND_STATES = ("hand-edited", "hand-written")
+
+
 def render_state(store):
-    """absent | clean | hand-edited (a render, changed) | hand-written (never rendered)."""
+    """absent | clean | stale (an unedited render, of another store or format:
+    rewriting it loses nothing) | hand-edited (a render, changed) | hand-written
+    (never rendered). An unsealed file equal to today's render without its seal
+    was written by the render format before seals, so it is stale too."""
     if not store.render_path.is_file():
         return "absent"
     text = store.render_path.read_text()
-    if text == render_store(store):
+    current = render_store(store)
+    if text == current:
         return "clean"
+    if is_sealed(text) or text == unseal(current):
+        return "stale"
     return "hand-edited" if text.startswith(HEADER_PREFIX) else "hand-written"
 
 
@@ -181,6 +190,10 @@ def check_render(store, out):
         pass
     elif state == "absent":
         out.append(("FAIL", "render", "-", f"{RENDER_FILE} missing: run todo render"))
+    elif state == "stale":
+        out.append(("FAIL", "render", "-", f"{RENDER_FILE} is a stale render: unedited, but not the render of todo.json "
+                    "as it is now (the render format changed, or todo.json changed without a re-render). "
+                    "`todo render` rewrites it; nothing to recover, nothing recorded"))
     else:
         gate_from = store.data.get("render_gate_from") or "0000-00-00"
         level = "WARN" if today() < gate_from else "FAIL"

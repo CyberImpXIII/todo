@@ -4,6 +4,7 @@ import os
 import stat
 
 from tests.helpers import Case
+from todolib.render import SEAL_RE, seal
 
 
 class Render(Case):
@@ -71,6 +72,76 @@ class Render(Case):
         self.assertEqual(self.md.read_text(), before)
         self.todo("-C", self.a, "edit", "aa-1", "--status", "blocked")
         self.assertIn("· status: blocked", self.md.read_text())
+
+    # -- td-10: a render that is merely out of date is stale, never a hand edit ----
+
+    def seal_as_another_format(self):
+        """TODO.md as a sealed render of a different render format: what a
+        format change leaves in every store that has not re-rendered since."""
+        other = self.md.read_text().replace("  · added: ", "  · added on: ")
+        self.assertNotEqual(other, self.md.read_text())
+        self.edit_md(seal(other))
+
+    def assertStale(self, d):
+        out = self.assertFails(d, "render", "stale render")
+        self.assertNotIn("by hand", out)
+
+    def test_a_render_of_another_format_is_stale_not_hand_edited(self):
+        self.seal_as_another_format()
+        self.assertStale(self.a)
+        self.assertEqual(self.store(self.a)["hand_edits"], [])
+
+    def test_a_stale_render_is_rewritten_by_render_and_no_hand_edit_is_recorded(self):
+        self.seal_as_another_format()
+        out = self.todo("-C", self.a, "render").stdout
+        self.assertIn("stale", out)
+        self.assertEqual(self.store(self.a)["hand_edits"], [])
+        self.assertIn("ok    render", self.check(self.a).stdout)
+        self.seal_as_another_format()
+        self.todo("-C", self.a, "render", "--force")
+        self.assertEqual(self.store(self.a)["hand_edits"], [], "--force over a stale render records nothing")
+
+    def test_a_mutation_rewrites_a_stale_render(self):
+        self.seal_as_another_format()
+        self.todo("-C", self.a, "add", "two", "--kind", "bug")
+        self.assertIn("aa-2 · two", self.md.read_text())
+        self.assertEqual(self.store(self.a)["hand_edits"], [])
+        self.assertIn("ok    render", self.check(self.a).stdout)
+
+    def test_a_render_of_an_older_store_is_stale(self):
+        data = self.store(self.a)
+        data["items"][0]["title"] = "one, renamed outside the CLI"
+        self.write_json(self.a / "todo.json", data)
+        self.assertStale(self.a)
+
+    def test_a_stale_render_fails_even_during_the_import_grace(self):
+        data = self.store(self.a)
+        data["render_gate_from"] = "2099-01-01"
+        self.write_json(self.a / "todo.json", data)
+        self.seal_as_another_format()
+        self.assertStale(self.a)
+
+    def test_the_seal_covers_every_line(self):
+        """A hand edit anywhere, the header and the seal included, is a hand edit."""
+        clean = self.md.read_text()
+        header, rest = clean.split("\n", 1)
+        sealed = SEAL_RE.search(header).group(1)
+        for edited in (clean + "\n- typed\n",
+                       clean.replace("saw y", "saw z"),
+                       header.replace("1 open", "2 open") + "\n" + rest,
+                       header.replace(sealed, "0" * len(sealed)) + "\n" + rest):
+            self.edit_md(edited)
+            self.assertFails(self.a, "render", "edited by hand")
+
+    def test_an_unsealed_render_of_the_format_before_seals_is_stale(self):
+        clean = self.md.read_text()
+        header, rest = clean.split("\n", 1)
+        legacy = SEAL_RE.sub("", header) + "\n" + rest
+        self.assertNotIn("seal", legacy.split("\n", 1)[0])
+        self.edit_md(legacy)
+        self.assertStale(self.a)
+        self.edit_md(legacy.replace("saw y", "saw z"))
+        self.assertFails(self.a, "render", "edited by hand")
 
     def test_history_render_is_written_and_never_checked(self):
         self.todo("-C", self.a, "done", "aa-1", "--resolution", "fixed")

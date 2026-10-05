@@ -303,9 +303,10 @@ def cmd_render(args):
                     print(f"  rendered  {s.dir / HISTORY_RENDER_FILE}")
                     continue
                 state = checks.render_state(s)
-                if state in ("hand-edited", "hand-written") and not args.force:
+                hand = state in checks.HAND_STATES
+                if hand and not args.force:
                     raise TodoError(f"{s.render_path} is {state}: `todo import TODO.md` first, or --force to keep the diff in todo.json and rewrite it")
-                if state in ("hand-edited", "hand-written"):
+                if hand:
                     require_history(s)
                     old = s.render_path.read_text().splitlines()
                     diff = "\n".join(difflib.unified_diff(render_store(s).splitlines(), old, "render", "TODO.md", lineterm=""))
@@ -313,7 +314,7 @@ def cmd_render(args):
                                                  "diff": diff[:HAND_EDIT_DIFF_MAX]})
                     s.save()
                 write_render(s)
-                print(f"  {state if state != 'clean' else 'unchanged':<10} {s.render_path}" + (" (diff kept in todo.json hand_edits)" if args.force and state != "clean" else ""))
+                print(f"  {state if state != 'clean' else 'unchanged':<10} {s.render_path}" + (" (diff kept in todo.json hand_edits)" if hand else ""))
         except TodoError as e:
             failed += 1
             print(f"  REFUSED   {e}")

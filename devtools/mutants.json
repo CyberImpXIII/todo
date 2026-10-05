@@ -166,6 +166,27 @@
      "run": ["./dev.sh", "hooks"]},
     {"id": "vocab-unparseable", "gate": "files: the data files parse",
      "file": "vocab.json", "old": "{\n  \"_comment\": \"The one vocabulary.", "new": "{,\n  \"_comment\": \"The one vocabulary.",
-     "run": ["./dev.sh", "files"]}
+     "run": ["./dev.sh", "files"]},
+    {"id": "stale-reads-as-hand-edited", "gate": "render: an unedited render of another store or format is stale, not a hand edit (td-10)",
+     "file": "todolib/checks.py", "old": "    if is_sealed(text) or text == unseal(current):\n        return \"stale\"", "new": "    if False:\n        return \"stale\"",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_render_of_another_format_is_stale_not_hand_edited"]},
+    {"id": "seal-ignores-the-text", "gate": "render: the seal covers every line, so a hand edit anywhere is still a hand edit",
+     "file": "todolib/render.py", "old": "    return bool(m) and m.group(1) == _digest(unseal(text))", "new": "    return bool(m)",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_the_seal_covers_every_line"]},
+    {"id": "legacy-unsealed-always-stale", "gate": "render: an unsealed file is stale only when it equals today's render without its seal",
+     "file": "todolib/checks.py", "old": "text == unseal(current)", "new": "\"; seal \" not in text.partition(\"\\n\")[0]",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_an_unsealed_render_of_the_format_before_seals_is_stale"]},
+    {"id": "stale-quiet-in-grace", "gate": "render: a stale render is a FAIL, the import grace notwithstanding",
+     "file": "todolib/checks.py", "old": "    elif state == \"stale\":\n        out.append((\"FAIL\"", "new": "    elif state == \"stale\":\n        out.append((\"WARN\"",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_stale_render_fails_even_during_the_import_grace"]},
+    {"id": "mutation-refuses-stale", "gate": "a mutating command rewrites a stale render rather than refusing it",
+     "file": "todolib/cli.py", "old": "    if state == \"hand-edited\":\n", "new": "    if state in (\"hand-edited\", \"stale\"):\n",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_mutation_rewrites_a_stale_render"]},
+    {"id": "render-refuses-stale", "gate": "todo render rewrites a stale render without --force",
+     "file": "todolib/cli.py", "old": "                hand = state in checks.HAND_STATES\n", "new": "                hand = state != \"clean\"\n",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_stale_render_is_rewritten_by_render_and_no_hand_edit_is_recorded"]},
+    {"id": "force-records-stale", "gate": "todo render --force over a stale render records no hand edit",
+     "file": "todolib/cli.py", "old": "                if hand:\n                    require_history(s)", "new": "                if hand or args.force:\n                    require_history(s)",
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_stale_render_is_rewritten_by_render_and_no_hand_edit_is_recorded"]}
   ]
 }

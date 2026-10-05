@@ -12,7 +12,7 @@ from collections import Counter
 
 from tests.helpers import FIXTURES, Case
 from todolib.importer import md_blocks, reconstruct
-from todolib.render import parse_blocks
+from todolib.render import parse_blocks, unseal
 from todolib.vocab import VOCAB
 
 REAL = ["site-scrapers", "setup", "hub"]
@@ -103,8 +103,9 @@ class Lossless(Case):
         self.todo("-C", two, "import", "TODO.md")
         strip = lambda d: [dict(it, repo=None) for it in self.store(d)["items"]]  # noqa: E731
         self.assertEqual(strip(one), strip(two))
-        self.assertEqual((one / "TODO.md").read_text().replace("# setup TODO", "# two TODO"),
-                         (two / "TODO.md").read_text())
+        # The seal digests the whole file, repo name included, so it is left out here.
+        self.assertEqual(unseal((one / "TODO.md").read_text()).replace("# setup TODO", "# two TODO"),
+                         unseal((two / "TODO.md").read_text()))
 
 
 class DoneBullets(Case):

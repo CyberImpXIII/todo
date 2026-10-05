@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (10 open, 3 closed in todo-history.json): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (10 open, 3 closed in todo-history.json; seal ec4a5e954e7c): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs

@@ -10,7 +10,15 @@ can compare. One item renders as
       · added: 2026-10-04
 
 `parse_blocks()` reads that back (tests/test_import.py round-trips it).
+
+TODO.md carries a seal in its header: a digest of the file with the seal left
+out. A file whose seal matches is exactly what some render wrote, so when it
+differs from today's render it is stale (the render format changed, or
+todo.json changed without a re-render), never a hand edit; rewriting it loses
+nothing (td-10). An edit anywhere, the header and the seal included, breaks the
+seal. TODO-HISTORY.md is never checked and carries none.
 """
+import hashlib
 import re
 
 from .store import never_scanned
@@ -19,7 +27,10 @@ from .vocab import VOCAB
 HEADER_PREFIX = "<!-- rendered by todo"
 HEADER = (HEADER_PREFIX + " from todo.json ({counts}): do not edit by hand, `todo check` fails on a "
           "hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->")
-HISTORY_HEADER = (HEADER_PREFIX + " from todo-history.json ({counts}): a read-only view for people, "
+# "; seal <digest>" just inside the header's closing parenthesis.
+SEAL_RE = re.compile(r"; seal ([0-9a-f]{12})(?=\))")
+SEAL_LEN = 12
+HISTORY_HEADER =(HEADER_PREFIX + " from todo-history.json ({counts}): a read-only view for people, "
                   "never checked; the data file is the record. -->")
 ITEM_RE = re.compile(r"^- \*\*([a-z][a-z0-9]*-[0-9]+) · (.*)\*\*$")
 FIELD_MARK = "· "
@@ -82,7 +93,32 @@ def render_store(store):
         out += [f"## {heading}", ""]
         for it in items:
             out += [render_item(it, store.repo, show_kind=show_kind), ""]
-    return "\n".join(out).rstrip("\n") + "\n"
+    return seal("\n".join(out).rstrip("\n") + "\n")
+
+
+def unseal(text):
+    """The text with its header's seal left out: what the seal is a digest of,
+    and byte for byte the render format from before seals."""
+    head, sep, rest = text.partition("\n")
+    return SEAL_RE.sub("", head, count=1) + sep + rest
+
+
+def _digest(unsealed):
+    return hashlib.sha256(unsealed.encode()).hexdigest()[:SEAL_LEN]
+
+
+def seal(text):
+    """The text with its header sealed (an existing seal is replaced)."""
+    plain = unseal(text)
+    head, sep, rest = plain.partition("\n")
+    close = head.index(")")  # the parenthesis closing the counts
+    return head[:close] + f"; seal {_digest(plain)}" + head[close:] + sep + rest
+
+
+def is_sealed(text):
+    """True when the text is exactly what a render wrote, of whatever store or format."""
+    m = SEAL_RE.search(text.partition("\n")[0])
+    return bool(m) and m.group(1) == _digest(unseal(text))
 
 
 def history_order(items):
