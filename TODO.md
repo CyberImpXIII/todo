@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (9 open, 5 closed in todo-history.json; seal 2d2ac5376d17): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (10 open, 5 closed in todo-history.json; seal 498129ae394e): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -74,3 +74,10 @@
   · work: audit
   · files: todolib/checks.py
   · added: 2026-10-04
+
+- **td-15 · Report to the todo repo: the work vocabulary has no kind for research, labour or outreach**
+  Observed 2026-10-05 while seeding this store: works are code, test, audit, tooling, docs, decision. Gig driving, an appeal filing, a client proposal and a mail scan all had to be filed as tooling or docs. The local session runs todo report with --to todo so the counterpart lands in that store.
+  · parent: inc-50
+  · work: docs
+  · done when: the counterpart item exists in the todo repo's store
+  · added: 2026-10-05
