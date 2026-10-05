@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (8 open, 5 closed in todo-history.json; seal 224f3851186a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (9 open, 5 closed in todo-history.json; seal 2d2ac5376d17): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -44,6 +44,14 @@
   · work: tooling
   · files: devtools/mutate.py
   · done when: one copy, installed by setup, with the edits list
+  · added: 2026-10-04
+
+- **td-14 · The reinstalled test-no-inline-blobs.sh names roster agents, so the direction audit is red**
+  After reinstalling from tools/hooks/source on 2026-10-04 (533f484), ./dev.sh check: audit FAIL .claude/hooks/test-no-inline-blobs.sh:107 and :108, a provenance comment in the source naming two roster agents as reporters of the heredoc false positives. That turns 3 unit tests red (test_audit this_repo_is_clean, test_dev CheckJson x2) and 2 mutant baselines. The copy may not be hand-edited. Fix A (hooks owner): reword the source comment without the agent names, then reinstall here. Fix B (this repo's decision): skip roster_names, not patterns, under .claude/hooks/ in devtools/audit.json, with a test and a mutant.
+  · reported to: hooks on 2026-10-04 (no counterpart yet)
+  · work: audit
+  · files: .claude/hooks/test-no-inline-blobs.sh, devtools/audit.json
+  · done when: ./dev.sh check passes the audit gate with the copies still byte-identical to tools/hooks/source
   · added: 2026-10-04
 
 ## Notes
