@@ -131,6 +131,27 @@
       "done": "2026-10-05",
       "resolution": "reinstalled from tools/hooks/source after its ae91098 dropped the agent names (be5b9af); ./dev.sh check audit green, copies cmp-identical",
       "imported": null
+    },
+    {
+      "id": "td-16",
+      "title": "The hooks tool installs lib/write-targets.sh in a folder the direction audit bans here",
+      "kind": "decision",
+      "status": "done",
+      "evidence": "2026-10-05: cp -p tools/hooks/source/lib/write-targets.sh to its dest (the lib folder beside .claude/hooks; cmp equal), then ./dev.sh check audit: FAIL write-targets.sh:2, the 'delegation layer's folders' pattern in devtools/audit.json, matched by its own dest header. Not installed: only the four new hooks (bd0413c: ask-first, git-stamp, settings-guard, write-ledger) consume it, and those are not installed here yet; hooks copies lists it MISSING. Hinges on: devtools/audit.json skipping the installed copy (with a test and a mutant, as td-14 Fix B), or the hooks owner moving the lib's dest.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "decision",
+      "files": [
+        "devtools/audit.json"
+      ],
+      "done_when": "write-targets.sh is installed here byte-identical to tools/hooks/source and ./dev.sh check passes the audit gate",
+      "retire": null,
+      "added": "2026-10-05",
+      "done": "2026-10-05",
+      "resolution": "audit skips the installed copies (Jacob's answer); write-targets.sh installed cmp-identical to tools/hooks/source; ./dev.sh check green (6442a4d)",
+      "imported": null
     }
   ]
 }

@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (10 open, 6 closed in todo-history.json; seal dac0e5163d5c): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (9 open, 7 closed in todo-history.json; seal ccad00e04258): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -11,13 +11,6 @@
   · work: decision
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
-
-- **td-16 · The hooks tool installs lib/write-targets.sh in a folder the direction audit bans here**
-  2026-10-05: cp -p tools/hooks/source/lib/write-targets.sh to its dest (the lib folder beside .claude/hooks; cmp equal), then ./dev.sh check audit: FAIL write-targets.sh:2, the 'delegation layer's folders' pattern in devtools/audit.json, matched by its own dest header. Not installed: only the four new hooks (bd0413c: ask-first, git-stamp, settings-guard, write-ledger) consume it, and those are not installed here yet; hooks copies lists it MISSING. Hinges on: devtools/audit.json skipping the installed copy (with a test and a mutant, as td-14 Fix B), or the hooks owner moving the lib's dest.
-  · work: decision
-  · files: devtools/audit.json
-  · done when: write-targets.sh is installed here byte-identical to tools/hooks/source and ./dev.sh check passes the audit gate
-  · added: 2026-10-05
 
 ## Unconfirmed suspicions
 
