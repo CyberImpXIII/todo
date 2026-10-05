@@ -67,15 +67,50 @@ class Parents(Case):
         self.check(b)
         self.assertIn("[closed 2026-10-04]", self.todo("-C", a, "tree", "aa-1").stdout)
 
+    def plant_parent(self, d, parent):
+        data = self.store(d)
+        data["items"][0]["parent"] = parent
+        self.write_json(d / "todo.json", data)
+        self.todo("-C", d, "render", "--force")
+
     def test_an_unresolved_parent_is_refused_and_red(self):
-        a = self.repo("a", "aa")
+        a, b = self.repo("a", "aa"), self.repo("b", "bb")
         self.todo("-C", a, "add", "orphan", "--kind", "note", "--parent", "zz-9", ok=False)
         self.todo("-C", a, "add", "orphan", "--kind", "note")
-        data = self.store(a)
-        data["items"][0]["parent"] = "zz-9"
-        self.write_json(a / "todo.json", data)
-        self.todo("-C", a, "render", "--force")
+        # dangling in a store the scan holds: its own, or another scanned one
+        for dangling in ("aa-9", "bb-9", "not-an-id"):
+            self.plant_parent(a, dangling)
+            self.assertFails(a, "parents", f"parent {dangling} resolves in no scanned store")
+
+    def test_a_parent_in_a_store_outside_the_scan_is_unchecked_not_red(self):
+        """td-15: a report arriving from another repo carries a parent in that repo's
+        store. A check whose scan does not reach that store cannot judge it: a WARN
+        saying so, never a FAIL. The same parent, once its store is scanned and holds
+        no such item, is red again (the counterfactual)."""
+        a = self.repo("a", "aa")
+        self.todo("-C", a, "add", "arrived", "--kind", "note")
+        self.plant_parent(a, "zz-9")
+        out = self.check(a).stdout
+        warn = [ln for ln in out.splitlines() if ln.split()[:2] == ["WARN", "parents"]]
+        self.assertTrue(warn and "unchecked" in warn[0] and "zz" in warn[0], out)
+        self.assertNotIn("ok    parents", out)
+        z = self.repo("z", "zz")
         self.assertFails(a, "parents", "parent zz-9 resolves in no scanned store")
+        self.todo("-C", z, "add", "one", "--kind", "note")
+        for n in range(2, 10):
+            self.todo("-C", z, "add", f"n{n}", "--kind", "note")
+        self.assertIn("ok    parents", self.check(a).stdout)
+
+    def test_an_arrived_report_checks_green_under_a_scan_of_its_own_repo_only(self):
+        """The real td-15 path: `todo report` writes the counterpart, then the owner's
+        check runs with TODO_ROOT naming only its own repo (dev.sh self's mutant)."""
+        a, b = self.repo("a", "aa"), self.repo("b", "bb")
+        self.todo("-C", a, "add", "seen", "--kind", "bug")
+        self.todo("-C", a, "report", "aa-1", "--to", "b")
+        self.assertEqual(self.store(b)["items"][0]["parent"], "aa-1")
+        out = self.todo("-C", b, "check", env={"TODO_ROOT": str(b)}).stdout
+        self.assertIn("unchecked", out)
+        self.assertNotIn("FAIL", out)
 
     def test_a_parent_loop_is_red(self):
         a = self.repo("a", "aa")

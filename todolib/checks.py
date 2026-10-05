@@ -114,6 +114,16 @@ def check_ids(store, out):
                 out.append(("FAIL", "ids", iid, f"id number is not below next ({store.data.get('next')}): it could be handed out again"))
 
 
+def outside_scan(ws, item_id):
+    """True when item_id is a well-formed id whose prefix no scanned store holds:
+    a parent there can be neither confirmed nor refuted by this scan (td-15, a
+    report arriving from a repo outside a narrow root), the same reason an
+    unpaired report is a WARN. A prefix some scanned store holds is judged, and a
+    malformed id is never outside the scan: both stay red when they do not resolve."""
+    m = ID_RE.match(item_id or "")
+    return bool(m) and not any(s.data and s.prefix == m.group(1) for s in ws.stores)
+
+
 def check_parents(store, ws, out):
     for where, items in (("store", store.items), ("history", store.closed)):
         for it in items:
@@ -121,7 +131,10 @@ def check_parents(store, ws, out):
             if p is None:
                 continue
             if ws.find(p)[0] is None:
-                out.append(("FAIL", "parents", it["id"], f"parent {p} resolves in no scanned store or history"))
+                if outside_scan(ws, p):
+                    out.append(("WARN", "parents", it["id"], f"parent {p} unchecked: no scanned store has prefix {ID_RE.match(p).group(1)} (the scan root is {ws.root}); a check whose scan reaches that store judges it"))
+                else:
+                    out.append(("FAIL", "parents", it["id"], f"parent {p} resolves in no scanned store or history"))
                 continue
             chain, cur = {it["id"]}, p
             while cur:

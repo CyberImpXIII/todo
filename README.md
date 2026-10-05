@@ -215,7 +215,7 @@ gate that stopped running shows as a missing line:
 | vocab | a kind, status or work is not declared, or a reserved resolution is on an item its setter did not write |
 | required | an item lacks a field its kind or status requires (an imported closed item may lack only its date) |
 | ids | an id lacks the repo's prefix, appears twice (or in both files), or is not below the counter |
-| parents | a parent resolves in no scanned store or history, or the chain loops |
+| parents | a parent resolves in no scanned store or history, or the chain loops. A well-formed parent whose prefix no scanned store holds is a `WARN` (unchecked), not a failure: that scan cannot judge it, as with an unpaired report (td-15) |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere |
 | workspace | two stores share a prefix or a repo name |
 | render | `TODO.md` is not the render of `todo.json`: missing, stale (an unedited render of another store or format), hand-edited or hand-written |
@@ -238,7 +238,9 @@ stub and whose mutants are none, so a broken guard goes red instead of recursing
 (mutant `check-nesting-unguarded`). The `self` gate's mutant plants a bad store
 and runs `./dev.sh self` with `TODO_ROOT=.`: `TODO_ROOT` is the scan root when
 `--root` is not given, and keeps a copy under `.mutants/` from scanning the
-workspace and colliding with this repo's own prefix.
+workspace and colliding with this repo's own prefix. Under that narrow root an
+item that arrived by `todo report` from another repo has its parent outside the
+scan, which the `parents` gate reports as unchecked rather than red.
 
 `checks.json` is read by tools/checks (`checks run .`): its `no-roster` check
 skips `devtools/audit.json` and `devtools/mutants.json`, which hold the direction
