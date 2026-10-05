@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (10 open, 5 closed in todo-history.json; seal 498129ae394e): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (10 open, 6 closed in todo-history.json; seal dac0e5163d5c): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -11,6 +11,13 @@
   · work: decision
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
+
+- **td-16 · The hooks tool installs lib/write-targets.sh in a folder the direction audit bans here**
+  2026-10-05: cp -p tools/hooks/source/lib/write-targets.sh to its dest (the lib folder beside .claude/hooks; cmp equal), then ./dev.sh check audit: FAIL write-targets.sh:2, the 'delegation layer's folders' pattern in devtools/audit.json, matched by its own dest header. Not installed: only the four new hooks (bd0413c: ask-first, git-stamp, settings-guard, write-ledger) consume it, and those are not installed here yet; hooks copies lists it MISSING. Hinges on: devtools/audit.json skipping the installed copy (with a test and a mutant, as td-14 Fix B), or the hooks owner moving the lib's dest.
+  · work: decision
+  · files: devtools/audit.json
+  · done when: write-targets.sh is installed here byte-identical to tools/hooks/source and ./dev.sh check passes the audit gate
+  · added: 2026-10-05
 
 ## Unconfirmed suspicions
 
@@ -46,14 +53,6 @@
   · done when: one copy, installed by setup, with the edits list
   · added: 2026-10-04
 
-- **td-14 · The reinstalled test-no-inline-blobs.sh names roster agents, so the direction audit is red**
-  After reinstalling from tools/hooks/source on 2026-10-04 (533f484), ./dev.sh check: audit FAIL .claude/hooks/test-no-inline-blobs.sh:107 and :108, a provenance comment in the source naming two roster agents as reporters of the heredoc false positives. That turns 3 unit tests red (test_audit this_repo_is_clean, test_dev CheckJson x2) and 2 mutant baselines. The copy may not be hand-edited. Fix A (hooks owner): reword the source comment without the agent names, then reinstall here. Fix B (this repo's decision): skip roster_names, not patterns, under .claude/hooks/ in devtools/audit.json, with a test and a mutant.
-  · reported to: hooks on 2026-10-04 (no counterpart yet)
-  · work: audit
-  · files: .claude/hooks/test-no-inline-blobs.sh, devtools/audit.json
-  · done when: ./dev.sh check passes the audit gate with the copies still byte-identical to tools/hooks/source
-  · added: 2026-10-04
-
 ## Notes
 
 - **td-5 · The append-only audit sees committed versions and the working copy only**
@@ -79,5 +78,5 @@
   Observed 2026-10-05 while seeding this store: works are code, test, audit, tooling, docs, decision. Gig driving, an appeal filing, a client proposal and a mail scan all had to be filed as tooling or docs. The local session runs todo report with --to todo so the counterpart lands in that store.
   · parent: inc-50
   · work: docs
-  · done when: the counterpart item exists in the todo repo's store
+  · done when: vocab.json declares a work for research, labour and outreach items (README works table and tests/test_vocab.py agreeing), or td-15 is closed with the decision not to add one, so inc-50's owner can close theirs
   · added: 2026-10-05
