@@ -56,6 +56,20 @@ class Direction(unittest.TestCase):
             self.assertIn(rel, skip, f"{rel} is excluded from no-roster but not skipped by devtools/audit.py")
             self.assertTrue((ROOT / rel).is_file(), f"{rel} is excluded but does not exist")
 
+    def test_installed_shared_copies_are_skipped_and_nothing_else_is(self):
+        """td-16 (Jacob, 2026-10-05): the copies setup's hooks component installs in
+        .claude/hooks/ and .claude/lib/ are the renderer's files, gated by
+        `hooks copies`, not this repo's code. The same term in todolib/, or in a
+        .claude/ folder that is not one of those two, is still a violation."""
+        term = "# hooks: applies_to=all dest=.claude/lib\n"
+        self.write(".claude/lib/write-targets.sh", term)
+        self.write(".claude/hooks/x.sh", term)
+        self.assertEqual(audit.audit(self.root)[0], [])
+        self.write("todolib/x.py", term)
+        self.write(".claude/agents/x.md", term)
+        found = sorted(h.split()[2].rsplit(":", 2)[0] for h in audit.audit(self.root)[0])
+        self.assertEqual(found, [".claude/agents/x.md", "todolib/x.py"])
+
     def test_lookalike_words_and_fixtures_pass(self):
         self.write("a.md", "harnessing the planner-free design; a harness-like rig\n")
         self.write("tests/fixtures/x.TODO.md", "reported to harness\n")
