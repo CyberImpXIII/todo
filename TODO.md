@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (11 open, 7 closed in todo-history.json; seal 67949b9b2ec7): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (9 open, 9 closed in todo-history.json; seal e7d9c48cdb3d): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -11,14 +11,6 @@
   · work: decision
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
-
-- **td-17 · Three hook copies here drift from the shared source**
-  setup (tools/setup 32aeaa9) on 2026-10-05 reported these three as drift (logic differs from tools/hooks/source) and left them byte-unchanged; hooks copies agrees. Replacing a drifted copy waits on Jacob (PLAN-repo-setup §7.12); --rebuild was not used.
-  · status: waiting-jacob
-  · work: tooling
-  · files: .claude/hooks/troubleshooting.sh, .claude/hooks/test-troubleshooting.sh, .claude/hooks/test-prefer-recipes.sh
-  · done when: hooks copies prints no DRIFT line for these three in tools/todo
-  · added: 2026-10-05
 
 ## Unconfirmed suspicions
 
@@ -80,12 +72,4 @@
   · parent: inc-50
   · work: docs
   · done when: vocab.json declares a work for research, labour and outreach items (README works table and tests/test_vocab.py agreeing), or td-15 is closed with the decision not to add one, so inc-50's owner can close theirs
-  · added: 2026-10-05
-
-- **td-18 · Three freshly installed hook tests read as DRIFT against uncommitted hooks source**
-  On 2026-10-05 setup installed these from tools/hooks HEAD (cmp: identical), while tools/hooks had uncommitted edits to the same three sources plus an untracked tests/test_leak_shapes.py (no email-shaped literal in a committed line). hooks copies compares the working tree, so it reports them DRIFT here. Expected to clear when tools/hooks commits and setup is re-run.
-  · probe: cd tools/hooks && git status --short source/hooks; ./hooks copies | grep tools/todo
-  · work: tooling
-  · files: .claude/hooks/test-ask-first.sh, .claude/hooks/test-git-stamp.sh, .claude/hooks/test-push-gate.sh
-  · done when: hooks copies prints no DRIFT for these three after setup re-runs on a committed hooks source
   · added: 2026-10-05

@@ -152,6 +152,52 @@
       "done": "2026-10-05",
       "resolution": "audit skips the installed copies (Jacob's answer); write-targets.sh installed cmp-identical to tools/hooks/source; ./dev.sh check green (6442a4d)",
       "imported": null
+    },
+    {
+      "id": "td-17",
+      "title": "Three hook copies here drift from the shared source",
+      "kind": "decision",
+      "status": "done",
+      "evidence": "setup (tools/setup 32aeaa9) on 2026-10-05 reported these three as drift (logic differs from tools/hooks/source) and left them byte-unchanged; hooks copies agrees. Replacing a drifted copy waits on Jacob (PLAN-repo-setup §7.12); --rebuild was not used.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "tooling",
+      "files": [
+        ".claude/hooks/troubleshooting.sh",
+        ".claude/hooks/test-troubleshooting.sh",
+        ".claude/hooks/test-prefer-recipes.sh"
+      ],
+      "done_when": "hooks copies prints no DRIFT line for these three in tools/todo",
+      "retire": null,
+      "added": "2026-10-05",
+      "done": "2026-10-05",
+      "resolution": "rebuilt from tools/hooks/source 43d2a1e by setup --only hooks --rebuild in 5457dda (Jacob approved --rebuild, PLAN-repo-setup §7.12); hooks copies --gate tools/todo: ok",
+      "imported": null
+    },
+    {
+      "id": "td-18",
+      "title": "Three freshly installed hook tests read as DRIFT against uncommitted hooks source",
+      "kind": "note",
+      "status": "done",
+      "evidence": "On 2026-10-05 setup installed these from tools/hooks HEAD (cmp: identical), while tools/hooks had uncommitted edits to the same three sources plus an untracked tests/test_leak_shapes.py (no email-shaped literal in a committed line). hooks copies compares the working tree, so it reports them DRIFT here. Expected to clear when tools/hooks commits and setup is re-run.",
+      "probe": "cd tools/hooks && git status --short source/hooks; ./hooks copies | grep tools/todo",
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "tooling",
+      "files": [
+        ".claude/hooks/test-ask-first.sh",
+        ".claude/hooks/test-git-stamp.sh",
+        ".claude/hooks/test-push-gate.sh"
+      ],
+      "done_when": "hooks copies prints no DRIFT for these three after setup re-runs on a committed hooks source",
+      "retire": null,
+      "added": "2026-10-05",
+      "done": "2026-10-05",
+      "resolution": "tools/hooks committed (43d2a1e, clean tree); setup --rebuild rewrote the three in 5457dda; hooks copies --gate tools/todo: ok",
+      "imported": null
     }
   ]
 }
