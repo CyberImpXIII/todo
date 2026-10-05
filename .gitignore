@@ -9,3 +9,6 @@ __pycache__/
 .mutants/
 TODO-HISTORY.md
 .*.tmp-*
+*.bak
+registry.proposed.json
+.claude/state/
