@@ -17,7 +17,7 @@ CHEAP = ["files", "audit"]
 
 def dev(root, *args, env=None):
     r = subprocess.run([str(Path(root) / "dev.sh"), "check", *args], capture_output=True, text=True,
-                       env=dict(os.environ, **(env or {})))
+                       env=dict(os.environ, **(env or {})), timeout=300)
     return r.returncode, r.stdout, r.stderr
 
 
@@ -48,10 +48,30 @@ class CheckJson(unittest.TestCase):
         self.assertIn("unknown gate 'nosuch'", err)
 
     def test_a_check_inside_a_check_refuses_the_tests_and_the_mutants(self):
-        for gate in ("test", "mutants"):
-            code, out, err = dev(ROOT, "--json", "files", gate, env={"TODO_DEV_CHECK": "1"})
-            self.assertEqual((code, out), (2, ""), gate)
-            self.assertIn("refusing test/mutants inside another", err)
+        """Run in a copy whose tests are one trivial test and whose mutants are none,
+        so with the guard broken the gates run, finish and print JSON (red here)
+        instead of running this test again without end (td-11). The copy runs both
+        gates when the guard is not set: the refusal is the guard's doing."""
+        tmp = Path(tempfile.mkdtemp(prefix="todo-dev-"))
+        try:
+            copy = tmp / "todo"
+            shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns(".git", ".mutants", "__pycache__", "*.pyc"))
+            shutil.rmtree(copy / "tests")
+            (copy / "tests").mkdir()
+            (copy / "tests" / "__init__.py").write_text("")
+            (copy / "tests" / "test_stub.py").write_text(
+                "import unittest\n\n\nclass Stub(unittest.TestCase):\n    def test_ok(self):\n        pass\n")
+            (copy / "devtools" / "mutants.json").write_text('{"mutants": []}\n')
+            outside = {k: v for k, v in os.environ.items() if k != "TODO_DEV_CHECK"}
+            r = subprocess.run([str(copy / "dev.sh"), "check", "--json", "test"], capture_output=True,
+                               text=True, env=outside, timeout=300)
+            self.assertEqual(json.loads(r.stdout), {"ok": True, "gates": {"test": True}}, r.stdout + r.stderr)
+            for gate in ("test", "mutants"):
+                code, out, err = dev(copy, "--json", "files", gate, env={"TODO_DEV_CHECK": "1"})
+                self.assertEqual((code, out), (2, ""), gate)
+                self.assertIn("refusing test/mutants inside another", err)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

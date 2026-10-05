@@ -94,6 +94,19 @@ class Workspace(Case):
         self.repo("b", "aa")
         self.assertFails(a, "workspace", "prefix aa is also used")
 
+    def test_todo_root_sets_the_scan_root_and_root_beats_it(self):
+        a = self.repo("a", "aa")
+        self.repo("b", "aa")
+        self.assertFails(a, "workspace", "prefix aa is also used")
+        alone = {"TODO_ROOT": str(a)}
+        out = self.todo("-C", a, "repos", env=alone).stdout
+        self.assertIn(f"scan root: {a.resolve()}", out)
+        self.assertEqual(len(out.strip().splitlines()), 2, f"a alone, b out of the scan:\n{out}")
+        self.assertIn("ok    workspace", self.todo("-C", a, "check", env=alone).stdout)
+        out = self.todo("-C", a, "--root", self.ws, "repos", env=alone).stdout
+        self.assertIn(f"scan root: {self.ws.resolve()}", out)
+        self.assertEqual(len(out.strip().splitlines()), 3, f"a and b:\n{out}")
+
     def test_the_scan_never_enters_hidden_folders(self):
         a = self.repo("a", "aa")
         d = git_repo(self.ws / ".hidden")

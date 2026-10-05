@@ -212,9 +212,12 @@ def store_dir_for(cwd, explicit=None):
 
 
 def scan_root(store_dir, explicit=None):
-    """Where `todo repos` looks: --root DIR; else a store outside any git repo is
-    its own root (a workspace store); else the nearest folder above the repo that
-    is in no git repo and holds a todo.json or a CLAUDE.md; else the repo's parent."""
+    """Where `todo repos` looks: --root DIR; else TODO_ROOT; else a store outside
+    any git repo is its own root (a workspace store); else the nearest folder above
+    the repo that is in no git repo and holds a todo.json or a CLAUDE.md; else the
+    repo's parent. TODO_ROOT lets a check that runs --root-less (./dev.sh self) be
+    pointed elsewhere: devtools/mutants.json runs the self gate in a copy with it."""
+    explicit = explicit or os.environ.get("TODO_ROOT")
     if explicit:
         return Path(explicit).resolve()
     store_dir = Path(store_dir).resolve()

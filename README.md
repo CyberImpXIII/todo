@@ -23,7 +23,8 @@ missing or points nowhere.
 
 Every command acts on the repo holding the working directory, or on the one
 `-C DIR` names (a relative file argument is then read from DIR, as with `git -C`).
-`--root DIR` sets where other repos' stores are looked for (below).
+`--root DIR` sets where other repos' stores are looked for (below); without it,
+the environment variable `TODO_ROOT` does.
 
 ## Commands
 
@@ -188,7 +189,7 @@ word comes back from the render, and every block comes back whole.
 
 ## Across repos
 
-Nothing is configured. The scan root is `--root DIR`; else, for a store outside
+Nothing is configured. The scan root is `--root DIR`; else `TODO_ROOT`; else, for a store outside
 any git repo, its own folder; else the nearest folder above the repo that is in
 no git repo and holds a `todo.json` or a `CLAUDE.md`; else the repo's parent.
 Under it, every git repo with a `todo.json`, three levels down, is a store. Hidden
@@ -232,7 +233,12 @@ in a throwaway copy, which must turn its test red).
 given; `--json` prints `{"ok": bool, "gates": {gate: bool}}` and nothing else.
 `tests/test_dev.py` holds that contract on the cheap gates. A check run inside
 another check refuses the `test` and `mutants` gates, since either would run that
-test again without end.
+test again without end; the test of that guard runs in a copy whose tests are one
+stub and whose mutants are none, so a broken guard goes red instead of recursing
+(mutant `check-nesting-unguarded`). The `self` gate's mutant plants a bad store
+and runs `./dev.sh self` with `TODO_ROOT=.`: `TODO_ROOT` is the scan root when
+`--root` is not given, and keeps a copy under `.mutants/` from scanning the
+workspace and colliding with this repo's own prefix.
 
 `checks.json` is read by tools/checks (`checks run .`): its `no-roster` check
 skips `devtools/audit.json` and `devtools/mutants.json`, which hold the direction

@@ -47,8 +47,9 @@ class Case(unittest.TestCase):
                 os.chmod(p, 0o644)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def todo(self, *args, cwd=None, today=TODAY, ok=True):
-        env = dict(os.environ, TODO_TODAY=today)
+    def todo(self, *args, cwd=None, today=TODAY, ok=True, env=None):
+        base = {k: v for k, v in os.environ.items() if k != "TODO_ROOT"}  # never the caller's
+        env = dict(base, TODO_TODAY=today, **(env or {}))
         r = subprocess.run([str(TODO), *map(str, args)], cwd=cwd or self.tmp, env=env,
                            capture_output=True, text=True)
         if ok is True and r.returncode != 0:

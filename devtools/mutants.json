@@ -187,6 +187,15 @@
      "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_stale_render_is_rewritten_by_render_and_no_hand_edit_is_recorded"]},
     {"id": "force-records-stale", "gate": "todo render --force over a stale render records no hand edit",
      "file": "todolib/cli.py", "old": "                if hand:\n                    require_history(s)", "new": "                if hand or args.force:\n                    require_history(s)",
-     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_stale_render_is_rewritten_by_render_and_no_hand_edit_is_recorded"]}
+     "run": ["python3", "-m", "unittest", "tests.test_render.Render.test_a_stale_render_is_rewritten_by_render_and_no_hand_edit_is_recorded"]},
+    {"id": "self-gate-quiet", "gate": "./dev.sh self: todo check on this repo's own store goes red on a bad store (td-11). A planted violation: every id loses its prefix. TODO_ROOT=. keeps the copy's scan to itself; without it the copy under .mutants/ scans the workspace and collides with this repo's prefix, red at baseline",
+     "file": "todo.json", "old": "\"prefix\": \"td\",", "new": "\"prefix\": \"tz\",",
+     "run": ["env", "TODO_ROOT=.", "./dev.sh", "self"]},
+    {"id": "check-nesting-unguarded", "gate": "./dev.sh check refuses test/mutants inside another check (td-11); the test runs it in a stubbed copy, so a broken guard goes red instead of recursing",
+     "file": "dev.sh", "old": "  if [ -n \"${TODO_DEV_CHECK:-}\" ]; then", "new": "  if false; then",
+     "run": ["python3", "-m", "unittest", "tests.test_dev.CheckJson.test_a_check_inside_a_check_refuses_the_tests_and_the_mutants"]},
+    {"id": "todo-root-ignored", "gate": "TODO_ROOT sets the scan root when --root is not given, and --root beats it",
+     "file": "todolib/store.py", "old": "    explicit = explicit or os.environ.get(\"TODO_ROOT\")\n", "new": "",
+     "run": ["python3", "-m", "unittest", "tests.test_store.Workspace.test_todo_root_sets_the_scan_root_and_root_beats_it"]}
   ]
 }
