@@ -1,15 +1,7 @@
-<!-- rendered by todo from todo.json (10 open, 3 closed in todo-history.json; seal ec4a5e954e7c): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (8 open, 5 closed in todo-history.json; seal 224f3851186a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
-
-- **td-10 · A change to the render format reads as a hand edit in every store**
-  render_state (todolib/checks.py) calls a TODO.md clean only when it equals the current render, and hand-edited when it differs but starts with the header. So any change to render.py's output turns every store holding an affected item red in check (WARN during the import grace, FAIL after), and every mutating command there refuses until 'todo render --force', which records a hand edit that never happened.
-  Seen 2026-10-04 on this repo: td-3 changed the reported_to line for a hidden repo; todo check then said 'TODO.md is edited by hand since it was rendered' for td-8, and render --force wrote a hand_edits entry for an edit nobody made. One store exists today, so it was re-rendered in the same commit; once other repos migrate, a format change lands in stores this repo does not commit.
-  · work: code
-  · files: todolib/checks.py, todolib/render.py
-  · done when: a store rendered by an older render format is told so (stale render, re-render) rather than hand-edited, or the README says a format change needs every store re-rendered
-  · added: 2026-10-04
 
 ## Open decisions
 
@@ -60,13 +52,6 @@
   check_history compares todo-history.json with every version in git log plus the file on disk. An entry appended and removed again between two commits leaves no trace to compare with. Accepted for now: todo done is the only writer and no command removes an entry.
   · work: audit
   · files: todolib/checks.py
-  · added: 2026-10-04
-
-- **td-11 · The self gate and the check-nesting guard have no mutant**
-  Carried from td-6. The self gate (./dev.sh self, todo check on this store) has none: in a mutant copy under .mutants/ the scan root is still the workspace, so the copy shares this repo's prefix and is red at baseline. The nesting guard in cmd_check (TODO_DEV_CHECK: a check inside a check refuses the test and mutants gates) has none either: with it broken, its own test runs the test gate, which runs that test again without end. Seen 2026-10-04: tests/test_dev.py run against the previous dev.sh (which ignored the gate list) did exactly that and had to be stopped. The guard is held by tests/test_dev.py only.
-  · work: test
-  · files: dev.sh, devtools/mutate.py, tests/test_dev.py
-  · done when: a mutant breaks the self gate and goes red without a red baseline, or the README says why it cannot
   · added: 2026-10-04
 
 - **td-12 · dev.sh check does not run tools/checks on this repo**
