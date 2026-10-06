@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (7 open, 12 closed in todo-history.json; seal 87bb40662b87): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (7 open, 12 closed in todo-history.json; seal d05ca2c53f09): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -14,15 +14,17 @@
 
 ## Unconfirmed suspicions
 
+## Reported to other owners
+
 - **td-4 · The roster-name copy in devtools/audit.json can go stale**
   The direction audit bans roster names that are not repo names, from a copy taken 2026-10-04. This repo may not read the roster to refresh it, so a new agent name would pass the audit unnoticed.
+  2026-10-06: the checks gate (td-12) passes this same copy to tools/checks' no-roster, so a stale copy now weakens two gates. Relayed to the delegation layer's owner by hand in the sweep report.
   · probe: from the delegation layer (its owner runs it, this repo may not): list the roster's agent names, drop those that are also repo names, and diff the rest against roster_names in tools/todo/devtools/audit.json; a name present in the roster and missing there settles it as stale
+  · reported to: .claude on 2026-10-06 (relayed by hand; never pairs)
   · work: audit
   · files: devtools/audit.json
   · done when: the probe shows no missing name, or a check outside this repo runs it
   · added: 2026-10-04
-
-## Reported to other owners
 
 - **td-7 · The hook-copy check does not cover this repo's copies**
   The top-level CLAUDE.md says the site-scrapers hook-copy check covers eight copies, not addon-bench or tools/setup. tools/todo carries a further copy of no-inline-blobs.sh, prefer-recipes.sh and troubleshooting.sh, installed by setup, so a drifted copy here goes unreported.
