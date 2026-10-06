@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (9 open, 10 closed in todo-history.json; seal a26ad5416cf6): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (8 open, 11 closed in todo-history.json; seal 7c2de61a4ed4): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -66,10 +66,3 @@
   · work: audit
   · files: todolib/checks.py
   · added: 2026-10-04
-
-- **td-19 · todo edit has no way to append to evidence**
-  Requested 2026-10-06 by the income repo's owner (relayed by hand): todo edit --evidence replaces the whole text, so income's ./dev.sh ask and its inc-57 sweep had to read, modify and rewrite the evidence. A read-modify-write outside the store's lock can drop a concurrent edit.
-  · work: code
-  · files: todolib/cli.py, README.md
-  · done when: todo edit ID --append-evidence TEXT adds a paragraph to the evidence under the store's lock, README commands table and tests/test_docs.py agreeing, with a test that the old text is kept and a mutant proving it can go red
-  · added: 2026-10-06

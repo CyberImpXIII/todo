@@ -159,6 +159,16 @@ def cmd_edit(args):
         if item is None:
             raise TodoError(f"{args.id} is not in {store.path}")
         changes = {f: getattr(args, f) for f in EDITABLE if getattr(args, f) is not None}
+        if args.append_evidence is not None:
+            # Appended here, under the store's lock, so a caller never reads,
+            # changes and rewrites the evidence itself and drops an edit made
+            # in between (td-19).
+            if args.evidence is not None:
+                raise TodoError("--evidence replaces the evidence and --append-evidence adds to it: give one")
+            if not args.append_evidence.strip():
+                raise TodoError("--append-evidence: nothing to add")
+            old = item.get("evidence")
+            changes["evidence"] = f"{old}\n{args.append_evidence}" if old else args.append_evidence
         if not changes:
             raise TodoError("nothing to change: name at least one field")
         if changes.get("status") == VOCAB.closed:
@@ -531,6 +541,8 @@ def add_item_fields(p, editing):
     p.add_argument("--retire")
     if editing:
         p.add_argument("--title")
+        p.add_argument("--append-evidence", dest="append_evidence", metavar="E",
+                       help="add E as a new line after the evidence, under the store's lock (not with --evidence)")
 
 
 def build_parser():
