@@ -3,6 +3,12 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 2
 
+# tools/checks, a sibling repo (td-12). Resolved once to an absolute path and
+# exported, so a copy of this repo (tests, mutants) reaches the same CLI;
+# CHECKS_CLI names another. Absent, the checks gate is red, never skipped.
+if [ -z "${CHECKS_CLI:-}" ] && [ -x ../checks/checks ]; then CHECKS_CLI="$(cd ../checks && pwd -P)/checks"; fi
+export CHECKS_CLI="${CHECKS_CLI:-}"
+
 usage() {
   cat <<'EOF'
 ./dev.sh <command>
@@ -14,6 +20,8 @@ usage() {
   files      the files the tool needs: present, executable where they must be, data parses
   audit      the direction audit (devtools/audit.py): nothing reads the delegation layer or names a roster agent
   self       todo check on this repo's own store (its TODO.md is the render of todo.json)
+  checks     tools/checks' `checks run .` with the roster-name copy in devtools/audit.json; red on any
+             fail, and when no-roster did not run or ran without the names (devtools/checks_gate.py)
   mutants    break each gate once in a throwaway copy, require red (devtools/mutants.json)
 EOF
 }
@@ -55,7 +63,7 @@ cmd_hooks() {
 
 cmd_files() {
   local fails=0 f
-  for f in todo dev.sh devtools/audit.py devtools/mutate.py; do
+  for f in todo dev.sh devtools/audit.py devtools/mutate.py devtools/checks_gate.py; do
     [ -x "$f" ] || { echo "  FAIL  $f missing or not executable"; fails=$((fails+1)); }
   done
   for f in vocab.json devtools/audit.json devtools/mutants.json checks.json todo.json todo-history.json; do
@@ -73,9 +81,22 @@ cmd_audit() { python3 devtools/audit.py; }
 
 cmd_self() { ./todo -C . check; }
 
+cmd_checks() {
+  local names out code
+  if [ -z "$CHECKS_CLI" ] || [ ! -x "$CHECKS_CLI" ]; then
+    echo "  FAIL  checks: no checks CLI ('${CHECKS_CLI}'; looked for ../checks/checks, the sibling repo tools/checks; CHECKS_CLI names another)"
+    return 1
+  fi
+  # The roster names come from this repo's own copy (devtools/audit.json), never the roster (td-4).
+  names=$(jq -r '.roster_names | join(",")' devtools/audit.json 2>/dev/null)
+  if [ -z "$names" ]; then echo "  FAIL  checks: no roster_names in devtools/audit.json to pass to no-roster"; return 1; fi
+  out=$("$CHECKS_CLI" run . --json --names "$names" 2>&1); code=$?
+  printf '%s' "$out" | python3 devtools/checks_gate.py "$code"
+}
+
 cmd_mutants() { python3 devtools/mutate.py "$@"; }
 
-GATES=(test hooks files audit self mutants)
+GATES=(test hooks files audit self checks mutants)
 
 cmd_check() {
   local json=0 g code fails=0 results="" run=()
@@ -113,6 +134,7 @@ case "${1:-}" in
   files)   cmd_files ;;
   audit)   cmd_audit ;;
   self)    cmd_self ;;
+  checks)  cmd_checks ;;
   mutants) shift; cmd_mutants "$@" ;;
   ""|-h|--help|help) usage ;;
   *) echo "unknown command: $1"; usage; exit 2 ;;

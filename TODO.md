@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (8 open, 11 closed in todo-history.json; seal 7c2de61a4ed4): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (7 open, 12 closed in todo-history.json; seal 87bb40662b87): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -52,13 +52,6 @@
   check_history compares todo-history.json with every version in git log plus the file on disk. An entry appended and removed again between two commits leaves no trace to compare with. Accepted for now: todo done is the only writer and no command removes an entry.
   · work: audit
   · files: todolib/checks.py
-  · added: 2026-10-04
-
-- **td-12 · dev.sh check does not run tools/checks on this repo**
-  tools/checks' CLAUDE.md says a repo's ./dev.sh check calls 'checks run .'. This one does not: checks.json is held by tests/test_audit.py (exclusions are files devtools/audit.py also skips), but whether no-roster is green here was seen only by hand on 2026-10-04 (cd ../checks && ./checks run ../todo --names <the roster copy in devtools/audit.json>: no-roster OK; without --names it is UNCHECKED by that tool's design). Wiring it needs the sibling path and roster names passed in, which this repo may not read.
-  · work: tooling
-  · files: dev.sh, checks.json
-  · done when: ./dev.sh check runs checks run . (or the README says why not) and fails when no-roster is red
   · added: 2026-10-04
 
 - **td-13 · check cannot tell done-deprecated set by hand on an imported item**

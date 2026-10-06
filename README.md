@@ -231,7 +231,7 @@ the files the tool needs, the direction audit (`devtools/audit.py`: no file here
 reads the delegation layer's files or names a roster agent; the shared copies
 installed in `.claude/hooks/` and its sibling `lib/` are skipped, being the hooks
 tool's files gated by its `hooks copies`, td-16), `todo check` on this
-repo's own store, and the mutants (`devtools/mutate.py`: each gate broken once
+repo's own store, tools/checks' `checks run .` (below), and the mutants (`devtools/mutate.py`: each gate broken once
 in a throwaway copy, which must turn its test red).
 
 `./dev.sh check [--json] [GATE ...]` runs only the named gates, in the order
@@ -252,3 +252,15 @@ skips `devtools/audit.json` and `devtools/mutants.json`, which hold the directio
 audit's own terms and planted violations. `tests/test_audit.py` holds every
 exclusion there to a file that exists and that `devtools/audit.py` skips too, so
 `checks.json` never widens the exemptions beyond the ones `audit.json` documents.
+
+The `checks` gate (td-12) runs `checks run . --json --names <roster_names from
+devtools/audit.json>` with the sibling repo's CLI (`../checks/checks`, resolved
+once to an absolute path and exported, so copies reach it; `CHECKS_CLI` names
+another). `devtools/checks_gate.py` judges the report: red on any fail or
+error, on an exit code that disagrees with the report, and when `no-roster` did
+not run or ran without the names (UNCHECKED, which `checks` itself counts as
+green). No CLI is red, never a skip. The names are this repo's own copy, never
+the roster, so a stale copy stays td-4's problem. `tests/test_checks_gate.py`
+runs the real CLI in a throwaway workspace with a planted roster name; its
+mutants (`checks-gate-*`) inherit `CHECKS_CLI` from `./dev.sh`, so run them
+through `./dev.sh mutants`, not `devtools/mutate.py` alone.

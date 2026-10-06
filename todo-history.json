@@ -239,6 +239,28 @@
       "done": "2026-10-06",
       "resolution": "todo edit ID --append-evidence TEXT adds a line after the evidence inside the store's lock (refused with --evidence or empty); README table, tests/test_edit.py, mutants append-evidence-replaces and append-evidence-with-evidence red",
       "imported": null
+    },
+    {
+      "id": "td-12",
+      "title": "dev.sh check does not run tools/checks on this repo",
+      "kind": "note",
+      "status": "done",
+      "evidence": "tools/checks' CLAUDE.md says a repo's ./dev.sh check calls 'checks run .'. This one does not: checks.json is held by tests/test_audit.py (exclusions are files devtools/audit.py also skips), but whether no-roster is green here was seen only by hand on 2026-10-04 (cd ../checks && ./checks run ../todo --names <the roster copy in devtools/audit.json>: no-roster OK; without --names it is UNCHECKED by that tool's design). Wiring it needs the sibling path and roster names passed in, which this repo may not read.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "tooling",
+      "files": [
+        "dev.sh",
+        "checks.json"
+      ],
+      "done_when": "./dev.sh check runs checks run . (or the README says why not) and fails when no-roster is red",
+      "retire": null,
+      "added": "2026-10-04",
+      "done": "2026-10-06",
+      "resolution": "./dev.sh check runs a checks gate: tools/checks' checks run . --json --names <devtools/audit.json roster_names>, judged by devtools/checks_gate.py (red on fail/error, on no-roster absent or unchecked, on exit/report disagreement, on no CLI); tests/test_checks_gate.py plants a roster name in a throwaway workspace; mutants checks-gate-* red",
+      "imported": null
     }
   ]
 }
