@@ -20,7 +20,10 @@
     "audit":    {"doc": "an audit or a check over the repo"},
     "tooling":  {"doc": "helpers, dev.sh subcommands, scripts around the tool"},
     "docs":     {"doc": "README, CLAUDE.md, comments"},
-    "decision": {"doc": "nothing to build until someone decides"}
+    "decision": {"doc": "nothing to build until someone decides"},
+    "research": {"doc": "finding something out (reading, searching, comparing) before anything is built, filed or sent"},
+    "labour":   {"doc": "work done by hand outside any code: driving, filing, sorting, a scan run once"},
+    "outreach": {"doc": "contacting a person or an organisation: a proposal, an appeal, a message (sending needs Jacob's yes first)"}
   },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",

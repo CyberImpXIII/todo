@@ -198,6 +198,25 @@
       "done": "2026-10-05",
       "resolution": "tools/hooks committed (43d2a1e, clean tree); setup --rebuild rewrote the three in 5457dda; hooks copies --gate tools/todo: ok",
       "imported": null
+    },
+    {
+      "id": "td-15",
+      "title": "Report to the todo repo: the work vocabulary has no kind for research, labour or outreach",
+      "kind": "note",
+      "status": "done",
+      "evidence": "Observed 2026-10-05 while seeding this store: works are code, test, audit, tooling, docs, decision. Gig driving, an appeal filing, a client proposal and a mail scan all had to be filed as tooling or docs. The local session runs todo report with --to todo so the counterpart lands in that store.",
+      "probe": null,
+      "reported_to": null,
+      "parent": "inc-50",
+      "repo": "todo",
+      "work": "docs",
+      "files": null,
+      "done_when": "vocab.json declares a work for research, labour and outreach items (README works table and tests/test_vocab.py agreeing), or td-15 is closed with the decision not to add one, so inc-50's owner can close theirs",
+      "retire": null,
+      "added": "2026-10-05",
+      "done": "2026-10-06",
+      "resolution": "added works research, labour and outreach to vocab.json and the README works table (tests/test_vocab.py and test_docs.py green); inc-50's owner can close theirs and refile items under them",
+      "imported": null
     }
   ]
 }

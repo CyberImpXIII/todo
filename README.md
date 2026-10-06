@@ -85,6 +85,9 @@ the renderer, the importer, the checks and these tables all follow it, and
 | `tooling` | helpers, dev.sh subcommands, scripts around the tool |
 | `docs` | README, CLAUDE.md, comments |
 | `decision` | nothing to build until someone decides |
+| `research` | finding something out (reading, searching, comparing) before anything is built, filed or sent |
+| `labour` | work done by hand outside any code: driving, filing, sorting, a scan run once |
+| `outreach` | contacting a person or an organisation: a proposal, an appeal, a message (sending needs Jacob's yes first) |
 
 A resolution is free text written by `todo done`, except the values below, which
 each have one setter and are refused everywhere else:

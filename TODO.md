@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (9 open, 9 closed in todo-history.json; seal e7d9c48cdb3d): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (9 open, 10 closed in todo-history.json; seal a26ad5416cf6): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -67,9 +67,9 @@
   · files: todolib/checks.py
   · added: 2026-10-04
 
-- **td-15 · Report to the todo repo: the work vocabulary has no kind for research, labour or outreach**
-  Observed 2026-10-05 while seeding this store: works are code, test, audit, tooling, docs, decision. Gig driving, an appeal filing, a client proposal and a mail scan all had to be filed as tooling or docs. The local session runs todo report with --to todo so the counterpart lands in that store.
-  · parent: inc-50
-  · work: docs
-  · done when: vocab.json declares a work for research, labour and outreach items (README works table and tests/test_vocab.py agreeing), or td-15 is closed with the decision not to add one, so inc-50's owner can close theirs
-  · added: 2026-10-05
+- **td-19 · todo edit has no way to append to evidence**
+  Requested 2026-10-06 by the income repo's owner (relayed by hand): todo edit --evidence replaces the whole text, so income's ./dev.sh ask and its inc-57 sweep had to read, modify and rewrite the evidence. A read-modify-write outside the store's lock can drop a concurrent edit.
+  · work: code
+  · files: todolib/cli.py, README.md
+  · done when: todo edit ID --append-evidence TEXT adds a paragraph to the evidence under the store's lock, README commands table and tests/test_docs.py agreeing, with a test that the old text is kept and a mutant proving it can go red
+  · added: 2026-10-06
