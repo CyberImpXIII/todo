@@ -119,7 +119,7 @@ class Handled(Case):
         self.todo("-C", a, "report", "aa-1", "--to", "elsewhere")
         works = list(VOCAB.works)
         for i, status in enumerate(VOCAB.open_statuses()):
-            self.todo("-C", a, "add", f"s {status}", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1",
+            self.todo("-C", a, "add", f"s {status}", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1", "--blocked-by", "aa-1",
                       "--status", status, "--work", works[i % len(works)], "--files", "x.py", "--done-when", "dw",
                       "--repo", "other", "--evidence", "ev")
         for w in works:

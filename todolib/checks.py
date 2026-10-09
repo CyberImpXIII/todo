@@ -8,12 +8,13 @@ import json
 import re
 import subprocess
 
+from . import deps
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, STORE_KEYS, HISTORY_FILE, RENDER_FILE,
                     git_toplevel, id_number, never_scanned, today)
 from .vocab import VOCAB
 
-GATES = ["schema", "vocab", "required", "ids", "parents", "reports", "workspace", "render", "history"]
+GATES = ["schema", "vocab", "required", "ids", "parents", "blockers", "reports", "workspace", "render", "history"]
 SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
@@ -47,8 +48,9 @@ def _empty(v):
 def check_item(it, where, store, out):
     iid = it.get("id", "?")
     fields = set(VOCAB.field_names())
-    if set(it) != fields:
-        extra, missing = sorted(set(it) - fields), sorted(fields - set(it))
+    extra = sorted(set(it) - fields)
+    missing = sorted(fields - set(VOCAB.optional_fields()) - set(it))
+    if extra or missing:
         out.append(("FAIL", "schema", iid, f"fields differ from vocab.json: extra {extra}, missing {missing}"))
     kind, status, work = it.get("kind"), it.get("status"), it.get("work")
     if kind not in VOCAB.kinds:
@@ -81,6 +83,10 @@ def check_item(it, where, store, out):
     files = it.get("files")
     if files is not None and not (isinstance(files, list) and all(isinstance(x, str) for x in files)):
         out.append(("FAIL", "schema", iid, "files must be a list of paths"))
+    blockers = it.get("blocked_by")
+    if blockers is not None and not (isinstance(blockers, list) and blockers
+                                     and all(isinstance(x, str) and ID_RE.match(x) for x in blockers)):
+        out.append(("FAIL", "schema", iid, "blocked_by must be a non-empty list of item ids (null when none)"))
     rt = it.get("reported_to")
     if rt is not None:
         if not isinstance(rt, dict) or set(rt) != {"repo", "date", "their_id"} or not DATE_RE.match(str(rt.get("date"))):
@@ -144,6 +150,27 @@ def check_parents(store, ws, out):
                 chain.add(cur)
                 nxt = ws.find(cur)[0]
                 cur = nxt.get("parent") if nxt else None
+
+
+def check_blockers(store, ws, out):
+    """Every blocked_by id resolves (open or closed, any scanned store), and no open
+    item's blockers lead back to it (PLAN-todo-tool.md §9 step 3)."""
+    for where, items in (("store", store.items), ("history", store.closed)):
+        for it in items:
+            blockers = it.get("blocked_by")
+            if not isinstance(blockers, list):
+                continue
+            for b in blockers:
+                if not isinstance(b, str) or ws.find(b)[0] is not None:
+                    continue
+                if outside_scan(ws, b):
+                    out.append(("WARN", "blockers", it["id"], f"blocked_by {b} unchecked: no scanned store has prefix {ID_RE.match(b).group(1)} (the scan root is {ws.root})"))
+                else:
+                    out.append(("FAIL", "blockers", it["id"], f"blocked_by {b} is in neither todo.json nor todo-history.json of any scanned store"))
+            if where == "store":
+                path = deps.cycle(ws, it["id"], [b for b in blockers if isinstance(b, str)])
+                if path:
+                    out.append(("FAIL", "blockers", it["id"], f"blocked_by cycle: {' -> '.join(path)}; nothing in it can ever be ready"))
 
 
 def check_reports(store, ws, out):
@@ -274,6 +301,7 @@ def check_store(store, ws):
         check_item(it, "history", store, out)
     check_ids(store, out)
     check_parents(store, ws, out)
+    check_blockers(store, ws, out)
     check_reports(store, ws, out)
     check_workspace(store, ws, out)
     check_render(store, out)

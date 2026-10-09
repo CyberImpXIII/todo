@@ -37,7 +37,8 @@
     "import_resolution": "done-deprecated"
   },
   "fields": {
-    "id":          {"doc": "repo prefix + counter, stable, never reused (todo:td-3 points at it)", "label": null},
+    "_comment": "Every item carries every field, unset ones null; an `optional` field was added after items existed, so an item written before it may lack the key (read as null). History is append-only, so its old entries never gain the key; new items always carry it.",
+    "id":         {"doc": "repo prefix + counter, stable, never reused (todo:td-3 points at it)", "label": null},
     "title":       {"doc": "one line, no **", "label": null},
     "kind":        {"doc": "one of the kinds", "label": "kind"},
     "status":      {"doc": "one of the statuses", "label": "status"},
@@ -45,6 +46,7 @@
     "probe":       {"doc": "the run that would settle a suspicion", "label": "probe"},
     "reported_to": {"doc": "{repo, date, their_id}: whom it was reported to, and the counterpart's id there", "label": "reported to"},
     "parent":      {"doc": "any item's id, in any scanned repo, open or closed", "label": "parent"},
+    "blocked_by":  {"doc": "ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history", "label": "blocked by", "optional": true},
     "repo":        {"doc": "where the work lives: a repo name, never an agent", "label": "repo"},
     "work":        {"doc": "one of the works", "label": "work"},
     "files":       {"doc": "paths the work touches", "label": "files"},

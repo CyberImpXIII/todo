@@ -48,7 +48,7 @@ def field_value(name, value):
         else:
             tail = " (relayed by hand; never pairs)" if never_scanned(value.get("repo")) else " (no counterpart yet)"
         return f"{value.get('repo')} on {value.get('date')}" + tail
-    if name == "files":
+    if isinstance(value, list):
         return ", ".join(value)
     return str(value)
 

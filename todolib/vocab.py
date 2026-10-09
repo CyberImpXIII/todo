@@ -17,7 +17,7 @@ class Vocab:
         self.kinds = data["kinds"]
         self.statuses = data["statuses"]
         self.works = data["works"]
-        self.fields = data["fields"]
+        self.fields = {k: v for k, v in data["fields"].items() if not k.startswith("_")}
         self.resolutions = {k: v for k, v in data["resolutions"].items() if not k.startswith("_")}
         self.roles = data["roles"]
         self.import_rules = data["import"]["headings"]
@@ -43,6 +43,10 @@ class Vocab:
 
     def field_names(self):
         return list(self.fields)
+
+    def optional_fields(self):
+        """Fields an item written before they existed may lack (read as null)."""
+        return [name for name, spec in self.fields.items() if spec.get("optional")]
 
     def required(self, item):
         """Fields this item must carry, from its kind and its status."""

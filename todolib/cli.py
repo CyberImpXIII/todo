@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import checks, importer
+from . import checks, deps, importer
 from .render import render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, Store, TodoError, Workspace, add_days, id_number,
                     never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
@@ -82,6 +82,22 @@ def resolve_parent(ws, parent):
         raise TodoError(f"parent {parent} resolves in no scanned store or history (todo repos lists them)")
 
 
+def resolve_blockers(ws, item_id, blockers):
+    """Refuse a blocked_by list `check` would fail: an id that resolves in no scanned
+    store or history, or one that leads back to the item (a cycle; itself included).
+    Returns the list without repeats, in the order given, or None for an empty one."""
+    if not blockers:
+        return None
+    out = list(dict.fromkeys(blockers))
+    for b in out:
+        if ws.find(b)[0] is None:
+            raise TodoError(f"blocked_by {b} resolves in no scanned store or history (todo repos lists them)")
+    path = deps.cycle(ws, item_id, out)
+    if path:
+        raise TodoError(f"blocked_by would make a cycle: {' -> '.join(path)}")
+    return out
+
+
 def one_line(it):
     title = it.get("title") or ""
     if len(title) > TITLE_WIDTH:
@@ -139,12 +155,13 @@ def cmd_add(args):
             raise TodoError("add makes open items; close one with todo done")
         validate(item)
         item["id"] = store.allocate()
+        item["blocked_by"] = resolve_blockers(ws, item["id"], args.blocked_by)
         store.items.append(item)
         commit(store)
     print(f"added {item['id']}: {item['title']}")
 
 
-EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "repo", "work", "files",
+EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "repo", "work", "files",
             "done_when", "retire"]
 
 
@@ -179,6 +196,8 @@ def cmd_edit(args):
         validate(updated)
         if "parent" in changes:
             resolve_parent(workspace(args, store), updated["parent"])
+        if "blocked_by" in changes:
+            updated["blocked_by"] = resolve_blockers(workspace(args, store), args.id, updated["blocked_by"])
         item.update(updated)
         commit(store)
     print(f"edited {args.id}: {', '.join(changes)}")
@@ -283,6 +302,8 @@ def cmd_list(args):
             if args.repo and it.get("repo") != args.repo:
                 continue
             if args.mine and it.get("repo") != store.repo:
+                continue
+            if (args.ready or args.blocked) and bool(deps.open_blockers(ws, it)) != args.blocked:
                 continue
             print(one_line(it))
             n += 1
@@ -433,6 +454,8 @@ def ready_items(ws, repo=None, work=None):
                 continue
             if (repo and it["repo"] != repo) or (work and it["work"] != work):
                 continue
+            if deps.open_blockers(ws, it):
+                continue
             yield it, s
 
 
@@ -443,7 +466,7 @@ def cmd_ready(args):
         print(f"{it['id']:<8} {it['repo']:<20} {it['work']:<9} {it['title'][:TITLE_WIDTH]}")
         n += 1
     if n == 0:
-        print("(nothing ready: an open item needs repo, work and done_when set)")
+        print("(nothing ready: an open item needs repo, work and done_when set, and every blocked_by id closed)")
 
 
 def cmd_brief(args):
@@ -467,12 +490,20 @@ def cmd_brief(args):
     if it.get("parent"):
         p = ws.find(it["parent"])[0]
         print(f"Parent: {it['parent']} -- {p['title'] if p else '(unresolved)'}")
+    blockers = deps.open_blockers(ws, it)
+    if it.get("blocked_by"):
+        print(f"Blocked by: {', '.join(it['blocked_by'])}" + (f" (still open: {', '.join(blockers)})" if blockers else " (all closed)"))
     todo_bin = Path(sys.argv[0]).resolve()
     print(f"Close it: {todo_bin} -C {s.dir} done {it['id']} --resolution \"...\"")
-    if missing or it.get("status") != VOCAB.role("default_status"):
-        why = (f"missing {', '.join(missing)}" if missing else "") + \
-              (f"{'; ' if missing else ''}status {it.get('status')}" if it.get("status") != VOCAB.role("default_status") else "")
-        print(f"NOT READY: {why}")
+    why = []
+    if missing:
+        why.append(f"missing {', '.join(missing)}")
+    if it.get("status") != VOCAB.role("default_status"):
+        why.append(f"status {it.get('status')}")
+    if blockers:
+        why.append(f"blocked by {', '.join(blockers)}")
+    if why:
+        print(f"NOT READY: {'; '.join(why)}")
         sys.exit(1)
 
 
@@ -534,6 +565,8 @@ def add_item_fields(p, editing):
     p.add_argument("--evidence")
     p.add_argument("--probe")
     p.add_argument("--parent")
+    p.add_argument("--blocked-by", dest="blocked_by", nargs="*", metavar="ID",
+                   help="ids that must close first (any scanned repo); no ids clears it")
     p.add_argument("--repo")
     p.add_argument("--work", choices=list(VOCAB.works) + ([""] if editing else []))
     p.add_argument("--files", nargs="*")
@@ -567,6 +600,9 @@ def build_parser():
     ps["list"].add_argument("--repo")
     ps["list"].add_argument("--mine", action="store_true")
     ps["list"].add_argument("--all", action="store_true")
+    split = ps["list"].add_mutually_exclusive_group()
+    split.add_argument("--ready", action="store_true", help="only items whose blocked_by ids are all closed (or none)")
+    split.add_argument("--blocked", action="store_true", help="only items with a blocked_by id still open")
     ps["show"].add_argument("id")
     ps["render"].add_argument("--all", action="store_true")
     ps["render"].add_argument("--history", action="store_true")

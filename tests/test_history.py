@@ -11,7 +11,7 @@ class RoundTrip(Case):
         a, b = self.repo("a", "aa"), self.repo("b", "bb")
         self.todo("-C", b, "add", "parent", "--kind", "note")
         self.todo("-C", a, "add", "every field", "--kind", "temp", "--status", "blocked",
-                  "--evidence", "line one\n\n  indented line", "--probe", "p", "--parent", "bb-1",
+                  "--evidence", "line one\n\n  indented line", "--probe", "p", "--parent", "bb-1", "--blocked-by", "bb-1",
                   "--repo", "elsewhere", "--work", "test", "--files", "a.py", "b/c.js",
                   "--done-when", "suite passes", "--retire", "manifest:nodes", today="2026-10-01")
         before = self.store(a)["items"][0]
