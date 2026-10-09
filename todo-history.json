@@ -261,6 +261,28 @@
       "done": "2026-10-06",
       "resolution": "./dev.sh check runs a checks gate: tools/checks' checks run . --json --names <devtools/audit.json roster_names>, judged by devtools/checks_gate.py (red on fail/error, on no-roster absent or unchecked, on exit/report disagreement, on no CLI); tests/test_checks_gate.py plants a roster name in a throwaway workspace; mutants checks-gate-* red",
       "imported": null
+    },
+    {
+      "id": "td-20",
+      "title": "dev.sh hooks counted a hook test's exit 3 (UNCHECKED) as FAIL",
+      "kind": "bug",
+      "status": "done",
+      "evidence": "Reported by income 2026-10-08 (its 0506f06 had the same fix). Probe from the repo root: git clone -q . $TMPDIR/x && $TMPDIR/x/dev.sh hooks exited 1 with 'FAIL  test-prefer-recipes.sh:' and 'FAIL  test-troubleshooting.sh:' and no reason: both exit 3 (UNCHECKED: site-scrapers not found) outside the workspace, and cmd_hooks counted any non-zero exit as FAIL.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "code",
+      "files": [
+        "dev.sh",
+        "tests/test_hooks_gate.py"
+      ],
+      "done_when": "exits 0, 1 and 3 from a hook test give ok, FAIL and UNCHECKED (tests/test_hooks_gate.py)",
+      "retire": null,
+      "added": "2026-10-08",
+      "done": "2026-10-08",
+      "resolution": "Fixed in 056eafd: an exit-3 hook test is named UNCHECKED with its reason and the gate exits 3 (1 on any FAIL); ./dev.sh check counts UNCHECKED apart and keeps ok false. tests/test_hooks_gate.py (4 of 4 red on the old dev.sh) and four mutants hold it.",
+      "imported": null
     }
   ]
 }
