@@ -26,6 +26,13 @@ Every command acts on the repo holding the working directory, or on the one
 `--root DIR` sets where other repos' stores are looked for (below); without it,
 the environment variable `TODO_ROOT` does.
 
+A read that names its record (`show`, `get`, `find`, `refs`, `brief`, `tree ID`,
+`history ID`) needs no store of its own. Run from a folder with none, without
+`-C` (the workspace root, or a repo not migrated yet), it answers from every
+store scanned from there: `--root`, else `TODO_ROOT`, else the folder itself when
+it is in no git repo. A write still needs its store, and `-C` naming a folder
+without one stays an error rather than borrowing another store's answer.
+
 ## Commands
 
 <!-- commands -->

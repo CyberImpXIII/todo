@@ -10,7 +10,7 @@ from pathlib import Path
 from . import checks, deps, importer
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
-from .store import (HISTORY_RENDER_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
+from .store import (HISTORY_RENDER_FILE, STORE_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
                     id_number, never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
 from .vocab import VOCAB
 
@@ -28,6 +28,26 @@ def open_store(args):
 
 def workspace(args, store):
     return Workspace(store, scan_root(store.dir, args.root))
+
+
+def read_workspace(args):
+    """The workspace a read by id or tag answers from (show, get, find, refs,
+    brief, tree ID, history ID). They name their record, so they need no store of
+    their own: with no -C and no todo.json found from the cwd (the git repo
+    holding it, or a folder above), the stores scanned from the cwd answer --
+    `--root` or TODO_ROOT, else the cwd itself when it is in no git repo (the
+    workspace root), else as scan_root says. -C naming a folder with no store
+    stays an error: an explicit store is never swapped for another."""
+    d = store_dir_for(Path.cwd(), args.C)
+    if args.C or Store(d).exists():
+        store = Store(d).load()
+        return workspace(args, store)
+    root = scan_root(d, args.root)
+    ws = Workspace(None, root)
+    if not ws.stores:
+        raise TodoError(f"no {STORE_FILE} in {d}, and none under {root} (todo repos lists the stores a scan finds; "
+                        "-C DIR, --root DIR or TODO_ROOT points elsewhere)")
+    return ws
 
 
 def require_history(store):
@@ -161,8 +181,7 @@ def record_json(it, where, s):
 
 
 def cmd_get(args):
-    store = open_store(args)
-    it, where, s = resolve_record(workspace(args, store), args.id)
+    it, where, s = resolve_record(read_workspace(args), args.id)
     print(json.dumps(record_json(it, where, s), indent=1, ensure_ascii=False))
 
 
@@ -189,18 +208,16 @@ def matching(ws, wanted, open_only=False):
 
 
 def cmd_find(args):
-    store = open_store(args)
     for t in args.tags:
         why = tagging.problem(t)
         if why:
             raise TodoError(f"tag {why}")
-    print_records(matching(workspace(args, store), args.tags, args.open), args.json,
+    print_records(matching(read_workspace(args), args.tags, args.open), args.json,
                   "(no record holds every tag named)")
 
 
 def cmd_refs(args):
-    store = open_store(args)
-    ws = workspace(args, store)
+    ws = read_workspace(args)
     local = tagging.local_id(args.id)
     if tagging.well_formed_local(local):
         resolve_record(ws, args.id)  # a dangling todo id is a failure, an unscanned prefix unchecked
@@ -527,8 +544,7 @@ def cmd_list(args):
 
 
 def cmd_show(args):
-    store = open_store(args)
-    ws = workspace(args, store)
+    ws = read_workspace(args)
     it, where, s = ws.find(args.id)
     if it is None:
         raise TodoError(f"{args.id} is in no scanned store or history")
@@ -569,8 +585,12 @@ def cmd_render(args):
 
 
 def cmd_tree(args):
-    store = open_store(args)
-    ws = workspace(args, store)
+    if args.id:
+        ws = read_workspace(args)
+        store = ws.current
+    else:
+        store = open_store(args)
+        ws = workspace(args, store)
     kids = {}
     for it, where, s in ws.everything():
         if it.get("parent"):
@@ -729,8 +749,7 @@ def handoff_line(it, where):
 
 
 def cmd_brief(args):
-    store = open_store(args)
-    ws = workspace(args, store)
+    ws = read_workspace(args)
     it, where, s = ws.find(args.id)
     if it is None:
         raise TodoError(f"{args.id} is in no scanned store or history")
@@ -772,14 +791,15 @@ def cmd_brief(args):
 
 
 def cmd_history(args):
-    store = open_store(args)
-    ws = workspace(args, store)
     if args.id:
+        ws = read_workspace(args)
         it, where, s = ws.find(args.id)
         if it is None or where != "history":
             raise TodoError(f"{args.id} is not in any scanned history" + (" (it is still open: todo show)" if it else ""))
         print_item(it, where, s, ws)
         return
+    store = open_store(args)
+    ws = workspace(args, store)
     s = ws.by_repo(args.repo) if args.repo else store
     if s is None:
         raise TodoError(f"no store for repo {args.repo!r} in the scan (todo repos lists them)")

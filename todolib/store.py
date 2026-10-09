@@ -356,14 +356,16 @@ def scan_stores(root, depth=SCAN_DEPTH):
 
 
 class Workspace:
-    """The current store plus every store the scan finds, loaded once."""
+    """The current store plus every store the scan finds, loaded once. current is
+    None for a read run from a folder with no store of its own (todo show from
+    the workspace root): every scanned store answers, none of them first."""
 
     def __init__(self, current, root):
         self.current = current
         self.root = Path(root)
-        self.stores = [current]
+        self.stores = [current] if current is not None else []
         self.errors = []
-        seen = {current.dir}
+        seen = {current.dir} if current is not None else set()
         for d in scan_stores(root):
             if d.resolve() in seen:
                 continue

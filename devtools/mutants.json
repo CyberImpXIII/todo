@@ -412,6 +412,15 @@
      "run": ["python3", "-m", "unittest", "tests.test_handoff.Handoff.test_check_fails_a_malformed_handoff"]},
     {"id": "handoff-renders-raw", "gate": "TODO.md and show render the handoff as note (date, at commit)",
      "file": "todolib/render.py", "old": "    if name == \"handoff\" and isinstance(value, dict):", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_handoff.Handoff.test_the_render_and_show_carry_it"]}
+     "run": ["python3", "-m", "unittest", "tests.test_handoff.Handoff.test_the_render_and_show_carry_it"]},
+    {"id": "reads-need-a-store", "gate": "show, get, find, refs, brief answer from a folder with no store of its own",
+     "file": "todolib/cli.py", "old": "    if args.C or Store(d).exists():", "new": "    if True:",
+     "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_the_workspace_root_answers_every_read_by_id_or_tag"]},
+    {"id": "explicit-store-swapped", "gate": "-C naming a folder with no store stays an error, never another store's answer",
+     "file": "todolib/cli.py", "old": "    if args.C or Store(d).exists():", "new": "    if Store(d).exists():",
+     "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_writes_and_an_explicit_folder_still_need_a_store"]},
+    {"id": "empty-scan-answers", "gate": "a read with no store here and none under the scan root fails",
+     "file": "todolib/cli.py", "old": "    if not ws.stores:\n        raise TodoError(f\"no {STORE_FILE} in {d}, and none under", "new": "    if False:\n        raise TodoError(f\"no {STORE_FILE} in {d}, and none under",
+     "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_nothing_to_scan_is_an_error_not_an_empty_answer"]}
   ]
 }
