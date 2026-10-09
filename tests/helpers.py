@@ -14,6 +14,17 @@ FIXTURES = ROOT / "tests" / "fixtures"
 TODAY = "2026-10-04"
 
 
+def workspace_file(name):
+    """A workspace file (a plan) above this repo, or None in a fresh clone. Walks up
+    rather than fixing `../..`, so a copy of the repo deeper down (devtools/mutate.py
+    runs the tests in one) still finds it, and a mutant of a plan-backed gate is
+    not a skipped test that passes."""
+    for d in ROOT.parents:
+        if (d / name).is_file():
+            return d / name
+    return None
+
+
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True).stdout
 

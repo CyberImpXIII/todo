@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (9 open, 14 closed in todo-history.json; seal bc99cfa1dcd0): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (13 open, 14 closed in todo-history.json; seal e25c64adf2ab): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -16,6 +16,12 @@
   Dry run on a copy of the top-level TODO.md (2026-10-09): 168 to the store, 33 to history. The 24 blocks under '## Confirmed (2026-10-01, by probe unless stated)' go to the store as note/open, but PLAN-todo-tool.md §9 step 1 says a confirmed finding becomes a closed item. One vocab.json import rule ({match: confirmed, status: done}; the \b match keeps 'Unconfirmed' out) would close them with done-deprecated. Hinges on a yes from the top level's owner: it changes every repo's import, and done-deprecated's meaning (DONE marker or Resolved heading) would widen. Also: 'Needs Jacob' bullets with DONE mid-text (e.g. 'knowledge-base sweep DONE') stay open by rule.
   · work: decision
   · done when: the top level's owner says yes or no; a yes lands as the rule with its test
+  · added: 2026-10-09
+
+- **td-26 · repo: tags here are repo names (repo:todo); PLAN-services.md §3's example is a path (repo:tools/todo)**
+  todolib/tags.py derives repo: from the item's repo field, which is a repo name everywhere in this tool. The plan's example table writes repo:tools/todo. find repo:tools/todo returns nothing here. Hinges on S3's rule for repo: values (a repo that exists: by name or by path).
+  · work: decision
+  · tags: plan:PLAN-services.md§3
   · added: 2026-10-09
 
 ## Unconfirmed suspicions
@@ -54,6 +60,23 @@
   · done when: one copy, installed by setup, with the edits list
   · added: 2026-10-04
 
+- **td-25 · get, find and refs cannot be declared in services.json: its schema allows service check or write only**
+  tools/checks schema/services.schema.json (commit 96ceef9) has service enum [check, write]; get/find/refs are reads, so declaring them as write would mislabel them. Not declared; README says so. context-hygiene hit the same wall on 2026-10-09. Needs tools/checks to add a read service (or a verbs-only entry) to the schema.
+  · reported to: checks on 2026-10-09 (no counterpart yet)
+  · work: decision
+  · tags: plan:PLAN-services.md§3
+  · added: 2026-10-09
+
+## Interim rules
+
+- **td-24 · The tag table in vocab.json is a local copy; read it from the architecture service once it exists**
+  PLAN-services.md §3: the vocabulary lives in the architecture service (S3), which does not exist yet. vocab.json tags.shared copies its seven namespaces; tests/test_tags.py holds them equal to the plan's table (mutant shared-namespaces-drift). Closed values (origin: jacob, model, tool; trust: untrusted) are the plan's examples, not a ruling: S3 decides closed values.
+  · work: code
+  · files: vocab.json, todolib/tags.py
+  · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan
+  · tags: plan:PLAN-services.md§3
+  · added: 2026-10-09
+
 ## Notes
 
 - **td-5 · The append-only audit sees committed versions and the working copy only**
@@ -72,4 +95,11 @@
   check_history adds an INFO 'not a git repo: the append-only audit ... is skipped here' and the gate prints ok. The top-level store (PLAN §9 step 1) is never in git, so its history would never be audited. The store seal (PLAN §9 'The gap his question found', queued next) is the candidate guard; until then it is visible only as INFO.
   · work: audit
   · files: todolib/checks.py
+  · added: 2026-10-09
+
+- **td-27 · PLAN-todo-tool.md §3's command list does not name get, find and refs**
+  tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).
+  · work: docs
+  · done when: PLAN-todo-tool.md §3 lists todo get, find and refs and BEYOND_PLAN holds init only
+  · tags: plan:PLAN-todo-tool.md§3
   · added: 2026-10-09

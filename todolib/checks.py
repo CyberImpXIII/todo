@@ -8,13 +8,13 @@ import json
 import re
 import subprocess
 
-from . import deps
+from . import deps, tags
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, STORE_KEYS, HISTORY_FILE, RENDER_FILE,
                     git_toplevel, id_number, never_scanned, today)
 from .vocab import VOCAB
 
-GATES = ["schema", "vocab", "required", "ids", "parents", "blockers", "reports", "workspace", "render", "history"]
+GATES = ["schema", "vocab", "required", "ids", "parents", "blockers", "tags", "reports", "workspace", "render", "history"]
 SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
@@ -173,6 +173,36 @@ def check_blockers(store, ws, out):
                     out.append(("FAIL", "blockers", it["id"], f"blocked_by cycle: {' -> '.join(path)}; nothing in it can ever be ready"))
 
 
+def check_tags(store, ws, out):
+    """Every stored tag is in the vocabulary and in a namespace that is set by hand,
+    and every ref:todo:<id> tag resolves (PLAN-services.md §3: a dangling ref: is a
+    failure). A ref: to another service is unchecked until a registry answers for
+    it, and counted, never passed silently."""
+    foreign = 0
+    for it in list(store.items) + list(store.closed):
+        given = it.get("tags")
+        if given is None:
+            continue
+        if not (isinstance(given, list) and given and all(isinstance(t, str) for t in given)):
+            out.append(("FAIL", "schema", it["id"], "tags must be a non-empty list of <namespace>:<value> (null when none)"))
+            continue
+        for t in given:
+            why = tags.problem(t, stored=True)
+            if why:
+                out.append(("FAIL", "tags", it["id"], why))
+                continue
+            target = tags.ref_target(t)
+            if tags.is_foreign_ref(t):
+                foreign += 1
+            elif target is not None and ws.find(target)[0] is None:
+                if outside_scan(ws, target):
+                    out.append(("WARN", "tags", it["id"], f"{t} unchecked: no scanned store has prefix {target.split('-')[0]} (the scan root is {ws.root})"))
+                else:
+                    out.append(("FAIL", "tags", it["id"], f"{t} is dangling: {target} is in no scanned store or history"))
+    if foreign:
+        out.append(("INFO", "tags", "-", f"{foreign} ref: tag(s) name another service's record: unchecked until a registry resolves them"))
+
+
 def check_reports(store, ws, out):
     for it in store.items:
         rt = it.get("reported_to")
@@ -302,6 +332,7 @@ def check_store(store, ws):
     check_ids(store, out)
     check_parents(store, ws, out)
     check_blockers(store, ws, out)
+    check_tags(store, ws, out)
     check_reports(store, ws, out)
     check_workspace(store, ws, out)
     check_render(store, out)

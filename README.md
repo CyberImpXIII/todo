@@ -32,8 +32,8 @@ the environment variable `TODO_ROOT` does.
 | usage | what it does |
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
-| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--files F ...] [--done-when D] [--retire C]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--files F ...] [--done-when D] [--retire C]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`) |
+| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--files F ...] [--done-when D] [--retire C] [--tags T ...]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`) |
 | `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
@@ -46,6 +46,9 @@ the environment variable `TODO_ROOT` does.
 | `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set and every `blocked_by` id closed: ready to hand to whoever does that work |
 | `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, and the exact `todo done` command that closes it. Exit 1 when it is not ready (a field missing, a status other than open, or a `blocked_by` id still open) |
 | `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
+| `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
+| `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
+| `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
 flag by flag, and the command list in `PLAN-todo-tool.md` §3 equal to it too
@@ -54,7 +57,7 @@ flag by flag, and the command list in `PLAN-todo-tool.md` §3 equal to it too
 ## Items
 
 One item is one JSON object with every field below, unset ones `null`. A field
-added after items existed is optional in `vocab.json` (`blocked_by`): an item
+added after items existed is optional in `vocab.json` (`blocked_by`, `tags`): an item
 written before it may lack the key, which reads as `null`; history is
 append-only, so its old entries never gain it.
 `vocab.json` is the one source for kinds, statuses, works, reserved resolutions and fields: the parser,
@@ -117,10 +120,40 @@ each have one setter and are refused everywhere else:
 | `files` | paths the work touches |
 | `done_when` | the observable that closes it |
 | `retire` | the check that retires an interim rule |
+| `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
 | `added` | date added |
 | `done` | date closed; null while open |
 | `resolution` | how it closed; null while open |
 | `imported` | `{sha, section, title_from, sep}`, set by `todo import` |
+
+## Ids and tags
+
+Outside this tool an item's id is `todo:<id>` (`todo:td-3`; PLAN-services.md §3),
+and every command that takes an id takes that form too. The store keeps the bare
+`td-3`. Every record carries tags, `<namespace>:<value>`, in the namespaces below
+(`vocab.json` `tags`). A namespace with a field is derived from that field, so a
+tag can never disagree with the item; the others are set by hand with `--tags`.
+Every `parent`, `blocked_by` id and report counterpart also gives a
+`ref:todo:<id>`, so `todo refs` finds them.
+
+<!-- vocab:tags -->
+| namespace | says | from |
+|---|---|---|
+| `repo` | which repo it concerns | the `repo` field |
+| `plan` | which plan section it serves: `PLAN-<name>.md`, optionally `§<section>` | set by hand |
+| `kind` | what sort of thing it is | the `kind` field |
+| `origin` | who produced it: `jacob`, `model` or `tool` (closed) | set by hand |
+| `trust` | whether its text may be read as instructions: `untrusted` (closed) | set by hand |
+| `status` | its state in its owner's vocabulary | the `status` field |
+| `ref` | another record it points at, by id: `<service>:<id>` | set by hand, and from `parent`, `blocked_by`, `reported_to` |
+| `todo.work` | the item's work (this service's own namespace) | the `work` field |
+
+The first seven are a local copy of PLAN-services.md §3's shared table:
+`tests/test_tags.py` holds them equal to it, in order, when the plan is present.
+The shared vocabulary belongs to the architecture service, which does not exist
+yet; once it does, this table is read from there (TODO.md). `get`, `find` and
+`refs` are not declared in `services.json`: its schema (tools/checks) allows a
+service of `check` or `write` only, and these are reads (TODO.md).
 
 ## The rendered file
 
@@ -231,6 +264,7 @@ gate that stopped running shows as a missing line:
 | ids | an id lacks the repo's prefix, appears twice (or in both files), or is not below the counter |
 | parents | a parent resolves in no scanned store or history, or the chain loops. A well-formed parent whose prefix no scanned store holds is a `WARN` (unchecked), not a failure: that scan cannot judge it, as with an unpaired report (td-15) |
 | blockers | a `blocked_by` that is not a non-empty list of ids (`schema`), an id that resolves in no scanned store or history, or a chain of `blocked_by` that leads an open item back to itself (nothing in a cycle can ever be ready). A prefix no scanned store holds is a `WARN`, as for parents |
+| tags | a stored tag outside the vocabulary, in a namespace derived from a field, with a value a closed namespace does not hold, or of the wrong form; a `ref:todo:<id>` that resolves nowhere (dangling). A `ref:` to another service's record is counted (`INFO`), unchecked until a registry resolves it; a `ref:todo:` prefix no scanned store holds is a `WARN`, as for parents |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere |
 | workspace | two stores share a prefix or a repo name |
 | render | `TODO.md` is not the render of `todo.json`: missing, stale (an unedited render of another store or format), hand-edited or hand-written |

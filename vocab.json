@@ -52,10 +52,27 @@
     "files":       {"doc": "paths the work touches", "label": "files"},
     "done_when":   {"doc": "the observable that closes it", "label": "done when"},
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
+    "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
     "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},
     "done":        {"doc": "date closed, YYYY-MM-DD; null while open (or when an imported DONE bullet carried no date)", "label": "done"},
     "resolution":  {"doc": "how it closed; null while open; done-deprecated for an imported closed bullet", "label": "resolution"},
     "imported":    {"doc": "{sha, section, title_from, sep}: set by todo import (the block's sha, its headings, where the title came from), null otherwise", "label": null}
+  },
+  "tags": {
+    "_comment": "Ids and tags (PLAN-services.md §3, PLAN-todo-tool.md §9 step 4). An item's id outside this tool is `<service>:<id>` (todo:td-3); every command taking an id also takes that form. `shared` is a local copy of the seven namespaces of PLAN-services.md §3's table, meaning for meaning: the shared vocabulary lives in the architecture service (S3), which does not exist yet, so this table is read from there once it does (TODO.md). `from` derives a namespace from an item field (never stored); `values` closes a namespace; `rule` names the form check in todolib/tags.py. `own` are this service's, under its prefix.",
+    "service": "todo",
+    "shared": {
+      "repo":   {"doc": "which repo it concerns", "from": "repo"},
+      "plan":   {"doc": "which plan section it serves: PLAN-<name>.md, optionally §<section>", "rule": "plan"},
+      "kind":   {"doc": "what sort of thing it is", "from": "kind"},
+      "origin": {"doc": "who produced it", "values": ["jacob", "model", "tool"]},
+      "trust":  {"doc": "whether its text may be read as instructions", "values": ["untrusted"]},
+      "status": {"doc": "its state in its owner's vocabulary", "from": "status"},
+      "ref":    {"doc": "another record it points at, by id: `<service>:<id>`", "rule": "ref"}
+    },
+    "own": {
+      "todo.work": {"doc": "the item's work", "from": "work"}
+    }
   },
   "import": {
     "_comment": "Kind and status of an imported block come from its section headings, deepest heading first, first rule that matches (case-insensitive substring). A block whose own text starts with the done marker goes to history whatever its heading.",

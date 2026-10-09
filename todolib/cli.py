@@ -2,11 +2,13 @@
 README.md documents each one, and tests/test_docs.py holds the two equal."""
 import argparse
 import difflib
+import json
 import os
 import sys
 from pathlib import Path
 
 from . import checks, deps, importer
+from . import tags as tagging
 from .render import render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, Store, TodoError, Workspace, add_days, id_number,
                     never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
@@ -98,6 +100,102 @@ def resolve_blockers(ws, item_id, blockers):
     return out
 
 
+def resolve_tags(ws, given):
+    """Refuse a tag `check` would fail: one outside the vocabulary, one derived from
+    a field (repo:, kind:, status:, todo.work:), or a ref:todo:<id> that resolves in
+    no scanned store or history. A ref: to another service is kept unchecked (no
+    registry answers for it yet). Returns the tags without repeats, or None."""
+    if not given:
+        return None
+    out = list(dict.fromkeys(given))
+    for t in out:
+        why = tagging.problem(t, stored=True)
+        if why:
+            raise TodoError(f"tag {why}")
+        target = tagging.ref_target(t)
+        if target is not None and ws.find(target)[0] is None:
+            raise TodoError(f"tag {t}: {target} resolves in no scanned store or history")
+    return out
+
+
+class Unchecked(TodoError):
+    """Not this service's to judge (an id of another service, a prefix no scanned
+    store holds): exit 3, never a pass and never a failure."""
+
+
+def resolve_record(ws, text):
+    """(item, where, store) for an id, `todo:td-3` or `td-3`. Unchecked for an id
+    this scan cannot judge; TodoError for a malformed id or a dangling one."""
+    local = tagging.local_id(text)
+    if local == text and tagging.GLOBAL_RE.match(text) and not tagging.well_formed_local(text):
+        raise Unchecked(f"{text} belongs to service {text.split(':', 1)[0]}, not {VOCAB.service}: ask that service")
+    if not tagging.well_formed_local(local):
+        raise TodoError(f"{text} is not an id (todo:<prefix>-<n>)")
+    found = ws.find(local)
+    if found[0] is None:
+        if checks.outside_scan(ws, local):
+            raise Unchecked(f"{text}: no scanned store has prefix {local.split('-')[0]} (the scan root is {ws.root})")
+        raise TodoError(f"{text} is in no scanned store or history: a dangling id")
+    return found
+
+
+def record_json(it, where, s):
+    return {"id": tagging.global_id(it["id"]), "closed": where == "history",
+            "tags": tagging.all_tags(it, s.repo), "record": it}
+
+
+def cmd_get(args):
+    store = open_store(args)
+    it, where, s = resolve_record(workspace(args, store), args.id)
+    print(json.dumps(record_json(it, where, s), indent=1, ensure_ascii=False))
+
+
+def print_records(found, as_json, empty):
+    if as_json:
+        print(json.dumps({"records": [{"id": tagging.global_id(it["id"]), "title": it.get("title"),
+                                       "closed": where == "history", "tags": tagging.all_tags(it, s.repo)}
+                                      for it, where, s in found]}, indent=1, ensure_ascii=False))
+        return
+    for it, where, s in found:
+        print(f"{tagging.global_id(it['id'])}  {it.get('title')}" + ("  (closed)" if where == "history" else ""))
+    if not found:
+        print(empty)
+
+
+def matching(ws, wanted, open_only=False):
+    out = []
+    for it, where, s in ws.everything():
+        if open_only and where == "history":
+            continue
+        if set(wanted) <= set(tagging.all_tags(it, s.repo)):
+            out.append((it, where, s))
+    return out
+
+
+def cmd_find(args):
+    store = open_store(args)
+    for t in args.tags:
+        why = tagging.problem(t)
+        if why:
+            raise TodoError(f"tag {why}")
+    print_records(matching(workspace(args, store), args.tags, args.open), args.json,
+                  "(no record holds every tag named)")
+
+
+def cmd_refs(args):
+    store = open_store(args)
+    ws = workspace(args, store)
+    local = tagging.local_id(args.id)
+    if tagging.well_formed_local(local):
+        resolve_record(ws, args.id)  # a dangling todo id is a failure, an unscanned prefix unchecked
+        target = tagging.global_id(local)
+    elif tagging.GLOBAL_RE.match(args.id):
+        target = args.id  # another service's id: the records here that point at it
+    else:
+        raise TodoError(f"{args.id} is not an id (<service>:<id>)")
+    print_records(matching(ws, [f"ref:{target}"], args.open), args.json, f"(no record here refers to {target})")
+
+
 def one_line(it):
     title = it.get("title") or ""
     if len(title) > TITLE_WIDTH:
@@ -156,13 +254,14 @@ def cmd_add(args):
         validate(item)
         item["id"] = store.allocate()
         item["blocked_by"] = resolve_blockers(ws, item["id"], args.blocked_by)
+        item["tags"] = resolve_tags(ws, args.tags)
         store.items.append(item)
         commit(store)
     print(f"added {item['id']}: {item['title']}")
 
 
 EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "repo", "work", "files",
-            "done_when", "retire"]
+            "done_when", "retire", "tags"]
 
 
 def cmd_edit(args):
@@ -198,6 +297,8 @@ def cmd_edit(args):
             resolve_parent(workspace(args, store), updated["parent"])
         if "blocked_by" in changes:
             updated["blocked_by"] = resolve_blockers(workspace(args, store), args.id, updated["blocked_by"])
+        if "tags" in changes:
+            updated["tags"] = resolve_tags(workspace(args, store), updated["tags"])
         item.update(updated)
         commit(store)
     print(f"edited {args.id}: {', '.join(changes)}")
@@ -556,6 +657,9 @@ COMMANDS = {
     "ready": (cmd_ready, "open items with repo, work and done_when set: dispatchable"),
     "brief": (cmd_brief, "an item as a dispatch brief"),
     "history": (cmd_history, "closed items, newest first"),
+    "get": (cmd_get, "one record by id, as JSON, with its tags"),
+    "find": (cmd_find, "the ids and titles of the records holding every tag named"),
+    "refs": (cmd_refs, "the records whose ref: tag names this id"),
 }
 
 
@@ -572,6 +676,8 @@ def add_item_fields(p, editing):
     p.add_argument("--files", nargs="*")
     p.add_argument("--done-when", dest="done_when")
     p.add_argument("--retire")
+    p.add_argument("--tags", nargs="*", metavar="TAG",
+                   help="plan:, origin:, trust: and ref: tags (the rest derive from the fields); no tags clears them")
     if editing:
         p.add_argument("--title")
         p.add_argument("--append-evidence", dest="append_evidence", metavar="E",
@@ -619,7 +725,24 @@ def build_parser():
     ps["history"].add_argument("--repo")
     ps["history"].add_argument("--kind", choices=list(VOCAB.kinds))
     ps["history"].add_argument("--grep")
+    ps["get"].add_argument("id")
+    ps["find"].add_argument("tags", nargs="+", metavar="TAG")
+    ps["refs"].add_argument("id")
+    for name in ("find", "refs"):
+        ps[name].add_argument("--open", action="store_true", help="open items only, not history")
+        ps[name].add_argument("--json", action="store_true")
     return ap
+
+
+def normalise_ids(args):
+    """Every id argument takes `todo:td-3` as well as `td-3` (PLAN-services.md §3).
+    get and refs keep theirs: they also answer for another service's id."""
+    if args.command not in ("get", "refs") and getattr(args, "id", None):
+        args.id = tagging.local_id(args.id)
+    if getattr(args, "parent", None):
+        args.parent = tagging.local_id(args.parent)
+    if getattr(args, "blocked_by", None):
+        args.blocked_by = [tagging.local_id(b) for b in args.blocked_by]
 
 
 def main(argv=None):
@@ -629,7 +752,11 @@ def main(argv=None):
         ap.print_help()
         return 0
     try:
+        normalise_ids(args)
         COMMANDS[args.command][0](args)
+    except Unchecked as e:
+        print(f"todo: UNCHECKED: {e}", file=sys.stderr)
+        return 3
     except TodoError as e:
         print(f"todo: {e}", file=sys.stderr)
         return 1

@@ -119,7 +119,7 @@ class Handled(Case):
         self.todo("-C", a, "report", "aa-1", "--to", "elsewhere")
         works = list(VOCAB.works)
         for i, status in enumerate(VOCAB.open_statuses()):
-            self.todo("-C", a, "add", f"s {status}", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1", "--blocked-by", "aa-1",
+            self.todo("-C", a, "add", f"s {status}", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1", "--blocked-by", "aa-1", "--tags", "origin:tool",
                       "--status", status, "--work", works[i % len(works)], "--files", "x.py", "--done-when", "dw",
                       "--repo", "other", "--evidence", "ev")
         for w in works:
@@ -152,7 +152,7 @@ class Documented(Case):
     def test_readme_vocab_tables_equal_vocab_json(self):
         for name, declared in (("kinds", VOCAB.kinds), ("statuses", VOCAB.statuses),
                                ("works", VOCAB.works), ("resolutions", VOCAB.resolutions),
-                               ("fields", VOCAB.fields)):
+                               ("fields", VOCAB.fields), ("tags", VOCAB.namespaces)):
             doc = readme_table(name)
             self.assertIsNotNone(doc, f"README.md has no <!-- vocab:{name} --> table")
             self.assertEqual(doc, list(declared), f"README vocab:{name} vs vocab.json")

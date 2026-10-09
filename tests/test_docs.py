@@ -9,7 +9,11 @@ from todolib import cli
 
 PLAN = ROOT.parent.parent / "PLAN-todo-tool.md"
 # Commands the plan's §3 does not list, each with why; the plan fix is reported to its owner (TODO.md).
-BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists"}
+BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
+               # The three verbs every service answers (PLAN-services.md §3; this plan's §9 step 4),
+               # which §3's command list does not name yet.
+               "get": "PLAN-services.md §3: one record by id", "find": "PLAN-services.md §3: records by tag",
+               "refs": "PLAN-services.md §3: records whose ref: names an id"}
 
 
 def parser_flags():

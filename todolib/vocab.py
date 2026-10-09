@@ -20,6 +20,12 @@ class Vocab:
         self.fields = {k: v for k, v in data["fields"].items() if not k.startswith("_")}
         self.resolutions = {k: v for k, v in data["resolutions"].items() if not k.startswith("_")}
         self.roles = data["roles"]
+        self.service = data["tags"]["service"]
+        self.namespaces = {**data["tags"]["shared"], **data["tags"]["own"]}
+        self.shared_namespaces = list(data["tags"]["shared"])
+        for ns, spec in self.namespaces.items():
+            if "from" in spec and spec["from"] not in self.fields:
+                raise ValueError(f"vocab.json: tag namespace {ns} derives from {spec['from']!r}, which is no field")
         self.import_rules = data["import"]["headings"]
         self.done_marker = re.compile(data["import"]["done_marker"])
         for name, value in self.roles.items():

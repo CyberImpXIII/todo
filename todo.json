@@ -2,7 +2,7 @@
   "format": 1,
   "repo": "todo",
   "prefix": "td",
-  "next": 24,
+  "next": 28,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -204,6 +204,105 @@
       ],
       "done_when": null,
       "retire": null,
+      "added": "2026-10-09",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-24",
+      "title": "The tag table in vocab.json is a local copy; read it from the architecture service once it exists",
+      "kind": "temp",
+      "status": "open",
+      "evidence": "PLAN-services.md §3: the vocabulary lives in the architecture service (S3), which does not exist yet. vocab.json tags.shared copies its seven namespaces; tests/test_tags.py holds them equal to the plan's table (mutant shared-namespaces-drift). Closed values (origin: jacob, model, tool; trust: untrusted) are the plan's examples, not a ruling: S3 decides closed values.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "code",
+      "files": [
+        "vocab.json",
+        "todolib/tags.py"
+      ],
+      "done_when": null,
+      "retire": "the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan",
+      "tags": [
+        "plan:PLAN-services.md§3"
+      ],
+      "added": "2026-10-09",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-25",
+      "title": "get, find and refs cannot be declared in services.json: its schema allows service check or write only",
+      "kind": "report",
+      "status": "open",
+      "evidence": "tools/checks schema/services.schema.json (commit 96ceef9) has service enum [check, write]; get/find/refs are reads, so declaring them as write would mislabel them. Not declared; README says so. context-hygiene hit the same wall on 2026-10-09. Needs tools/checks to add a read service (or a verbs-only entry) to the schema.",
+      "probe": null,
+      "reported_to": {
+        "repo": "checks",
+        "date": "2026-10-09",
+        "their_id": null
+      },
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "decision",
+      "files": null,
+      "done_when": null,
+      "retire": null,
+      "tags": [
+        "plan:PLAN-services.md§3"
+      ],
+      "added": "2026-10-09",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-26",
+      "title": "repo: tags here are repo names (repo:todo); PLAN-services.md §3's example is a path (repo:tools/todo)",
+      "kind": "decision",
+      "status": "open",
+      "evidence": "todolib/tags.py derives repo: from the item's repo field, which is a repo name everywhere in this tool. The plan's example table writes repo:tools/todo. find repo:tools/todo returns nothing here. Hinges on S3's rule for repo: values (a repo that exists: by name or by path).",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "decision",
+      "files": null,
+      "done_when": null,
+      "retire": null,
+      "tags": [
+        "plan:PLAN-services.md§3"
+      ],
+      "added": "2026-10-09",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-27",
+      "title": "PLAN-todo-tool.md §3's command list does not name get, find and refs",
+      "kind": "note",
+      "status": "open",
+      "evidence": "tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "docs",
+      "files": null,
+      "done_when": "PLAN-todo-tool.md §3 lists todo get, find and refs and BEYOND_PLAN holds init only",
+      "retire": null,
+      "tags": [
+        "plan:PLAN-todo-tool.md§3"
+      ],
       "added": "2026-10-09",
       "done": null,
       "resolution": null,
