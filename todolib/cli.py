@@ -196,6 +196,33 @@ def cmd_refs(args):
     print_records(matching(ws, [f"ref:{target}"], args.open), args.json, f"(no record here refers to {target})")
 
 
+def cmd_reseal(args):
+    """Accept a store file changed around the CLI, after reading its diff: the one
+    way to write over a broken seal, and recorded, so it is never silent."""
+    if not args.reason.strip():
+        raise TodoError("--reason: say what changed and why it is accepted")
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        require_clean(store)
+        broken = store.unsealed()
+        if not broken:
+            raise TodoError("nothing to reseal: every store file's seal matches its content")
+        store.data.setdefault("hand_edits", []).append({"date": today(), "via": "reseal", "files": broken,
+                                                        "reason": args.reason})
+        store.save(reseal=True)
+        write_render(store)
+    print(f"resealed {', '.join(broken)}; recorded in todo.json hand_edits. `todo check` judges the content.")
+
+
+def cmd_help(args):
+    """The command list, one per line at one indent: what tools/checks reads to
+    hold cli.json's verbs to what this CLI offers."""
+    print("todo <command>   structured TODO items per repo; `todo <command> -h` for its flags\n")
+    for name, (_, text) in COMMANDS.items():
+        print(f"  {name:<9} {text}")
+
+
 def one_line(it):
     title = it.get("title") or ""
     if len(title) > TITLE_WIDTH:
@@ -660,6 +687,8 @@ COMMANDS = {
     "get": (cmd_get, "one record by id, as JSON, with its tags"),
     "find": (cmd_find, "the ids and titles of the records holding every tag named"),
     "refs": (cmd_refs, "the records whose ref: tag names this id"),
+    "reseal": (cmd_reseal, "accept a store file changed around the CLI, recorded in hand_edits"),
+    "help": (cmd_help, "this list of commands"),
 }
 
 
@@ -725,6 +754,7 @@ def build_parser():
     ps["history"].add_argument("--repo")
     ps["history"].add_argument("--kind", choices=list(VOCAB.kinds))
     ps["history"].add_argument("--grep")
+    ps["reseal"].add_argument("--reason", required=True)
     ps["get"].add_argument("id")
     ps["find"].add_argument("tags", nargs="+", metavar="TAG")
     ps["refs"].add_argument("id")

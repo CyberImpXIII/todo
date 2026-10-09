@@ -1,5 +1,9 @@
 {
   "no-roster": {
     "exclude": ["devtools/audit.json", "devtools/mutants.json"]
+  },
+  "accessor": {
+    "impl": ["todolib/*.py"],
+    "exclude": ["devtools/mutants.json"]
   }
 }

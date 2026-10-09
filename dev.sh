@@ -21,7 +21,7 @@ usage() {
              gate exit 3); registered once settings.json exists
   files      the files the tool needs: present, executable where they must be, data parses
   audit      the direction audit (devtools/audit.py): nothing reads the delegation layer or names a roster agent
-  self       todo check on this repo's own store (its TODO.md is the render of todo.json)
+  self       todo check on this repo's own store (its TODO.md is the render of the store)
   checks     tools/checks' `checks run .` with the roster-name copy in devtools/audit.json; red on any
              fail, and when no-roster did not run or ran without the names (devtools/checks_gate.py)
   mutants    break each gate once in a throwaway copy, require red (devtools/mutants.json)
@@ -82,7 +82,7 @@ cmd_files() {
   for f in todo dev.sh devtools/audit.py devtools/mutate.py devtools/checks_gate.py; do
     [ -x "$f" ] || { echo "  FAIL  $f missing or not executable"; fails=$((fails+1)); }
   done
-  for f in vocab.json devtools/audit.json devtools/mutants.json checks.json todo.json todo-history.json; do
+  for f in vocab.json devtools/audit.json devtools/mutants.json checks.json cli.json; do
     jq -e . "$f" >/dev/null 2>&1 || { echo "  FAIL  $f missing or does not parse"; fails=$((fails+1)); }
   done
   for f in CLAUDE.md README.md TODO.md .gitignore todolib/__init__.py; do

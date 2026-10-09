@@ -49,6 +49,8 @@ the environment variable `TODO_ROOT` does.
 | `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
 | `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
+| `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
+| `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
 flag by flag, and the command list in `PLAN-todo-tool.md` §3 equal to it too
@@ -155,6 +157,29 @@ yet; once it does, this table is read from there (TODO.md). `get`, `find` and
 `refs` are not declared in `services.json`: its schema (tools/checks) allows a
 service of `check` or `write` only, and these are reads (TODO.md).
 
+## The store files
+
+`todo.json` and `todo-history.json` are written by this CLI alone, and three
+things hold every other writer off them:
+
+- **`cli.json` declares them** (`store`), with the CLI and its verbs, for
+  tools/checks: `accessor` fails a file outside `todolib/` that names them,
+  `stores-readonly` fails a store file with a write bit, and a shared hook refuses
+  a session's write to them. `tests/test_seal.py` holds `store` to the files the
+  CLI writes and `verbs` to its commands.
+- **They sit read-only (0444) between writes.** The CLI writes a temp file and
+  renames it over the old one, so it never needs the write bit and leaves none.
+- **Each carries a seal**, `seal`: a digest of its content (canonical JSON, the
+  seal left out) that every CLI write recomputes. A file changed around the CLI
+  no longer matches, and `todo check` fails it (gate `seal`), however well-formed
+  the change. Every mutating command refuses to write over a broken seal, so the
+  next write never launders a hand edit; restore the file from git and make the
+  change with the CLI, or read the diff and `todo reseal --reason R`, which
+  records it. Removing the seal fails too: a format-2 file with no seal is a hand
+  edit, and so is a format-1 file whose last git commit was sealed. A file from
+  before seals (`format` 1, never sealed) is a `WARN` until the next CLI write
+  seals it.
+
 ## The rendered file
 
 `TODO.md` is a pure function of `todo.json`: a header line, the repo's name, then
@@ -259,6 +284,7 @@ gate that stopped running shows as a missing line:
 | gate | fails when |
 |---|---|
 | schema | a key or field differs from `vocab.json`, a date is not `YYYY-MM-DD`, a one-line field spans lines, a closed item sits in the store |
+| seal | a store file's seal does not match its content, or was removed: changed around the CLI (above). A file written before seals is a `WARN` until the next CLI write |
 | vocab | a kind, status or work is not declared, or a reserved resolution is on an item its setter did not write |
 | required | an item lacks a field its kind or status requires (an imported closed item may lack only its date) |
 | ids | an id lacks the repo's prefix, appears twice (or in both files), or is not below the counter |

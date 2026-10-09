@@ -4,16 +4,20 @@ and dev.sh's usage against its case arms."""
 import re
 import unittest
 
-from tests.helpers import ROOT
+from tests.helpers import ROOT, workspace_file
 from todolib import cli
 
-PLAN = ROOT.parent.parent / "PLAN-todo-tool.md"
+PLAN = workspace_file("PLAN-todo-tool.md")  # walks up, so a mutant copy runs it too
 # Commands the plan's §3 does not list, each with why; the plan fix is reported to its owner (TODO.md).
 BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                # The three verbs every service answers (PLAN-services.md §3; this plan's §9 step 4),
                # which §3's command list does not name yet.
                "get": "PLAN-services.md §3: one record by id", "find": "PLAN-services.md §3: records by tag",
-               "refs": "PLAN-services.md §3: records whose ref: names an id"}
+               "refs": "PLAN-services.md §3: records whose ref: names an id",
+               # The gap his question found (this plan's §9): a hand edit that broke a seal is
+               # accepted only by a recorded verb; `help` is what tools/checks reads for cli.json.
+               "reseal": "§9: accept a broken seal, recorded in hand_edits",
+               "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 
 
 def parser_flags():
@@ -49,7 +53,7 @@ class Docs(unittest.TestCase):
         for o in glob:
             self.assertIn(f"`{o} ", text, f"global option {o} undocumented")
 
-    @unittest.skipUnless(PLAN.is_file(), "the plan lives in the workspace, not in a fresh clone")
+    @unittest.skipUnless(PLAN, "the plan lives in the workspace, not in a fresh clone")
     def test_plan_section_3_lists_exactly_the_commands(self):
         text = PLAN.read_text()
         sec = text.split("## 3. Commands", 1)[1].split("\n## ", 1)[0]

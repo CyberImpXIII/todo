@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (13 open, 14 closed in todo-history.json; seal e25c64adf2ab): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (15 open, 14 closed in todo-history.json; seal 66f5647b06c1): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -22,6 +22,11 @@
   todolib/tags.py derives repo: from the item's repo field, which is a repo name everywhere in this tool. The plan's example table writes repo:tools/todo. find repo:tools/todo returns nothing here. Hinges on S3's rule for repo: values (a repo that exists: by name or by path).
   · work: decision
   · tags: plan:PLAN-services.md§3
+  · added: 2026-10-09
+
+- **td-29 · cli.json declares the stores, so tools/checks' stores-exported now wants a verify verb**
+  ./dev.sh check, 2026-10-09, after cli.json was added for the seal (PLAN-todo-tool.md §9): checks gate FAIL stores-exported: 'cli.json: declares no `verify` verb: nothing shows the store's export is current'. That check (tools/checks source/stores-exported.py, PLAN-repo-setup.md §7.11) runs `todo verify --json` against an export in DATA_REPO. This tool has no export and no plan for one; the brief did not ask for it. Hinges on: whether todo stores get an export in the data repo at all (the top level's owner decides), and then `todo export` + `todo verify --json` per schema/verify.schema.json.
+  · work: decision
   · added: 2026-10-09
 
 ## Unconfirmed suspicions
@@ -102,4 +107,8 @@
   · work: docs
   · done when: PLAN-todo-tool.md §3 lists todo get, find and refs and BEYOND_PLAN holds init only
   · tags: plan:PLAN-todo-tool.md§3
+  · added: 2026-10-09
+
+- **td-28 · Other repos' stores are declared in no cli.json and still format 1**
+  The seal and the 0444 mode now apply wherever this CLI writes (2026-10-09), but cli.json declares only tools/todo's own todo.json and todo-history.json. Every other store (the top level, income, and each repo that runs todo init) is format 1 until its next CLI write, a WARN in its check till then, and no hook or accessor knows it is a store. unverified: no other repo has a cli.json naming todo.json -- settle: grep -l todo.json ../*/cli.json ../../cli.json
   · added: 2026-10-09

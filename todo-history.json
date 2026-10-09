@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "repo": "todo",
   "items": [
     {
@@ -303,5 +303,6 @@
       "resolution": "2026-10-08: drift gone. tools/hooks clean at 05a5ae4; setup re-rendered the copies (tools/setup/setup tools/todo --only hooks --rebuild). tools/checks/checks one hooks-installed tools/todo: OK, 1 ok -> green; ./dev.sh check: checks gate ok (10 ok, 3 unchecked). Remaining red is td-2 only (hooks + mutants baseline).",
       "imported": null
     }
-  ]
+  ],
+  "seal": "499468e90112ef94"
 }

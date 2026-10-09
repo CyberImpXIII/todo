@@ -10,11 +10,11 @@ import subprocess
 
 from . import deps, tags
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
-from .store import (DATE_RE, HISTORY_KEYS, ID_RE, STORE_KEYS, HISTORY_FILE, RENDER_FILE,
-                    git_toplevel, id_number, never_scanned, today)
+from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_KEYS, HISTORY_FILE,
+                    RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
 from .vocab import VOCAB
 
-GATES = ["schema", "vocab", "required", "ids", "parents", "blockers", "tags", "reports", "workspace", "render", "history"]
+GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "blockers", "tags", "reports", "workspace", "render", "history"]
 SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
@@ -300,7 +300,7 @@ def check_history(store, out):
     if store.history is None:
         out.append(("FAIL", "history", "-", f"{HISTORY_FILE} missing (todo init writes it; it is never deleted)"))
         return
-    if set(store.history) != set(HISTORY_KEYS) or store.history.get("repo") != store.repo:
+    if set(store.history) != expected_keys(store.history, HISTORY_KEYS) or store.history.get("repo") != store.repo:
         out.append(("FAIL", "history", "-", f"{HISTORY_FILE} must hold exactly {HISTORY_KEYS}, repo {store.repo}"))
     undated = [it["id"] for it in store.closed if it.get("imported") and not it.get("done")]
     if undated:
@@ -321,9 +321,30 @@ def check_history(store, out):
                 out.append(("FAIL", "history", iid, f"changed since {sha}: history entries are never edited"))
 
 
+def expected_keys(data, keys):
+    """A file written before seals (format 1) lacks the seal key and nothing else."""
+    return set(keys) - ({SEAL_KEY} if seal_state(data) == "legacy" else set())
+
+
+def check_seal(store, out):
+    """Both store files carry a seal over their content that the CLI rewrites on
+    every write (PLAN-todo-tool.md §9, the gap his question found): a file changed
+    around the CLI fails here, however well-formed. A file written before seals
+    is a WARN until the next CLI write seals it, unless git's last commit of it was
+    sealed (store.load calls that "downgraded"): then the seal was removed by hand."""
+    for name, state in store.seals.items():
+        if state == "sealed":
+            continue
+        if state == "legacy":
+            out.append(("WARN", "seal", "-", f"{name}: {SEAL_STATES[state]} (any `todo add`, `edit` or `done` here does it)"))
+        else:
+            out.append(("FAIL", "seal", "-", f"{name}: {SEAL_STATES[state]}. Restore it (git checkout -- {name}) and make the change with the CLI, or, having read the diff, `todo reseal --reason R`"))
+
+
 def check_store(store, ws):
     out = []
-    if set(store.data) != set(STORE_KEYS):
+    check_seal(store, out)
+    if set(store.data) != expected_keys(store.data, STORE_KEYS):
         out.append(("FAIL", "schema", "-", f"todo.json keys {sorted(store.data)}, expected {STORE_KEYS}"))
     for it in store.items:
         check_item(it, "store", store, out)

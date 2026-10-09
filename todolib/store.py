@@ -8,6 +8,7 @@ store file; tests/test_store.py audits that.
 import contextlib
 import datetime
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -20,9 +21,14 @@ STORE_FILE = "todo.json"
 HISTORY_FILE = "todo-history.json"
 RENDER_FILE = "TODO.md"
 HISTORY_RENDER_FILE = "TODO-HISTORY.md"
-FORMAT = 1
-STORE_KEYS = ["format", "repo", "prefix", "next", "render_gate_from", "hand_edits", "items"]
-HISTORY_KEYS = ["format", "repo", "items"]
+# 2: both files carry a seal over their content (2026-10-09). 1: written before seals;
+# read as is, sealed by the next CLI write, and a WARN in check until then.
+FORMAT = 2
+LEGACY_FORMAT = 1
+SEAL_KEY = "seal"
+SEAL_LEN = 16
+STORE_KEYS = ["format", "repo", "prefix", "next", "render_gate_from", "hand_edits", "items", SEAL_KEY]
+HISTORY_KEYS = ["format", "repo", "items", SEAL_KEY]
 PREFIX_RE = re.compile(r"^[a-z][a-z0-9]{0,7}$")
 ID_RE = re.compile(r"^([a-z][a-z0-9]{0,7})-([0-9]+)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -83,11 +89,60 @@ def dump(data):
 
 
 def write_atomic(path, text, readonly=False):
+    """A temp file, then a rename: the target's own mode never matters, so a
+    read-only (0444) file is replaced as easily as a writable one, and a reader
+    never sees half a file. readonly=True leaves the new file at 0444."""
     path = Path(path)
     tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
     tmp.write_text(text)
     os.chmod(tmp, 0o444 if readonly else 0o644)
     os.replace(tmp, path)
+
+
+def content_seal(data):
+    """The digest of a store file's content with its seal left out. Canonical
+    JSON, so it judges what the file says, not how it is spaced."""
+    body = {k: v for k, v in data.items() if k != SEAL_KEY}
+    text = json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(text.encode()).hexdigest()[:SEAL_LEN]
+
+
+def sealed(data):
+    """data with format FORMAT and its seal last, over the content as it stands."""
+    out = {k: v for k, v in data.items() if k != SEAL_KEY}
+    out["format"] = FORMAT
+    out[SEAL_KEY] = content_seal(out)
+    return out
+
+
+SEAL_STATES = {
+    "sealed": "its seal matches its content: last written by the CLI",
+    "broken": "its seal does not match its content: changed since the CLI last wrote it (a hand edit)",
+    "missing": f"format {FORMAT} with no seal: a hand edit removed it",
+    "downgraded": f"format {LEGACY_FORMAT} with no seal, but its last git commit was sealed: a hand edit removed the seal",
+    "legacy": f"format {LEGACY_FORMAT}, written before seals: the next CLI write seals it; until then a hand edit here cannot be told",
+}
+
+
+def seal_state(data):
+    """One of SEAL_STATES for a parsed store file (a dict)."""
+    if SEAL_KEY in data:
+        return "sealed" if data[SEAL_KEY] == content_seal(data) else "broken"
+    return "legacy" if data.get("format") == LEGACY_FORMAT else "missing"
+
+
+def committed_sealed(folder, name):
+    """True when git's last commit of folder/name carries a seal: a working copy
+    without one was then unsealed by hand, not written before seals."""
+    top = git_toplevel(folder)
+    if not top:
+        return False
+    rel = (Path(folder) / name).resolve().relative_to(top.resolve())
+    shown = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=top, capture_output=True, text=True)
+    try:
+        return shown.returncode == 0 and SEAL_KEY in json.loads(shown.stdout)
+    except ValueError:
+        return False
 
 
 class Store:
@@ -98,6 +153,7 @@ class Store:
         self.render_path = self.dir / RENDER_FILE
         self.data = None
         self.history = None
+        self.seals = {}
 
     # -- reading -----------------------------------------------------------
     def exists(self):
@@ -117,7 +173,17 @@ class Store:
                 raise TodoError(f"{self.history_path} does not parse: {e}")
         else:
             self.history = None
+        self.seals = {STORE_FILE: seal_state(self.data) if isinstance(self.data, dict) else "broken"}
+        if self.history is not None:
+            self.seals[HISTORY_FILE] = seal_state(self.history) if isinstance(self.history, dict) else "broken"
+        for name, state in self.seals.items():
+            if state == "legacy" and committed_sealed(self.dir, name):
+                self.seals[name] = "downgraded"
         return self
+
+    def unsealed(self):
+        """The files changed around the CLI since it last wrote them, as loaded."""
+        return [name for name, state in self.seals.items() if state in ("broken", "missing", "downgraded")]
 
     @property
     def repo(self):
@@ -185,15 +251,29 @@ class Store:
         self.data["next"] = n + 1
         return f"{self.prefix}-{n}"
 
-    def save(self):
+    def save(self, reseal=False):
         """History first: an interrupted close leaves the id in both files,
         which `check` reports and `todo done ID` finishes; never in neither.
-        A missing history is never written back empty."""
+        A missing history is never written back empty.
+
+        Both files are written sealed and read-only (0444): a hand edit then
+        fails loudly at the file, and one that gets through breaks the seal,
+        which `check` fails. A file whose seal was broken when loaded is never
+        written over, or the next CLI write would launder the hand edit; only
+        `todo reseal` (reseal=True, recorded in hand_edits) accepts it."""
         if self.history is None:
             raise TodoError(f"{self.history_path} is missing; refusing to write a store without its history")
+        broken = self.unsealed()
+        if broken and not reseal:
+            raise TodoError(f"{', '.join(broken)} in {self.dir} changed around the CLI since its last write (its seal does not match). "
+                            "Restore it (git checkout -- FILE) and make the change with the CLI, or, having read the diff, "
+                            "`todo reseal --reason R` accepts it and records that in hand_edits")
         self.data["items"].sort(key=lambda it: id_number(it.get("id")))
-        write_atomic(self.history_path, dump(self.history))
-        write_atomic(self.path, dump(self.data))
+        self.history = sealed(self.history)
+        self.data = sealed(self.data)
+        write_atomic(self.history_path, dump(self.history), readonly=True)
+        write_atomic(self.path, dump(self.data), readonly=True)
+        self.seals = {STORE_FILE: "sealed", HISTORY_FILE: "sealed"}
 
 
 def store_dir_for(cwd, explicit=None):

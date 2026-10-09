@@ -1,6 +1,7 @@
 """History (PLAN §2a): done moves an item whole, history is append-only against
 its own git log, and history/show read it back."""
 import json
+import os
 
 from tests.helpers import Case, git_commit
 from todolib.vocab import VOCAB
@@ -95,6 +96,7 @@ class AppendOnly(Case):
         self.assertFails(self.a, "history", "aa-1     was in todo-history.json at")
 
     def test_an_unparseable_history_is_refused_not_guessed(self):
+        os.chmod(self.a / "todo-history.json", 0o644)
         (self.a / "todo-history.json").write_text("{not json")
         r = self.todo("-C", self.a, "check", ok=False)
         self.assertIn("does not parse", r.stderr)

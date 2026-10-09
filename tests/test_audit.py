@@ -48,13 +48,26 @@ class Direction(unittest.TestCase):
         there that this audit does not also skip would hide a file from both; one naming
         a missing file would be a guard that guards nothing."""
         cfg = json.loads((ROOT / "checks.json").read_text())
-        self.assertEqual(sorted(cfg), ["no-roster"], "checks.json holds only what this repo needs")
+        self.assertEqual(sorted(cfg), ["accessor", "no-roster"], "checks.json holds only what this repo needs")
         excluded = cfg["no-roster"]["exclude"]
         skip = json.loads((ROOT / "devtools" / "audit.json").read_text())["skip"]
         self.assertTrue(excluded)
         for rel in excluded:
             self.assertIn(rel, skip, f"{rel} is excluded from no-roster but not skipped by devtools/audit.py")
             self.assertTrue((ROOT / rel).is_file(), f"{rel} is excluded but does not exist")
+
+    def test_accessor_exempts_only_the_store_code_and_the_planted_hand_edit(self):
+        """accessor (tools/checks) fails a file naming the store files outside `impl`.
+        `impl` is the package that holds the one writer (todolib/store.py) and must
+        match it; the one exclusion is devtools/mutants.json, whose self-gate-quiet
+        mutant plants a hand edit in todo.json on purpose. Anything wider would let a
+        second writer through unseen."""
+        cfg = json.loads((ROOT / "checks.json").read_text())["accessor"]
+        self.assertEqual(cfg["impl"], ["todolib/*.py"])
+        self.assertIn(ROOT / "todolib" / "store.py", list(ROOT.glob(cfg["impl"][0])))
+        self.assertEqual(cfg["exclude"], ["devtools/mutants.json"])
+        mutants = json.loads((ROOT / "devtools" / "mutants.json").read_text())["mutants"]
+        self.assertIn("todo.json", [m.get("file") for m in mutants])
 
     def test_installed_shared_copies_are_skipped_and_nothing_else_is(self):
         """td-16 (Jacob, 2026-10-05): the copies setup's hooks component installs in

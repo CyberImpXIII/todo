@@ -12,7 +12,7 @@
     "open":          {"doc": "workable now", "requires": []},
     "waiting-jacob": {"doc": "needs Jacob's answer before anyone can move it", "requires": []},
     "blocked":       {"doc": "waits on something other than Jacob; the evidence says what", "requires": []},
-    "done":          {"doc": "closed; the item lives in todo-history.json from then on", "requires": ["done", "resolution"]}
+    "done":          {"doc": "closed; the item lives in the history file from then on", "requires": ["done", "resolution"]}
   },
   "works": {
     "code":     {"doc": "a change to the tool's own code"},

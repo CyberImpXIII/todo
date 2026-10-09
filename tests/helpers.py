@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from todolib.store import HISTORY_FILE, STORE_FILE, sealed
+
 ROOT = Path(__file__).resolve().parent.parent
 TODO = ROOT / "todo"
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -95,7 +97,16 @@ class Case(unittest.TestCase):
         self.assertTrue(hits, f"no 'FAIL {gate}' line holding {text!r} in:\n{out}")
         return out
 
-    def write_json(self, path, data):
+    def write_json(self, path, data, seal=True):
+        """Plant a fixture. A store file is written sealed and read-only, as the CLI
+        writes it, so the test exercises its own gate and not the seal gate;
+        seal=False writes it as a hand edit would leave it (tests/test_seal.py)."""
         path = Path(path)
-        os.chmod(path, 0o644)
+        if path.exists():
+            os.chmod(path, 0o644)
+        is_store = path.name in (STORE_FILE, HISTORY_FILE) and isinstance(data, dict)
+        if is_store and seal:
+            data = sealed(data)
         path.write_text(json.dumps(data, indent=2) + "\n")
+        if is_store and seal:
+            os.chmod(path, 0o444)
