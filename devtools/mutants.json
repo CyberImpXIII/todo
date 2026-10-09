@@ -241,6 +241,12 @@
      "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_check_counts_unchecked_apart_from_failed_and_never_green"]},
     {"id": "check-unchecked-is-green", "gate": "./dev.sh check exits 3 on an UNCHECKED gate, never 0",
      "file": "dev.sh", "old": "  [ $unchecked -gt 0 ] && return 3\n", "new": "  [ $unchecked -gt 0 ] && return 0\n",
-     "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_check_counts_unchecked_apart_from_failed_and_never_green"]}
+     "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_check_counts_unchecked_apart_from_failed_and_never_green"]},
+    {"id": "toplevel-needs-git", "gate": "a store works in a folder that is no git repo: init and import --dry-run at the top level (PLAN §9 step 1)",
+     "file": "todolib/store.py", "old": "        if (d / STORE_FILE).is_file():\n            return d\n    return cwd\n", "new": "        if (d / STORE_FILE).is_file():\n            return d\n    raise TodoError(f\"{cwd} is in no git repo\")\n",
+     "run": ["python3", "-m", "unittest", "tests.test_toplevel.TopLevel.test_init_and_a_dry_run_import_work_where_there_is_no_git_repo"]},
+    {"id": "dry-run-writes", "gate": "import --dry-run writes nothing (PLAN §9 step 1: the planner reviews before importing)",
+     "file": "todolib/cli.py", "old": "            print(\"(dry run: nothing written)\")\n            return\n", "new": "            print(\"(dry run: nothing written)\")\n",
+     "run": ["python3", "-m", "unittest", "tests.test_toplevel.TopLevel.test_init_and_a_dry_run_import_work_where_there_is_no_git_repo"]}
   ]
 }

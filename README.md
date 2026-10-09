@@ -199,6 +199,13 @@ Under it, every git repo with a `todo.json`, three levels down, is a store. Hidd
 folders, `node_modules`, `venv` and test fixtures are never entered. A prefix or
 a repo name used twice is a failure.
 
+A store need not be in a git repo: the workspace top level is one (PLAN-todo-tool.md
+§9 step 1). `todo init` and `todo import TODO.md --dry-run` run there with no `-C`,
+the dry run writes nothing and its counts are what the import then does, and the
+top-level store and each repo's see each other in the scan (`tests/test_toplevel.py`,
+mutants `toplevel-needs-git` and `dry-run-writes`). Outside git, history's
+append-only audit cannot run and `check` says so (`INFO`; td-23).
+
 So a report to a hidden folder **never pairs**, and that is by design: the
 delegation layer (`.claude`) is one, and todo never reads it (PLAN-todo-tool.md
 §8 decision 4). `todo report ID --to .claude` still records whom it went to; the

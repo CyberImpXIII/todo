@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (7 open, 14 closed in todo-history.json; seal ab517123f107): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (9 open, 14 closed in todo-history.json; seal bc99cfa1dcd0): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -11,6 +11,12 @@
   · work: decision
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
+
+- **td-22 · A Confirmed heading imports as open notes, not closed items**
+  Dry run on a copy of the top-level TODO.md (2026-10-09): 168 to the store, 33 to history. The 24 blocks under '## Confirmed (2026-10-01, by probe unless stated)' go to the store as note/open, but PLAN-todo-tool.md §9 step 1 says a confirmed finding becomes a closed item. One vocab.json import rule ({match: confirmed, status: done}; the \b match keeps 'Unconfirmed' out) would close them with done-deprecated. Hinges on a yes from the top level's owner: it changes every repo's import, and done-deprecated's meaning (DONE marker or Resolved heading) would widen. Also: 'Needs Jacob' bullets with DONE mid-text (e.g. 'knowledge-base sweep DONE') stay open by rule.
+  · work: decision
+  · done when: the top level's owner says yes or no; a yes lands as the rule with its test
+  · added: 2026-10-09
 
 ## Unconfirmed suspicions
 
@@ -61,3 +67,9 @@
   · work: audit
   · files: todolib/checks.py
   · added: 2026-10-04
+
+- **td-23 · Outside git the history append-only audit is skipped and history still prints ok**
+  check_history adds an INFO 'not a git repo: the append-only audit ... is skipped here' and the gate prints ok. The top-level store (PLAN §9 step 1) is never in git, so its history would never be audited. The store seal (PLAN §9 'The gap his question found', queued next) is the candidate guard; until then it is visible only as INFO.
+  · work: audit
+  · files: todolib/checks.py
+  · added: 2026-10-09

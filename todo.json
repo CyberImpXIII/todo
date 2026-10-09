@@ -2,7 +2,7 @@
   "format": 1,
   "repo": "todo",
   "prefix": "td",
-  "next": 22,
+  "next": 24,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -165,6 +165,46 @@
       "done_when": null,
       "retire": null,
       "added": "2026-10-04",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-22",
+      "title": "A Confirmed heading imports as open notes, not closed items",
+      "kind": "decision",
+      "status": "open",
+      "evidence": "Dry run on a copy of the top-level TODO.md (2026-10-09): 168 to the store, 33 to history. The 24 blocks under '## Confirmed (2026-10-01, by probe unless stated)' go to the store as note/open, but PLAN-todo-tool.md §9 step 1 says a confirmed finding becomes a closed item. One vocab.json import rule ({match: confirmed, status: done}; the \\b match keeps 'Unconfirmed' out) would close them with done-deprecated. Hinges on a yes from the top level's owner: it changes every repo's import, and done-deprecated's meaning (DONE marker or Resolved heading) would widen. Also: 'Needs Jacob' bullets with DONE mid-text (e.g. 'knowledge-base sweep DONE') stay open by rule.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "decision",
+      "files": null,
+      "done_when": "the top level's owner says yes or no; a yes lands as the rule with its test",
+      "retire": null,
+      "added": "2026-10-09",
+      "done": null,
+      "resolution": null,
+      "imported": null
+    },
+    {
+      "id": "td-23",
+      "title": "Outside git the history append-only audit is skipped and history still prints ok",
+      "kind": "note",
+      "status": "open",
+      "evidence": "check_history adds an INFO 'not a git repo: the append-only audit ... is skipped here' and the gate prints ok. The top-level store (PLAN §9 step 1) is never in git, so its history would never be audited. The store seal (PLAN §9 'The gap his question found', queued next) is the candidate guard; until then it is visible only as INFO.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "audit",
+      "files": [
+        "todolib/checks.py"
+      ],
+      "done_when": null,
+      "retire": null,
+      "added": "2026-10-09",
       "done": null,
       "resolution": null,
       "imported": null
