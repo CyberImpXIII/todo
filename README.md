@@ -33,7 +33,7 @@ the environment variable `TODO_ROOT` does.
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
 | `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags T ...]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`) |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]] [--handoff NOTE]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below) |
 | `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
@@ -44,7 +44,7 @@ the environment variable `TODO_ROOT` does.
 | `todo import FILE [--dry-run]` | a hand-written or hand-edited `TODO.md` into items (below) |
 | `todo repos` | every store the scan finds, with its counts |
 | `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed: ready to hand to whoever does that work. An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it) |
-| `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, and the exact `todo done` command that closes it. Exit 1 when it is not ready (a field missing, a status other than open, or a `blocked_by` id still open) |
+| `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, and the stop rule (below). Exit 1 when it is not ready (a field missing, a status other than open, a `blocked_by` id still open, or its size) |
 | `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
 | `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
@@ -60,7 +60,7 @@ flag by flag, and the command list in `PLAN-todo-tool.md` §3 equal to it too
 ## Items
 
 One item is one JSON object with every field below, unset ones `null`. A field
-added after items existed is optional in `vocab.json` (`blocked_by`, `tags`): an item
+added after items existed is optional in `vocab.json` (`blocked_by`, `size`, `handoff`, `tags`): an item
 written before it may lack the key, which reads as `null`; history is
 append-only, so its old entries never gain it.
 `vocab.json` is the one source for kinds, statuses, works, reserved resolutions and fields: the parser,
@@ -110,6 +110,17 @@ children first (`todo split`). tools/usage reads the same field for its
 | `M` | a few steps, still one checkpoint: one done_when, one commit, one report |
 | `L` | more than one checkpoint: `todo split` it into S and M children before anyone starts it |
 
+A usage limit ends a session mid-turn, with no chance to write anything
+(PLAN-small-tasks.md §4). So at each checkpoint, next to its commit, the agent
+runs `todo edit ID --handoff "done; next; how to verify"`; the item keeps the note,
+the date and the work repo's `HEAD` (its `repo` is this store's, or a scanned
+store's; otherwise the commit is null, never guessed). `todo brief` prints the
+handoff with that commit's subject, and says so when `HEAD` has moved on since, so
+the next dispatch resumes there. Every brief also carries the stop rule,
+`vocab.json` `brief.stop_rule`, in PLAN-small-tasks.md §2.3's words: "Commit after
+each step that passes. If the full check fails twice, stop and report what passed,
+what failed and where. Do not start the suite a third time."
+
 A resolution is free text written by `todo done`, except the values below, which
 each have one setter and are refused everywhere else:
 
@@ -135,6 +146,7 @@ each have one setter and are refused everywhere else:
 | `size` | one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready |
 | `files` | paths the work touches |
 | `done_when` | the observable that closes it |
+| `handoff` | `{date, text, commit}`: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief` |
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
 | `added` | date added |
@@ -297,7 +309,7 @@ gate that stopped running shows as a missing line:
 
 | gate | fails when |
 |---|---|
-| schema | a key or field differs from `vocab.json`, a date is not `YYYY-MM-DD`, a one-line field spans lines, a closed item sits in the store |
+| schema | a key or field differs from `vocab.json`, a date is not `YYYY-MM-DD`, a one-line field spans lines, a closed item sits in the store, a `handoff` is not `{date, text, commit}` |
 | seal | a store file's seal does not match its content, or was removed: changed around the CLI (above). A file written before seals is a `WARN` until the next CLI write |
 | vocab | a kind, status or work is not declared, or a reserved resolution is on an item its setter did not write |
 | required | an item lacks a field its kind or status requires (an imported closed item may lack only its date) |

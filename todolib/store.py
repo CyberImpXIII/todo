@@ -84,6 +84,31 @@ def git_toplevel(path):
     return Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
 
 
+def _git_line(path, *args):
+    """The first line git prints for `args` run in path, or None: no folder, no
+    git, not a repository, no such commit."""
+    if path is None or not Path(path).is_dir():
+        return None
+    try:
+        r = subprocess.run(["git", *args], cwd=path, capture_output=True, text=True)
+    except OSError:
+        return None
+    line = r.stdout.strip().split("\n", 1)[0].strip()
+    return line if r.returncode == 0 and line else None
+
+
+def head_commit(path):
+    """The short sha of HEAD in the repository holding path: the checkpoint a
+    handoff is written at. None when there is no repository or no commit yet."""
+    return _git_line(path, "rev-parse", "--short", "HEAD")
+
+
+def commit_subject(path, sha):
+    """The subject of commit sha in the repository holding path, or None when
+    that repository does not hold it."""
+    return _git_line(path, "log", "-1", "--format=%s", f"{sha}^{{commit}}", "--")
+
+
 def dump(data):
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 

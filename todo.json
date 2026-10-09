@@ -2,7 +2,7 @@
   "format": 2,
   "repo": "todo",
   "prefix": "td",
-  "next": 30,
+  "next": 31,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -349,7 +349,32 @@
       "done": null,
       "resolution": null,
       "imported": null
+    },
+    {
+      "id": "td-30",
+      "title": "brief: PLAN-small-tasks.md §3.5 says its iterate-small rule (run one part, then check --quick, the full suite once before the commit) goes in the brief too; only the §2.3 stop rule is carried",
+      "kind": "decision",
+      "status": "open",
+      "evidence": "Follow-on asked for the §2.3 stop rule; §3.5 ends 'That rule goes in the brief (§2.3)'. It names dev.sh test <part> and check --quick, which tools/checks' check-partial (§3.7) has not made general yet, so the wording would promise flags most repos lack.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "S",
+      "files": null,
+      "done_when": "vocab.json brief carries the §3.5 rule (a test holds it to the plan), or the plan's owner says the stop rule alone is enough",
+      "handoff": null,
+      "retire": null,
+      "tags": [
+        "plan:PLAN-small-tasks.md"
+      ],
+      "added": "2026-10-09",
+      "done": null,
+      "resolution": null,
+      "imported": null
     }
   ],
-  "seal": "ac746f279face173"
+  "seal": "c07fb4c0dfc52d7c"
 }

@@ -45,6 +45,17 @@ def _empty(v):
     return v is None or v == "" or v == []
 
 
+SHA_RE = re.compile(r"^[0-9a-f]{4,40}$")
+
+
+def handoff_ok(h):
+    """The shape `todo edit --handoff` writes: {date, text, commit}."""
+    return (isinstance(h, dict) and set(h) == {"date", "text", "commit"}
+            and isinstance(h["date"], str) and bool(DATE_RE.match(h["date"]))
+            and isinstance(h["text"], str) and bool(h["text"].strip()) and "\n" not in h["text"]
+            and (h["commit"] is None or (isinstance(h["commit"], str) and bool(SHA_RE.match(h["commit"])))))
+
+
 def check_item(it, where, store, out):
     iid = it.get("id", "?")
     fields = set(VOCAB.field_names())
@@ -93,6 +104,9 @@ def check_item(it, where, store, out):
     if rt is not None:
         if not isinstance(rt, dict) or set(rt) != {"repo", "date", "their_id"} or not DATE_RE.match(str(rt.get("date"))):
             out.append(("FAIL", "schema", iid, "reported_to must be {repo, date (YYYY-MM-DD), their_id}"))
+    if it.get("handoff") is not None and not handoff_ok(it["handoff"]):
+        out.append(("FAIL", "schema", iid, "handoff must be {date (YYYY-MM-DD), text (one non-empty line), "
+                                           "commit (a hex sha, or null)}: set it with todo edit --handoff"))
     imported = it.get("imported") is not None
     for f in VOCAB.required(it):
         if _empty(it.get(f)):

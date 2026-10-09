@@ -31,6 +31,10 @@
     "M": {"doc": "a few steps, still one checkpoint: one done_when, one commit, one report", "ready": true},
     "L": {"doc": "more than one checkpoint: `todo split` it into S and M children before anyone starts it", "ready": false}
   },
+  "brief": {
+    "_comment": "What every `todo brief` carries besides the item (PLAN-small-tasks.md §2.3, §4.1): `stop_rule` is the plan's words, verbatim (tests/test_handoff.py holds them equal when the plan is present).",
+    "stop_rule": "Commit after each step that passes. If the full check fails twice, stop and report what passed, what failed and where. Do not start the suite a third time."
+  },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
     "done-deprecated": {"doc": "an imported closed bullet (DONE marker or Resolved heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
@@ -58,6 +62,7 @@
     "size":        {"doc": "one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready", "label": "size", "optional": true},
     "files":       {"doc": "paths the work touches", "label": "files"},
     "done_when":   {"doc": "the observable that closes it", "label": "done when"},
+    "handoff":     {"doc": "{date, text, commit}: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief`", "label": "handoff", "optional": true},
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
     "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
     "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},

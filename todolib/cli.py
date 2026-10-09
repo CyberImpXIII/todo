@@ -9,9 +9,9 @@ from pathlib import Path
 
 from . import checks, deps, importer
 from . import tags as tagging
-from .render import render_history, render_item, render_store, history_order
-from .store import (HISTORY_RENDER_FILE, Store, TodoError, Workspace, add_days, id_number,
-                    never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
+from .render import field_value, render_history, render_item, render_store, history_order
+from .store import (HISTORY_RENDER_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
+                    id_number, never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
 from .vocab import VOCAB
 
 HAND_EDIT_DIFF_MAX = 4000
@@ -79,6 +79,20 @@ def validate(item, where="store"):
     if missing:
         flags = ", ".join("--" + f.replace("_", "-") for f in missing)
         raise TodoError(f"a {item['kind']} that is {item['status']} needs {flags}")
+
+
+def work_dir(ws, store, item):
+    """The folder of the repo an item's work lives in: this store's own when the
+    item names its repo, else the scanned store's that does. None when no scanned
+    store has that repo (or none is named): the checkpoint is then unknown, never
+    guessed from another repo."""
+    repo = item.get("repo")
+    if not repo:
+        return None
+    if repo == store.repo:
+        return store.dir
+    other = ws.by_repo(repo)
+    return other.dir if other else None
 
 
 def resolve_parent(ws, parent):
@@ -243,7 +257,9 @@ def print_item(it, where, store, ws):
             for ln in v.split("\n"):
                 print("  " + ln)
             continue
-        if isinstance(v, dict):
+        if name == "handoff":
+            v = field_value(name, v)
+        elif isinstance(v, dict):
             v = ", ".join(f"{k}={v[k]}" for k in v)
         elif isinstance(v, list):
             v = ", ".join(v)
@@ -314,6 +330,12 @@ def cmd_edit(args):
                 raise TodoError("--append-evidence: nothing to add")
             old = item.get("evidence")
             changes["evidence"] = f"{old}\n{args.append_evidence}" if old else args.append_evidence
+        if args.handoff is not None:
+            if "\n" in args.handoff:
+                raise TodoError("--handoff must be one line: done; next; how to verify")
+            changes["handoff"] = ({"date": today(), "text": args.handoff.strip(),
+                                   "commit": head_commit(work_dir(workspace(args, store), store, item))}
+                                  if args.handoff.strip() else "")
         if not changes:
             raise TodoError("nothing to change: name at least one field")
         if changes.get("status") == VOCAB.closed:
@@ -685,6 +707,27 @@ def cmd_ready(args):
             print(f"  {it['id']:<8} {why}")
 
 
+def handoff_line(it, where):
+    """The brief's resume point (PLAN-small-tasks.md §4.3): the last handoff and
+    the commit it was written at, with that commit's subject read from the work
+    repo, and a warning when the repo has moved on since the note was written."""
+    h = it.get("handoff")
+    if not h:
+        return "Handoff: none yet (start from the top)"
+    if not isinstance(h, dict):
+        return f"Handoff: malformed ({h!r}; todo check names it): read it, then write a new one"
+    sha = h.get("commit")
+    if not sha:
+        return f"Handoff ({h.get('date')}, no checkpoint commit recorded): {h.get('text')}"
+    subject = commit_subject(where, sha)
+    missing = f"(not found in {where})" if where else f"(repo {it.get('repo')} is in no scanned store)"
+    line = f"Handoff ({h.get('date')}, at {sha} {subject or missing}): {h.get('text')}"
+    now = head_commit(where)
+    if subject and now and not (now.startswith(sha) or sha.startswith(now)):
+        line += f"\n  HEAD is now {now} {commit_subject(where, now)}: commits after the handoff are not in its note"
+    return line
+
+
 def cmd_brief(args):
     store = open_store(args)
     ws = workspace(args, store)
@@ -709,8 +752,11 @@ def cmd_brief(args):
     blockers = deps.open_blockers(ws, it)
     if it.get("blocked_by"):
         print(f"Blocked by: {', '.join(it['blocked_by'])}" + (f" (still open: {', '.join(blockers)})" if blockers else " (all closed)"))
+    print(handoff_line(it, work_dir(ws, s, it)))
     todo_bin = Path(sys.argv[0]).resolve()
+    print(f"Hand off at each checkpoint: {todo_bin} -C {s.dir} edit {it['id']} --handoff \"done; next; how to verify\"")
     print(f"Close it: {todo_bin} -C {s.dir} done {it['id']} --resolution \"...\"")
+    print(f"Stop rule: {VOCAB.brief['stop_rule']}")
     why = []
     if missing:
         why.append(f"missing {', '.join(missing)}")
@@ -804,6 +850,9 @@ def add_item_fields(p, editing):
         p.add_argument("--title")
         p.add_argument("--append-evidence", dest="append_evidence", metavar="E",
                        help="add E as a new line after the evidence, under the store's lock (not with --evidence)")
+        p.add_argument("--handoff", metavar="NOTE",
+                       help="at a checkpoint: 'done; next; how to verify', kept with today's date and the work "
+                            "repo's commit; replaces the last one, \"\" clears it")
 
 
 def build_parser():

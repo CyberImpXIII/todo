@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (15 open, 14 closed in todo-history.json; seal 66f5647b06c1): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (16 open, 14 closed in todo-history.json; seal 6eaf7db89d52): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -27,6 +27,14 @@
 - **td-29 · cli.json declares the stores, so tools/checks' stores-exported now wants a verify verb**
   ./dev.sh check, 2026-10-09, after cli.json was added for the seal (PLAN-todo-tool.md §9): checks gate FAIL stores-exported: 'cli.json: declares no `verify` verb: nothing shows the store's export is current'. That check (tools/checks source/stores-exported.py, PLAN-repo-setup.md §7.11) runs `todo verify --json` against an export in DATA_REPO. This tool has no export and no plan for one; the brief did not ask for it. Hinges on: whether todo stores get an export in the data repo at all (the top level's owner decides), and then `todo export` + `todo verify --json` per schema/verify.schema.json.
   · work: decision
+  · added: 2026-10-09
+
+- **td-30 · brief: PLAN-small-tasks.md §3.5 says its iterate-small rule (run one part, then check --quick, the full suite once before the commit) goes in the brief too; only the §2.3 stop rule is carried**
+  Follow-on asked for the §2.3 stop rule; §3.5 ends 'That rule goes in the brief (§2.3)'. It names dev.sh test <part> and check --quick, which tools/checks' check-partial (§3.7) has not made general yet, so the wording would promise flags most repos lack.
+  · work: code
+  · size: S
+  · done when: vocab.json brief carries the §3.5 rule (a test holds it to the plan), or the plan's owner says the stop rule alone is enough
+  · tags: plan:PLAN-small-tasks.md
   · added: 2026-10-09
 
 ## Unconfirmed suspicions

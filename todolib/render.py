@@ -48,6 +48,8 @@ def field_value(name, value):
         else:
             tail = " (relayed by hand; never pairs)" if never_scanned(value.get("repo")) else " (no counterpart yet)"
         return f"{value.get('repo')} on {value.get('date')}" + tail
+    if name == "handoff" and isinstance(value, dict):
+        return f"{value.get('text')} ({value.get('date')}, at {value.get('commit') or 'no recorded commit'})"
     if isinstance(value, list):
         return ", ".join(value)
     return str(value)

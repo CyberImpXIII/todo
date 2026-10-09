@@ -4,6 +4,7 @@ import json
 import os
 
 from tests.helpers import Case, git_commit
+from todolib.render import field_value
 from todolib.vocab import VOCAB
 
 
@@ -15,6 +16,7 @@ class RoundTrip(Case):
                   "--evidence", "line one\n\n  indented line", "--probe", "p", "--parent", "bb-1", "--blocked-by", "bb-1", "--tags", "plan:PLAN-x.md", "--size", VOCAB.ready_sizes[0],
                   "--repo", "elsewhere", "--work", "test", "--files", "a.py", "b/c.js",
                   "--done-when", "suite passes", "--retire", "manifest:nodes", today="2026-10-01")
+        self.todo("-C", a, "edit", "aa-1", "--handoff", "done: half; next: the rest", today="2026-10-02")
         before = self.store(a)["items"][0]
         self.todo("-C", a, "done", "aa-1", "--resolution", "retired by the check")
         self.assertEqual(self.store(a)["items"], [])
@@ -27,7 +29,7 @@ class RoundTrip(Case):
             v = after[f]
             if v in (None, [], ""):
                 continue
-            text = ", ".join(v) if isinstance(v, list) else str(v)
+            text = ", ".join(v) if isinstance(v, list) else field_value(f, v) if f == "handoff" else str(v)
             for line in text.split("\n"):
                 self.assertIn(line, shown, f"field {f} not shown")
         self.assertIn("closed, in todo-history.json", self.todo("-C", a, "show", "aa-1").stdout)

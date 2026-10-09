@@ -1,4 +1,5 @@
-"""The vocabulary (vocab.json): kinds, statuses, works, sizes, fields, roles, import rules.
+"""The vocabulary (vocab.json): kinds, statuses, works, sizes, the brief's stop rule,
+fields, roles, import rules.
 
 Code names a kind or a status only through `role()` or by iterating the
 declared names; tests/test_vocab.py audits todolib/ for a bare literal, so a
@@ -23,6 +24,9 @@ class Vocab:
             raise ValueError(f"vocab.json: exactly one size is `ready: false` (the one split first), not {too_big}")
         self.split_size = too_big[0]
         self.ready_sizes = [k for k, v in self.sizes.items() if v["ready"]]
+        self.brief = {k: v for k, v in data["brief"].items() if not k.startswith("_")}
+        if not str(self.brief.get("stop_rule") or "").strip():
+            raise ValueError("vocab.json: brief.stop_rule is empty; every brief carries it")
         self.fields = {k: v for k, v in data["fields"].items() if not k.startswith("_")}
         self.resolutions = {k: v for k, v in data["resolutions"].items() if not k.startswith("_")}
         self.roles = data["roles"]
