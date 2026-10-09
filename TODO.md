@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (8 open, 13 closed in todo-history.json; seal 35cc09f20f75): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (7 open, 14 closed in todo-history.json; seal ab517123f107): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -61,9 +61,3 @@
   · work: audit
   · files: todolib/checks.py
   · added: 2026-10-04
-
-- **td-21 · checks gate red on hooks-installed drift while tools/hooks is mid-change**
-  2026-10-08 ./dev.sh check: the checks gate is red on hooks-installed drift (no-inline-blobs.sh, test-no-inline-blobs.sh, test-prefer-recipes.sh). tools/hooks has uncommitted edits (hookslib/cli.py, copies.py, tests) and HEAD e9a20d3 changed no-inline-blobs; the copies here are rendered by setup, so not edited here. Also unverified: whether the drift is only that in-progress work -- settle: in tools/hooks, git status, then re-run setup for tools/todo once it is committed.
-  · work: audit
-  · done when: ./dev.sh checks reports no hooks-installed drift
-  · added: 2026-10-08

@@ -283,6 +283,25 @@
       "done": "2026-10-08",
       "resolution": "Fixed in 056eafd: an exit-3 hook test is named UNCHECKED with its reason and the gate exits 3 (1 on any FAIL); ./dev.sh check counts UNCHECKED apart and keeps ok false. tests/test_hooks_gate.py (4 of 4 red on the old dev.sh) and four mutants hold it.",
       "imported": null
+    },
+    {
+      "id": "td-21",
+      "title": "checks gate red on hooks-installed drift while tools/hooks is mid-change",
+      "kind": "note",
+      "status": "done",
+      "evidence": "2026-10-08 ./dev.sh check: the checks gate is red on hooks-installed drift (no-inline-blobs.sh, test-no-inline-blobs.sh, test-prefer-recipes.sh). tools/hooks has uncommitted edits (hookslib/cli.py, copies.py, tests) and HEAD e9a20d3 changed no-inline-blobs; the copies here are rendered by setup, so not edited here. Also unverified: whether the drift is only that in-progress work -- settle: in tools/hooks, git status, then re-run setup for tools/todo once it is committed.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "audit",
+      "files": null,
+      "done_when": "./dev.sh checks reports no hooks-installed drift",
+      "retire": null,
+      "added": "2026-10-08",
+      "done": "2026-10-08",
+      "resolution": "2026-10-08: drift gone. tools/hooks clean at 05a5ae4; setup re-rendered the copies (tools/setup/setup tools/todo --only hooks --rebuild). tools/checks/checks one hooks-installed tools/todo: OK, 1 ok -> green; ./dev.sh check: checks gate ok (10 ok, 3 unchecked). Remaining red is td-2 only (hooks + mutants baseline).",
+      "imported": null
     }
   ]
 }
