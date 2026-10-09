@@ -14,7 +14,7 @@ from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_K
                     RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
 from .vocab import VOCAB
 
-GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "blockers", "tags", "reports", "workspace", "render", "history"]
+GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "reports", "workspace", "render", "history"]
 SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
@@ -59,6 +59,8 @@ def check_item(it, where, store, out):
         out.append(("FAIL", "vocab", iid, f"status {status!r} is not declared"))
     if work is not None and work not in VOCAB.works:
         out.append(("FAIL", "vocab", iid, f"work {work!r} is not declared"))
+    if it.get("size") is not None and it["size"] not in VOCAB.sizes:
+        out.append(("FAIL", "vocab", iid, f"size {it['size']!r} is not declared (one of {', '.join(VOCAB.sizes)})"))
     if where == "store" and status == VOCAB.closed:
         out.append(("FAIL", "schema", iid, f"status {status} in {store.path.name}: closed items live in {HISTORY_FILE} (todo done moves them)"))
     if where == "history" and status != VOCAB.closed:
@@ -150,6 +152,25 @@ def check_parents(store, ws, out):
                 chain.add(cur)
                 nxt = ws.find(cur)[0]
                 cur = nxt.get("parent") if nxt else None
+
+
+def children_of(ws, item_id):
+    """Ids of every item, open or closed, in any scanned store, whose parent is item_id."""
+    return [it["id"] for s in ws.stores for it in s.items + s.closed if it.get("parent") == item_id]
+
+
+def check_sizes(store, ws, out):
+    """PLAN-small-tasks.md §2: an item too big for one checkpoint (the size vocab.json
+    marks `ready: false`) is split into children before anyone starts it, so an
+    open one with none fails. An unsized open item is counted: it is never ready."""
+    unsized = 0
+    for it in store.items:
+        if it.get("size") is None:
+            unsized += 1
+        elif it["size"] == VOCAB.split_size and not children_of(ws, it["id"]):
+            out.append(("FAIL", "sizes", it["id"], f"size {VOCAB.split_size} and no children: `todo split {it['id']}` it into {' and '.join(VOCAB.ready_sizes)} items first"))
+    if unsized:
+        out.append(("INFO", "sizes", "-", f"{unsized} open item(s) unsized: never ready until `todo edit ID --size` ({'|'.join(VOCAB.sizes)})"))
 
 
 def check_blockers(store, ws, out):
@@ -352,6 +373,7 @@ def check_store(store, ws):
         check_item(it, "history", store, out)
     check_ids(store, out)
     check_parents(store, ws, out)
+    check_sizes(store, ws, out)
     check_blockers(store, ws, out)
     check_tags(store, ws, out)
     check_reports(store, ws, out)

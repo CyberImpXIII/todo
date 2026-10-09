@@ -29,7 +29,7 @@ class Declared(Case):
         silently stop matching when vocab.json is renamed. Field names and command
         names are allowed where they act as such: a key, a .get() argument, a tuple of
         field names, a COMMANDS key."""
-        names = set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works) | set(VOCAB.resolutions)
+        names = set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works) | set(VOCAB.resolutions) | set(VOCAB.sizes)
         fields = set(VOCAB.field_names())
         commands = set(cli.COMMANDS)
         hits = []
@@ -59,7 +59,7 @@ class Declared(Case):
         ap = cli.build_parser()
         sub = next(a for a in ap._actions if a.dest == "command").choices
         for cmd, dest, declared in (("add", "kind", VOCAB.kinds), ("add", "status", VOCAB.statuses),
-                                    ("add", "work", VOCAB.works), ("list", "kind", VOCAB.kinds),
+                                    ("add", "work", VOCAB.works), ("add", "size", VOCAB.sizes), ("split", "size", VOCAB.ready_sizes), ("list", "kind", VOCAB.kinds),
                                     ("history", "kind", VOCAB.kinds), ("ready", "work", VOCAB.works)):
             act = next(a for a in sub[cmd]._actions if a.dest == dest)
             self.assertEqual(list(act.choices), list(declared), f"{cmd} --{dest}")
@@ -120,7 +120,7 @@ class Handled(Case):
         works = list(VOCAB.works)
         for i, status in enumerate(VOCAB.open_statuses()):
             self.todo("-C", a, "add", f"s {status}", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1", "--blocked-by", "aa-1", "--tags", "origin:tool",
-                      "--status", status, "--work", works[i % len(works)], "--files", "x.py", "--done-when", "dw",
+                      "--status", status, "--work", works[i % len(works)], "--size", list(VOCAB.sizes)[0], "--files", "x.py", "--done-when", "dw",
                       "--repo", "other", "--evidence", "ev")
         for w in works:
             self.todo("-C", a, "add", f"w {w}", "--kind", VOCAB.role("default_kind"), "--work", w)
@@ -151,7 +151,7 @@ class Handled(Case):
 class Documented(Case):
     def test_readme_vocab_tables_equal_vocab_json(self):
         for name, declared in (("kinds", VOCAB.kinds), ("statuses", VOCAB.statuses),
-                               ("works", VOCAB.works), ("resolutions", VOCAB.resolutions),
+                               ("works", VOCAB.works), ("sizes", VOCAB.sizes), ("resolutions", VOCAB.resolutions),
                                ("fields", VOCAB.fields), ("tags", VOCAB.namespaces)):
             doc = readme_table(name)
             self.assertIsNotNone(doc, f"README.md has no <!-- vocab:{name} --> table")

@@ -17,6 +17,7 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                # The gap his question found (this plan's §9): a hand edit that broke a seal is
                # accepted only by a recorded verb; `help` is what tools/checks reads for cli.json.
                "reseal": "§9: accept a broken seal, recorded in hand_edits",
+               "split": "PLAN-small-tasks.md §2.1: an L item into children, each one checkpoint",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 
 

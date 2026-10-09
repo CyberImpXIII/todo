@@ -25,6 +25,12 @@
     "labour":   {"doc": "work done by hand outside any code: driving, filing, sorting, a scan run once"},
     "outreach": {"doc": "contacting a person or an organisation: a proposal, an appeal, a message (sending needs Jacob's yes first)"}
   },
+  "sizes": {
+    "_comment": "An item's estimate (PLAN-small-tasks.md §2): a dispatch is one checkpoint, one done_when, one commit, one report. `ready: false` marks the one size too big for that: `todo ready` never lists it, `todo split` breaks it into children, and check fails it open with none. tools/usage reads this field for its `usage gate` estimate (§4.4).",
+    "S": {"doc": "one step: one change, its test, one commit", "ready": true},
+    "M": {"doc": "a few steps, still one checkpoint: one done_when, one commit, one report", "ready": true},
+    "L": {"doc": "more than one checkpoint: `todo split` it into S and M children before anyone starts it", "ready": false}
+  },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
     "done-deprecated": {"doc": "an imported closed bullet (DONE marker or Resolved heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
@@ -49,6 +55,7 @@
     "blocked_by":  {"doc": "ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history", "label": "blocked by", "optional": true},
     "repo":        {"doc": "where the work lives: a repo name, never an agent", "label": "repo"},
     "work":        {"doc": "one of the works", "label": "work"},
+    "size":        {"doc": "one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready", "label": "size", "optional": true},
     "files":       {"doc": "paths the work touches", "label": "files"},
     "done_when":   {"doc": "the observable that closes it", "label": "done when"},
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},

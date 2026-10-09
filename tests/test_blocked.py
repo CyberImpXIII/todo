@@ -6,7 +6,7 @@ from tests.helpers import Case
 from todolib.vocab import VOCAB
 
 NOTE = VOCAB.role("default_kind")
-READY = ["--work", "code", "--done-when", "it works"]
+READY = ["--work", "code", "--done-when", "it works", "--size", VOCAB.ready_sizes[0]]
 
 
 def ids(out):

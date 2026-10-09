@@ -32,8 +32,8 @@ the environment variable `TODO_ROOT` does.
 | usage | what it does |
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
-| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--files F ...] [--done-when D] [--retire C] [--tags T ...]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`) |
+| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags T ...]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`) |
 | `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
@@ -43,12 +43,13 @@ the environment variable `TODO_ROOT` does.
 | `todo check [--all]` | every gate below over this store (`--all`: every scanned store); exit 1 on a FAIL |
 | `todo import FILE [--dry-run]` | a hand-written or hand-edited `TODO.md` into items (below) |
 | `todo repos` | every store the scan finds, with its counts |
-| `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set and every `blocked_by` id closed: ready to hand to whoever does that work |
+| `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed: ready to hand to whoever does that work. An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it) |
 | `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, and the exact `todo done` command that closes it. Exit 1 when it is not ready (a field missing, a status other than open, or a `blocked_by` id still open) |
 | `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
 | `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
 | `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
+| `todo split ID TITLE ... --size SIZE` | one child per title under `parent`, each a checkpoint of its own: SIZE is S or M; it copies the parent's kind, repo, work, files, `blocked_by`, tags and any field its kind requires, and gets its own `done_when` with `todo edit`. The parent becomes L, so `ready` never lists it, and `todo done` on its last open child closes it too |
 | `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
@@ -97,6 +98,18 @@ the renderer, the importer, the checks and these tables all follow it, and
 | `labour` | work done by hand outside any code: driving, filing, sorting, a scan run once |
 | `outreach` | contacting a person or an organisation: a proposal, an appeal, a message (sending needs Jacob's yes first) |
 
+An item's `size` is its estimate (PLAN-small-tasks.md §2): a dispatch is one
+checkpoint, so `todo ready` lists only S and M, and an L item is split into
+children first (`todo split`). tools/usage reads the same field for its
+`usage gate` estimate.
+
+<!-- vocab:sizes -->
+| size | meaning |
+|---|---|
+| `S` | one step: one change, its test, one commit |
+| `M` | a few steps, still one checkpoint: one done_when, one commit, one report |
+| `L` | more than one checkpoint: `todo split` it into S and M children before anyone starts it |
+
 A resolution is free text written by `todo done`, except the values below, which
 each have one setter and are refused everywhere else:
 
@@ -119,6 +132,7 @@ each have one setter and are refused everywhere else:
 | `blocked_by` | ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history |
 | `repo` | where the work lives: a repo name, never a person or an agent |
 | `work` | one of the works |
+| `size` | one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready |
 | `files` | paths the work touches |
 | `done_when` | the observable that closes it |
 | `retire` | the check that retires an interim rule |
@@ -289,6 +303,7 @@ gate that stopped running shows as a missing line:
 | required | an item lacks a field its kind or status requires (an imported closed item may lack only its date) |
 | ids | an id lacks the repo's prefix, appears twice (or in both files), or is not below the counter |
 | parents | a parent resolves in no scanned store or history, or the chain loops. A well-formed parent whose prefix no scanned store holds is a `WARN` (unchecked), not a failure: that scan cannot judge it, as with an unpaired report (td-15) |
+| sizes | an open L item has no children (`todo split` it); an unsized open item is counted (`INFO`), since it is never ready |
 | blockers | a `blocked_by` that is not a non-empty list of ids (`schema`), an id that resolves in no scanned store or history, or a chain of `blocked_by` that leads an open item back to itself (nothing in a cycle can ever be ready). A prefix no scanned store holds is a `WARN`, as for parents |
 | tags | a stored tag outside the vocabulary, in a namespace derived from a field, with a value a closed namespace does not hold, or of the wrong form; a `ref:todo:<id>` that resolves nowhere (dangling). A `ref:` to another service's record is counted (`INFO`), unchecked until a registry resolves it; a `ref:todo:` prefix no scanned store holds is a `WARN`, as for parents |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere |

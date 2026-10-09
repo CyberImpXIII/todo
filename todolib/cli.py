@@ -73,6 +73,8 @@ def validate(item, where="store"):
         raise TodoError(f"status {item['status']!r}: one of {', '.join(VOCAB.statuses)}")
     if item.get("work") is not None and item["work"] not in VOCAB.works:
         raise TodoError(f"work {item['work']!r}: one of {', '.join(VOCAB.works)}")
+    if item.get("size") is not None and item["size"] not in VOCAB.sizes:
+        raise TodoError(f"size {item['size']!r}: one of {', '.join(VOCAB.sizes)}")
     missing = [f for f in VOCAB.required(item) if item.get(f) in (None, "", [])]
     if missing:
         flags = ", ".join("--" + f.replace("_", "-") for f in missing)
@@ -274,7 +276,7 @@ def cmd_add(args):
         resolve_parent(ws, args.parent)
         item = new_item(title=args.title, kind=args.kind, status=args.status or VOCAB.role("default_status"),
                         evidence=args.evidence, probe=args.probe, parent=args.parent,
-                        repo=args.repo or store.repo, work=args.work, files=args.files,
+                        repo=args.repo or store.repo, work=args.work, size=args.size, files=args.files,
                         done_when=args.done_when, retire=args.retire, added=today())
         if item["status"] == VOCAB.closed:
             raise TodoError("add makes open items; close one with todo done")
@@ -287,7 +289,7 @@ def cmd_add(args):
     print(f"added {item['id']}: {item['title']}")
 
 
-EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "repo", "work", "files",
+EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "repo", "work", "size", "files",
             "done_when", "retire", "tags"]
 
 
@@ -355,8 +357,71 @@ def cmd_done(args):
         validate(closed, "history")
         store.history["items"].append(closed)
         store.items.remove(item)
+        parent_note = close_finished_parent(args, store, item)
         commit(store)
     print(f"closed {args.id}, moved to {store.history_path.name}")
+    if parent_note:
+        print(parent_note)
+
+
+def close_finished_parent(args, store, child):
+    """A split item (size `ready: false`) closes when its last child does
+    (PLAN-small-tasks.md §2.1): called with the child already moved to history,
+    before the write. Children anywhere in the scan count; the parent must be in
+    this store. Returns a line to print, or None."""
+    pid = child.get("parent")
+    parent = next((it for it in store.items if it["id"] == pid), None)
+    if parent is None or parent.get("size") != VOCAB.split_size:
+        return None
+    ws = workspace(args, store)
+    kids = checks.children_of(ws, pid)
+    still_open = [k for s in ws.stores for it in s.items if (k := it["id"]) in kids and k != child["id"]]
+    if still_open:
+        return None
+    done = dict(parent, status=VOCAB.closed, done=today(),
+                resolution=f"closed with its last child, {child['id']}: every child of this split item is closed ({', '.join(kids)})")
+    try:
+        validate(done, "history")
+    except TodoError as e:
+        return f"{pid} has no open child left but stays open: {e}; close it with todo done {pid}"
+    store.history["items"].append(done)
+    store.items.remove(parent)
+    return f"closed {pid} too: it was split, and {child['id']} was its last open child"
+
+
+def cmd_split(args):
+    """Break an item into children under `parent` (PLAN-small-tasks.md §2.1), each
+    small enough for one checkpoint. A child copies the parent's kind, repo, work,
+    files, blocked_by and tags, and any field its kind requires; its done_when is
+    its own, set with todo edit. The parent becomes the split size, so `ready`
+    never lists it, and it closes when its last child does."""
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        require_clean(store)
+        parent, where = store.find(args.id)
+        if where == "history":
+            raise TodoError(f"cannot split {args.id}: it is closed")
+        if parent is None:
+            raise TodoError(f"{args.id} is not in {store.path} (split an item in its own repo)")
+        if parent.get("kind") == VOCAB.role("report_kind"):
+            raise TodoError(f"{args.id} is a {parent['kind']}: its work lives in the owner's store; split it there")
+        copied = ("kind", "repo", "work", "files", "blocked_by", "tags", *VOCAB.required(parent))
+        made = []
+        for title in args.titles:
+            child = new_item(**{f: parent.get(f) for f in copied}, title=title, status=VOCAB.role("default_status"),
+                             parent=args.id, size=args.size, added=today(),
+                             evidence=f"split from {args.id}: {parent['title']}")
+            validate(child)
+            child["id"] = store.allocate()
+            store.items.append(child)
+            made.append(child["id"])
+        resized = parent.get("size") != VOCAB.split_size
+        parent["size"] = VOCAB.split_size
+        commit(store)
+    print(f"split {args.id} into {', '.join(made)} (size {args.size})"
+          + (f"; {args.id} is now size {VOCAB.split_size}" if resized else "")
+          + ". Give each child its own done_when: todo edit ID --done-when ...")
 
 
 def cmd_report(args):
@@ -573,7 +638,20 @@ def cmd_repos(args):
         print(f"  UNREADABLE  {e}")
 
 
-def ready_items(ws, repo=None, work=None):
+def size_refusal(it):
+    """Why an item's size keeps it from being dispatched, or None (PLAN-small-tasks.md
+    §2): unsized, it cannot be judged one checkpoint; too big, it is split first."""
+    if it.get("size") is None:
+        return f"no size (todo edit {it['id']} --size {'|'.join(VOCAB.sizes)})"
+    if it["size"] not in VOCAB.ready_sizes:
+        return f"size {it['size']}: split it first (todo split {it['id']} TITLE ... --size {'|'.join(VOCAB.ready_sizes)})"
+    return None
+
+
+def ready_items(ws, repo=None, work=None, refused=None):
+    """Dispatchable items. An item ready but for its size goes into `refused`
+    (a list, when given) as (item, why), so `todo ready` names it rather than
+    dropping it unseen."""
     for s in ws.stores:
         for it in s.items:
             if it.get("status") != VOCAB.role("default_status") or it.get("kind") == VOCAB.role("report_kind"):
@@ -584,17 +662,27 @@ def ready_items(ws, repo=None, work=None):
                 continue
             if deps.open_blockers(ws, it):
                 continue
+            why = size_refusal(it)
+            if why:
+                if refused is not None:
+                    refused.append((it, why))
+                continue
             yield it, s
 
 
 def cmd_ready(args):
     store = open_store(args)
-    n = 0
-    for it, _ in ready_items(workspace(args, store), args.repo, args.work):
-        print(f"{it['id']:<8} {it['repo']:<20} {it['work']:<9} {it['title'][:TITLE_WIDTH]}")
+    n, refused = 0, []
+    for it, _ in ready_items(workspace(args, store), args.repo, args.work, refused):
+        print(f"{it['id']:<8} {it['repo']:<20} {it['work']:<9} {it.get('size'):<2} {it['title'][:TITLE_WIDTH]}")
         n += 1
     if n == 0:
-        print("(nothing ready: an open item needs repo, work and done_when set, and every blocked_by id closed)")
+        print(f"(nothing ready: an open item needs repo, work and done_when set, size {' or '.join(VOCAB.ready_sizes)}, "
+              "and every blocked_by id closed)")
+    if refused:
+        print(f"refused, ready but for their size ({len(refused)}):")
+        for it, why in refused:
+            print(f"  {it['id']:<8} {why}")
 
 
 def cmd_brief(args):
@@ -606,7 +694,7 @@ def cmd_brief(args):
     if where == "history":
         raise TodoError(f"{args.id} closed {it.get('done') or '(undated)'}: {it.get('resolution') or ''}")
     missing = [f for f in ("repo", "work", "done_when") if not it.get(f)]
-    print(f"todo:{it['id']}  ({it.get('kind')}, {it.get('status')}; repo {it.get('repo')}, work {it.get('work')})")
+    print(f"todo:{it['id']}  ({it.get('kind')}, {it.get('status')}; repo {it.get('repo')}, work {it.get('work')}, size {it.get('size')})")
     print(f"What: {it['title']}")
     if it.get("evidence"):
         print("Why (evidence):")
@@ -630,6 +718,8 @@ def cmd_brief(args):
         why.append(f"status {it.get('status')}")
     if blockers:
         why.append(f"blocked by {', '.join(blockers)}")
+    if size_refusal(it):
+        why.append(size_refusal(it))
     if why:
         print(f"NOT READY: {'; '.join(why)}")
         sys.exit(1)
@@ -687,6 +777,7 @@ COMMANDS = {
     "get": (cmd_get, "one record by id, as JSON, with its tags"),
     "find": (cmd_find, "the ids and titles of the records holding every tag named"),
     "refs": (cmd_refs, "the records whose ref: tag names this id"),
+    "split": (cmd_split, "break an item into children, each one checkpoint; it closes with its last child"),
     "reseal": (cmd_reseal, "accept a store file changed around the CLI, recorded in hand_edits"),
     "help": (cmd_help, "this list of commands"),
 }
@@ -702,6 +793,8 @@ def add_item_fields(p, editing):
                    help="ids that must close first (any scanned repo); no ids clears it")
     p.add_argument("--repo")
     p.add_argument("--work", choices=list(VOCAB.works) + ([""] if editing else []))
+    p.add_argument("--size", choices=list(VOCAB.sizes) + ([""] if editing else []),
+                   help=f"the estimate; {VOCAB.split_size} is split before it is started (todo split)")
     p.add_argument("--files", nargs="*")
     p.add_argument("--done-when", dest="done_when")
     p.add_argument("--retire")
@@ -755,6 +848,9 @@ def build_parser():
     ps["history"].add_argument("--kind", choices=list(VOCAB.kinds))
     ps["history"].add_argument("--grep")
     ps["reseal"].add_argument("--reason", required=True)
+    ps["split"].add_argument("id")
+    ps["split"].add_argument("titles", nargs="+", metavar="TITLE", help="one child per title")
+    ps["split"].add_argument("--size", choices=VOCAB.ready_sizes, required=True, help="every child's size")
     ps["get"].add_argument("id")
     ps["find"].add_argument("tags", nargs="+", metavar="TAG")
     ps["refs"].add_argument("id")
