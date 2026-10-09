@@ -13,10 +13,12 @@ usage() {
   cat <<'EOF'
 ./dev.sh <command>
 
-  check      every gate below, in order; non-zero if any fails. [--json] [GATE ...]: --json prints
-             {"ok": bool, "gates": {...}}; named gates run alone, in the order given (tests/test_dev.py)
+  check      every gate below, in order; 1 if any fails, else 3 if any is UNCHECKED, else 0. [--json] [GATE ...]:
+             --json prints {"ok": bool, "gates": {...}} (UNCHECKED is false there; the exit code tells it from a
+             FAIL); named gates run alone, in the order given (tests/test_dev.py, tests/test_hooks_gate.py)
   test       the unit tests (tests/), trimmed to the result unless something fails
-  hooks      the shared hook copies: present, executable, parse, their own tests pass; registered once settings.json exists
+  hooks      the shared hook copies: present, executable, parse, their own tests pass (a test's exit 3: UNCHECKED,
+             gate exit 3); registered once settings.json exists
   files      the files the tool needs: present, executable where they must be, data parses
   audit      the direction audit (devtools/audit.py): nothing reads the delegation layer or names a roster agent
   self       todo check on this repo's own store (its TODO.md is the render of todo.json)
@@ -33,8 +35,12 @@ cmd_test() {
   return $code
 }
 
+# A hook's own test answers like a gate: 0 pass, 3 UNCHECKED (it could not run here,
+# e.g. no site-scrapers above a lone clone), anything else FAIL. An UNCHECKED test is
+# named with its reason and makes the gate exit 3: never a pass, never a FAIL; a FAIL
+# anywhere still makes it 1 (tests/test_hooks_gate.py).
 cmd_hooks() {
-  local fails=0 h name t out settings=".claude/settings.json"
+  local fails=0 unchecked=0 n=0 h name t out code why settings=".claude/settings.json"
   local registered=1
   if [ ! -f "$settings" ]; then
     registered=0
@@ -47,18 +53,28 @@ cmd_hooks() {
     [ -x "$h" ] || { echo "  FAIL  $name is not executable"; fails=$((fails+1)); }
     bash -n "$h" 2>/dev/null || { echo "  FAIL  $name does not parse"; fails=$((fails+1)); }
     case "$name" in test-*) continue ;; esac
+    n=$((n+1))
     if [ $registered -eq 1 ]; then
       jq -e --arg n "$name" '[.hooks[][].hooks[].command | select(endswith("/" + $n))] | length > 0' \
         "$settings" >/dev/null || { echo "  FAIL  $name is not registered in $settings"; fails=$((fails+1)); }
     fi
     t=".claude/hooks/test-$name"
     if [ ! -f "$t" ]; then echo "  FAIL  $name has no test-$name"; fails=$((fails+1)); continue; fi
-    if ! out=$(bash "$t" 2>&1); then
-      echo "  FAIL  test-$name:"; printf '%s\n' "$out" | grep -E 'FAIL' | sed 's/^/        /'; fails=$((fails+1))
+    out=$(bash "$t" </dev/null 2>&1); code=$?
+    if [ $code -eq 3 ]; then
+      why=$(printf '%s\n' "$out" | grep -m1 -E '^[[:space:]]*UNCHECKED' | sed -E 's/^[[:space:]]*UNCHECKED:?[[:space:]]*//')
+      echo "  UNCHECKED  test-$name: ${why:-exit 3 without saying why}"; unchecked=$((unchecked+1))
+    elif [ $code -ne 0 ]; then
+      echo "  FAIL  test-$name: exit $code"; printf '%s\n' "$out" | grep -E 'FAIL' | sed 's/^/        /'; fails=$((fails+1))
     fi
   done
-  [ $fails -eq 0 ] && echo "  ok    hooks: $(ls .claude/hooks/*.sh | grep -vc /test-) hooks, each executable and passing its own test$([ $registered -eq 1 ] && echo ', registered')"
-  return $((fails > 0))
+  [ $fails -gt 0 ] && return 1
+  if [ $unchecked -gt 0 ]; then
+    echo "  note  hooks: $((n - unchecked)) of $n passed their own test; $unchecked UNCHECKED (did not run here, not a pass)"
+    return 3
+  fi
+  echo "  ok    hooks: $n hooks, each executable and passing its own test$([ $registered -eq 1 ] && echo ', registered')"
+  return 0
 }
 
 cmd_files() {
@@ -99,7 +115,7 @@ cmd_mutants() { python3 devtools/mutate.py "$@"; }
 GATES=(test hooks files audit self checks mutants)
 
 cmd_check() {
-  local json=0 g code fails=0 results="" run=()
+  local json=0 g code fails=0 unchecked=0 results="" run=()
   [ "${1:-}" = "--json" ] && { json=1; shift; }
   for g in "$@"; do
     case " ${GATES[*]} " in *" $g "*) run+=("$g") ;; *) echo "check: unknown gate '$g' (gates: ${GATES[*]})" >&2; return 2 ;; esac
@@ -116,15 +132,19 @@ cmd_check() {
   for g in "${run[@]}"; do
     if [ $json -eq 1 ]; then "cmd_$g" >/dev/null 2>&1; code=$?
     else echo "== $g"; "cmd_$g"; code=$?; fi
-    [ $code -ne 0 ] && fails=$((fails+1))
+    # Exit 3 is a gate that could not check here (cmd_hooks): not green, not FAILED.
+    if [ $code -eq 3 ]; then unchecked=$((unchecked+1)); elif [ $code -ne 0 ]; then fails=$((fails+1)); fi
     results="$results\"$g\": $([ $code -eq 0 ] && echo true || echo false), "
   done
   if [ $json -eq 1 ]; then
-    printf '{"ok": %s, "gates": {%s}}\n' "$([ $fails -eq 0 ] && echo true || echo false)" "${results%, }"
+    printf '{"ok": %s, "gates": {%s}}\n' "$([ $((fails + unchecked)) -eq 0 ] && echo true || echo false)" "${results%, }"
+  elif [ $((fails + unchecked)) -eq 0 ]; then echo "check: all ${#run[@]} gates green"
   else
-    [ $fails -eq 0 ] && echo "check: all ${#run[@]} gates green" || echo "check: $fails of ${#run[@]} gates FAILED"
+    echo "check: $fails of ${#run[@]} gates FAILED$([ $unchecked -gt 0 ] && echo ", $unchecked UNCHECKED (did not run here, not a pass)")"
   fi
-  return $((fails > 0))
+  [ $fails -gt 0 ] && return 1
+  [ $unchecked -gt 0 ] && return 3
+  return 0
 }
 
 case "${1:-}" in

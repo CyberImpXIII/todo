@@ -115,7 +115,7 @@
      "file": "todolib/store.py", "old": "        if never_scanned(repo):\n", "new": "        if False:\n",
      "run": ["python3", "-m", "unittest", "tests.test_reports.Reports.test_no_store_takes_a_hidden_repo_name"]},
     {"id": "check-json-ok-always-true", "gate": "dev.sh check --json: ok is false when a gate is red",
-     "file": "dev.sh", "old": "printf '{\"ok\": %s, \"gates\": {%s}}\\n' \"$([ $fails -eq 0 ] && echo true || echo false)\"", "new": "printf '{\"ok\": %s, \"gates\": {%s}}\\n' \"true\"",
+     "file": "dev.sh", "old": "printf '{\"ok\": %s, \"gates\": {%s}}\\n' \"$([ $((fails + unchecked)) -eq 0 ] && echo true || echo false)\"", "new": "printf '{\"ok\": %s, \"gates\": {%s}}\\n' \"true\"",
      "run": ["python3", "-m", "unittest", "tests.test_dev.CheckJson.test_a_red_gate_is_false_and_makes_ok_false_and_the_exit_1"]},
     {"id": "check-json-gate-always-true", "gate": "dev.sh check --json: each gate's value is its own result",
      "file": "dev.sh", "old": "results=\"$results\\\"$g\\\": $([ $code -eq 0 ] && echo true || echo false), \"", "new": "results=\"$results\\\"$g\\\": true, \"",
@@ -229,6 +229,18 @@
      "run": ["python3", "-m", "unittest", "tests.test_dev.CheckJson.test_a_check_inside_a_check_refuses_the_tests_and_the_mutants"]},
     {"id": "todo-root-ignored", "gate": "TODO_ROOT sets the scan root when --root is not given, and --root beats it",
      "file": "todolib/store.py", "old": "    explicit = explicit or os.environ.get(\"TODO_ROOT\")\n", "new": "",
-     "run": ["python3", "-m", "unittest", "tests.test_store.Workspace.test_todo_root_sets_the_scan_root_and_root_beats_it"]}
+     "run": ["python3", "-m", "unittest", "tests.test_store.Workspace.test_todo_root_sets_the_scan_root_and_root_beats_it"]},
+    {"id": "hooks-unchecked-is-fail", "gate": "./dev.sh hooks names a hook test's exit 3 UNCHECKED with its reason, not FAIL",
+     "file": "dev.sh", "old": "    if [ $code -eq 3 ]; then\n      why=", "new": "    if false; then\n      why=",
+     "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_exit_0_1_and_3_give_three_different_results"]},
+    {"id": "hooks-unchecked-is-ok", "gate": "./dev.sh hooks exits 3 on an UNCHECKED hook test, never 0",
+     "file": "dev.sh", "old": "    return 3\n  fi\n  echo \"  ok    hooks:", "new": "    return 0\n  fi\n  echo \"  ok    hooks:",
+     "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_exit_0_1_and_3_give_three_different_results"]},
+    {"id": "check-json-unchecked-ok", "gate": "./dev.sh check --json: ok is false when a gate is UNCHECKED",
+     "file": "dev.sh", "old": "\"$([ $((fails + unchecked)) -eq 0 ] && echo true || echo false)\"", "new": "\"$([ $fails -eq 0 ] && echo true || echo false)\"",
+     "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_check_counts_unchecked_apart_from_failed_and_never_green"]},
+    {"id": "check-unchecked-is-green", "gate": "./dev.sh check exits 3 on an UNCHECKED gate, never 0",
+     "file": "dev.sh", "old": "  [ $unchecked -gt 0 ] && return 3\n", "new": "  [ $unchecked -gt 0 ] && return 0\n",
+     "run": ["python3", "-m", "unittest", "tests.test_hooks_gate.HooksGate.test_check_counts_unchecked_apart_from_failed_and_never_green"]}
   ]
 }

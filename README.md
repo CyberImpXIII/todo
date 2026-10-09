@@ -234,8 +234,16 @@ tool's files gated by its `hooks copies`, td-16), `todo check` on this
 repo's own store, tools/checks' `checks run .` (below), and the mutants (`devtools/mutate.py`: each gate broken once
 in a throwaway copy, which must turn its test red).
 
+The `hooks` gate reads each hook test's exit code as a gate: 0 pass, 3 UNCHECKED
+(the test could not run here, e.g. no site-scrapers above a lone clone; named with
+its reason), anything else FAIL. An UNCHECKED test makes the gate exit 3, never 0;
+a FAIL anywhere makes it 1. `./dev.sh check` exits 1 if any gate failed, else 3 if
+any was UNCHECKED, and its summary counts the two apart (`tests/test_hooks_gate.py`,
+mutants `hooks-unchecked-*`, `check-unchecked-is-green` and `check-json-unchecked-ok`).
+
 `./dev.sh check [--json] [GATE ...]` runs only the named gates, in the order
-given; `--json` prints `{"ok": bool, "gates": {gate: bool}}` and nothing else.
+given; `--json` prints `{"ok": bool, "gates": {gate: bool}}` and nothing else
+(an UNCHECKED gate is `false` there; the exit code, 3, tells it from a FAIL).
 `tests/test_dev.py` holds that contract on the cheap gates. A check run inside
 another check refuses the `test` and `mutants` gates, since either would run that
 test again without end; the test of that guard runs in a copy whose tests are one
