@@ -252,8 +252,9 @@ def cmd_help(args):
     """The command list, one per line at one indent: what tools/checks reads to
     hold cli.json's verbs to what this CLI offers."""
     print("todo <command>   structured TODO items per repo; `todo <command> -h` for its flags\n")
+    width = max(map(len, COMMANDS))
     for name, (_, text) in COMMANDS.items():
-        print(f"  {name:<9} {text}")
+        print(f"  {name:<{width}} {text}")
 
 
 def one_line(it):
@@ -274,7 +275,7 @@ def print_item(it, where, store, ws):
             for ln in v.split("\n"):
                 print("  " + ln)
             continue
-        if name == "handoff":
+        if name in ("handoff", "approved", "dispatched"):
             v = field_value(name, v)
         elif isinstance(v, dict):
             v = ", ".join(f"{k}={v[k]}" for k in v)
@@ -445,7 +446,9 @@ def cmd_split(args):
             raise TodoError(f"{args.id} is not in {store.path} (split an item in its own repo)")
         if parent.get("kind") == VOCAB.role("report_kind"):
             raise TodoError(f"{args.id} is a {parent['kind']}: its work lives in the owner's store; split it there")
-        copied = ("kind", "repo", "work", "files", "blocked_by", "tags", *VOCAB.required(parent))
+        # A child is a piece of the approved whole, so it carries the approval; never
+        # the dispatched mark, since each piece is handed out on its own.
+        copied = ("kind", "repo", "work", "files", "blocked_by", "tags", "approved", *VOCAB.required(parent))
         made = []
         for title in args.titles:
             child = new_item(**{f: parent.get(f) for f in copied}, title=title, status=VOCAB.role("default_status"),
@@ -690,6 +693,23 @@ def size_refusal(it):
     return None
 
 
+def not_ready_reasons(ws, it):
+    """Why `todo brief` would call this open item NOT READY, or []: one list, so
+    brief and dispatchable never disagree on what ready means."""
+    why = []
+    missing = [f for f in ("repo", "work", "done_when") if not it.get(f)]
+    if missing:
+        why.append(f"missing {', '.join(missing)}")
+    if it.get("status") != VOCAB.role("default_status"):
+        why.append(f"status {it.get('status')}")
+    blockers = deps.open_blockers(ws, it)
+    if blockers:
+        why.append(f"blocked by {', '.join(blockers)}")
+    if size_refusal(it):
+        why.append(size_refusal(it))
+    return why
+
+
 def ready_items(ws, repo=None, work=None, refused=None):
     """Dispatchable items. An item ready but for its size goes into `refused`
     (a list, when given) as (item, why), so `todo ready` names it rather than
@@ -727,6 +747,150 @@ def cmd_ready(args):
             print(f"  {it['id']:<8} {why}")
 
 
+def open_item(store, item_id):
+    """The open item `item_id` of this store, or a TodoError saying why not."""
+    item, where = store.find(item_id)
+    if where == "history":
+        raise TodoError(f"{item_id} is closed ({item.get('done') or 'undated'}); history entries are never edited")
+    if item is None:
+        raise TodoError(f"{item_id} is not in {store.path}" + ("" if store.owns(item_id) else
+                        f" (its prefix is not {store.prefix}: run this in its own repo, or -C it)"))
+    return item
+
+
+def cmd_approve(args):
+    """Record Jacob's go-ahead on an item: who (vocab.json approval.by), the day,
+    and where he gave it. Without one, `todo dispatchable` never lists the item and
+    `todo dispatch` refuses it."""
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        require_clean(store)
+        item = open_item(store, args.id)
+        if args.clear:
+            if args.source is not None or args.date is not None:
+                raise TodoError("--clear takes no --source or --date")
+            if not item.get("approved"):
+                raise TodoError(f"{args.id} carries no approval to clear")
+            if item.get("dispatched"):
+                raise TodoError(f"{args.id} was dispatched {item['dispatched'].get('date')}: "
+                                f"clear that first (todo dispatch {args.id} --clear)")
+            item["approved"] = None
+            msg = f"cleared the approval of {args.id}"
+        else:
+            source = (args.source or "").strip()
+            if not source or "\n" in source:
+                raise TodoError("--source: one line saying where Jacob approved it (his words, or a pointer to them)")
+            date = args.date or today()
+            if not checks.DATE_RE.match(date) or date > today():
+                raise TodoError(f"--date {date!r}: a YYYY-MM-DD no later than today ({today()})")
+            item["approved"] = {"by": VOCAB.approval_by, "date": date, "source": source}
+            msg = f"approved {args.id}: {field_value('approved', item['approved'])}"
+        commit(store)
+    print(msg)
+
+
+def cmd_dispatch(args):
+    """Mark an approved item as handed to someone to do, so `todo dispatchable`
+    leaves it out; --clear when it comes back unfinished. The note never names
+    who: items name repos (README, Dispatch)."""
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        require_clean(store)
+        item = open_item(store, args.id)
+        if args.clear:
+            if args.note is not None:
+                raise TodoError("--clear takes no --note")
+            if not item.get("dispatched"):
+                raise TodoError(f"{args.id} is not dispatched")
+            item["dispatched"] = None
+            msg = f"cleared the dispatch of {args.id}: todo dispatchable lists it again when it is ready"
+        else:
+            if not item.get("approved"):
+                raise TodoError(f"{args.id} carries no approval: only Jacob's approved work is dispatched "
+                                f"(todo approve {args.id} --source ...)")
+            if item.get("dispatched"):
+                raise TodoError(f"{args.id} was dispatched {item['dispatched'].get('date')} already "
+                                f"(todo dispatch {args.id} --clear when it came back unfinished)")
+            note = args.note.strip() if args.note else None
+            if note and "\n" in note:
+                raise TodoError("--note must be one line")
+            item["dispatched"] = {"date": today(), "text": note or None}
+            msg = f"dispatched {args.id} ({today()})"
+            why = not_ready_reasons(workspace(args, store), item)
+            if why:
+                msg += f"; note: todo brief calls it NOT READY ({'; '.join(why)})"
+        commit(store)
+    print(msg)
+
+
+def dispatch_view(ws, repo=None):
+    """What can be dispatched now, across every scanned store: open items Jacob
+    approved, not dispatched, and ready as `todo brief` judges it. Every approved
+    open item is accounted for: listed, held (with why), or dispatched; the open
+    items with no approval are counted, never silently dropped."""
+    view = {"dispatchable": [], "held": [], "dispatched": [], "unapproved": 0, "unreadable": list(ws.errors)}
+    for s in ws.stores:
+        for it in s.items:
+            if repo and it.get("repo") != repo:
+                continue
+            if it.get("kind") == VOCAB.role("report_kind"):
+                continue  # its work lives in the owner's store, under the counterpart's id
+            appr = it.get("approved")
+            if appr is None:
+                view["unapproved"] += 1
+                continue
+            gid = tagging.global_id(it["id"])
+            if it.get("dispatched"):
+                d = it["dispatched"]
+                view["dispatched"].append({"id": gid, "date": d.get("date") if isinstance(d, dict) else None,
+                                           "text": d.get("text") if isinstance(d, dict) else None})
+                continue
+            if not checks.approved_ok(appr):
+                view["held"].append({"id": gid, "why": ["approved is malformed (todo check names it)"]})
+                continue
+            if it.get("size") == VOCAB.split_size and checks.children_of(ws, it["id"]):
+                continue  # split: its children carry the approval and the work
+            why = not_ready_reasons(ws, it)
+            if why:
+                view["held"].append({"id": gid, "why": why})
+                continue
+            view["dispatchable"].append({"id": gid, "repo": it["repo"], "work": it["work"], "size": it["size"],
+                                         "title": it["title"], "approved": appr, "store": str(s.dir),
+                                         "brief": f"todo brief {gid}",
+                                         "mark": f"todo -C {s.dir} dispatch {it['id']}"})
+    return view
+
+
+def cmd_dispatchable(args):
+    view = dispatch_view(read_workspace(args), args.repo)
+    if args.json:
+        print(json.dumps(view, indent=1, ensure_ascii=False))
+    else:
+        for r in view["dispatchable"]:
+            print(f"{r['id']:<11} repo {r['repo']:<16} work {r['work']:<9} size {r['size']}  "
+                  f"approved {r['approved']['date']}  {r['title'][:TITLE_WIDTH]}")
+            print(f"{'':<11} brief: {r['brief']}   mark it handed out: {r['mark']}")
+        if not view["dispatchable"]:
+            print("(nothing dispatchable: an item needs Jacob's approval (todo approve), no dispatched mark, and "
+                  "what todo brief needs: status open, repo, work, done_when, size "
+                  f"{' or '.join(VOCAB.ready_sizes)}, every blocked_by id closed)")
+        if view["held"]:
+            print(f"approved, held back ({len(view['held'])}):")
+            for h in view["held"]:
+                print(f"  {h['id']:<11} {'; '.join(h['why'])}")
+        if view["dispatched"]:
+            print(f"approved, already dispatched ({len(view['dispatched'])}): "
+                  + ", ".join(f"{d['id']} ({d['date']})" for d in view["dispatched"]))
+        print(f"({view['unapproved']} open item(s) carry no approval)")
+        for e in view["unreadable"]:
+            print(f"UNREADABLE  {e}")
+    if view["unreadable"]:
+        print("todo: UNCHECKED: a store could not be read, so this list may be missing its items", file=sys.stderr)
+        sys.exit(3)
+
+
 def handoff_line(it, where):
     """The brief's resume point (PLAN-small-tasks.md §4.3): the last handoff and
     the commit it was written at, with that commit's subject read from the work
@@ -755,7 +919,6 @@ def cmd_brief(args):
         raise TodoError(f"{args.id} is in no scanned store or history")
     if where == "history":
         raise TodoError(f"{args.id} closed {it.get('done') or '(undated)'}: {it.get('resolution') or ''}")
-    missing = [f for f in ("repo", "work", "done_when") if not it.get(f)]
     print(f"todo:{it['id']}  ({it.get('kind')}, {it.get('status')}; repo {it.get('repo')}, work {it.get('work')}, size {it.get('size')})")
     print(f"What: {it['title']}")
     if it.get("evidence"):
@@ -771,20 +934,16 @@ def cmd_brief(args):
     blockers = deps.open_blockers(ws, it)
     if it.get("blocked_by"):
         print(f"Blocked by: {', '.join(it['blocked_by'])}" + (f" (still open: {', '.join(blockers)})" if blockers else " (all closed)"))
+    print("Approved: " + (field_value("approved", it["approved"]) if it.get("approved") else
+                          f"no (todo approve {it['id']} --source ...)"))
+    if it.get("dispatched"):
+        print(f"Dispatched: {field_value('dispatched', it['dispatched'])}")
     print(handoff_line(it, work_dir(ws, s, it)))
     todo_bin = Path(sys.argv[0]).resolve()
     print(f"Hand off at each checkpoint: {todo_bin} -C {s.dir} edit {it['id']} --handoff \"done; next; how to verify\"")
     print(f"Close it: {todo_bin} -C {s.dir} done {it['id']} --resolution \"...\"")
     print(f"Stop rule: {VOCAB.brief['stop_rule']}")
-    why = []
-    if missing:
-        why.append(f"missing {', '.join(missing)}")
-    if it.get("status") != VOCAB.role("default_status"):
-        why.append(f"status {it.get('status')}")
-    if blockers:
-        why.append(f"blocked by {', '.join(blockers)}")
-    if size_refusal(it):
-        why.append(size_refusal(it))
+    why = not_ready_reasons(ws, it)
     if why:
         print(f"NOT READY: {'; '.join(why)}")
         sys.exit(1)
@@ -845,6 +1004,9 @@ COMMANDS = {
     "refs": (cmd_refs, "the records whose ref: tag names this id"),
     "split": (cmd_split, "break an item into children, each one checkpoint; it closes with its last child"),
     "reseal": (cmd_reseal, "accept a store file changed around the CLI, recorded in hand_edits"),
+    "approve": (cmd_approve, "record Jacob's approval of an item: the day and where he gave it"),
+    "dispatch": (cmd_dispatch, "mark an approved item handed out (--clear when it comes back unfinished)"),
+    "dispatchable": (cmd_dispatchable, "what can be dispatched now: approved, not dispatched, ready; every store"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -926,6 +1088,15 @@ def build_parser():
     for name in ("find", "refs"):
         ps[name].add_argument("--open", action="store_true", help="open items only, not history")
         ps[name].add_argument("--json", action="store_true")
+    ps["approve"].add_argument("id")
+    ps["approve"].add_argument("--source", help="one line: where Jacob approved it (his words, or a pointer to them)")
+    ps["approve"].add_argument("--date", help="the day he approved it, YYYY-MM-DD (default today)")
+    ps["approve"].add_argument("--clear", action="store_true", help="remove the approval (refused while dispatched)")
+    ps["dispatch"].add_argument("id")
+    ps["dispatch"].add_argument("--note", help="one line, e.g. where the Dispatch line is; never who")
+    ps["dispatch"].add_argument("--clear", action="store_true", help="it came back unfinished: list it again")
+    ps["dispatchable"].add_argument("--repo", help="only items whose work lives in this repo")
+    ps["dispatchable"].add_argument("--json", action="store_true")
     return ap
 
 

@@ -17,6 +17,8 @@ class RoundTrip(Case):
                   "--repo", "elsewhere", "--work", "test", "--files", "a.py", "b/c.js",
                   "--done-when", "suite passes", "--retire", "manifest:nodes", today="2026-10-01")
         self.todo("-C", a, "edit", "aa-1", "--handoff", "done: half; next: the rest", today="2026-10-02")
+        self.todo("-C", a, "approve", "aa-1", "--source", "his words", today="2026-10-02")
+        self.todo("-C", a, "dispatch", "aa-1", "--note", "in the day's Dispatch", today="2026-10-02")
         before = self.store(a)["items"][0]
         self.todo("-C", a, "done", "aa-1", "--resolution", "retired by the check")
         self.assertEqual(self.store(a)["items"], [])
@@ -29,7 +31,7 @@ class RoundTrip(Case):
             v = after[f]
             if v in (None, [], ""):
                 continue
-            text = ", ".join(v) if isinstance(v, list) else field_value(f, v) if f == "handoff" else str(v)
+            text = ", ".join(v) if isinstance(v, list) else field_value(f, v) if isinstance(v, dict) else str(v)
             for line in text.split("\n"):
                 self.assertIn(line, shown, f"field {f} not shown")
         self.assertIn("closed, in todo-history.json", self.todo("-C", a, "show", "aa-1").stdout)

@@ -287,10 +287,10 @@
     },
     {
       "id": "td-27",
-      "title": "PLAN-todo-tool.md §3's command list does not name get, find and refs",
+      "title": "PLAN-todo-tool.md §3's command list does not name get, find, refs, approve, dispatch and dispatchable",
       "kind": "note",
       "status": "open",
-      "evidence": "tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).",
+      "evidence": "tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).\n2026-10-09: approve, dispatch and dispatchable (the dispatch work Jacob approved 2026-10-09) joined BEYOND_PLAN for the same reason.",
       "probe": null,
       "reported_to": null,
       "parent": null,
@@ -298,7 +298,7 @@
       "repo": "todo",
       "work": "docs",
       "files": null,
-      "done_when": "PLAN-todo-tool.md §3 lists todo get, find and refs and BEYOND_PLAN holds init only",
+      "done_when": "PLAN-todo-tool.md §3 lists todo get, find, refs, approve, dispatch and dispatchable, and BEYOND_PLAN holds init only",
       "retire": null,
       "tags": [
         "plan:PLAN-todo-tool.md§3"
@@ -376,5 +376,5 @@
       "imported": null
     }
   ],
-  "seal": "c07fb4c0dfc52d7c"
+  "seal": "cfedab52d35198dc"
 }

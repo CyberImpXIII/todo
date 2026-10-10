@@ -28,6 +28,9 @@ class Vocab:
         if not str(self.brief.get("stop_rule") or "").strip():
             raise ValueError("vocab.json: brief.stop_rule is empty; every brief carries it")
         self.fields = {k: v for k, v in data["fields"].items() if not k.startswith("_")}
+        self.approval_by = str(data["approval"].get("by") or "").strip()
+        if not self.approval_by:
+            raise ValueError("vocab.json: approval.by is empty; `todo approve` records who approved")
         self.resolutions = {k: v for k, v in data["resolutions"].items() if not k.startswith("_")}
         self.roles = data["roles"]
         self.service = data["tags"]["service"]

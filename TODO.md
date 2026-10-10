@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (16 open, 14 closed in todo-history.json; seal 6eaf7db89d52): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (16 open, 14 closed in todo-history.json; seal aaf99f47ee37): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -110,10 +110,11 @@
   · files: todolib/checks.py
   · added: 2026-10-09
 
-- **td-27 · PLAN-todo-tool.md §3's command list does not name get, find and refs**
+- **td-27 · PLAN-todo-tool.md §3's command list does not name get, find, refs, approve, dispatch and dispatchable**
   tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).
+  2026-10-09: approve, dispatch and dispatchable (the dispatch work Jacob approved 2026-10-09) joined BEYOND_PLAN for the same reason.
   · work: docs
-  · done when: PLAN-todo-tool.md §3 lists todo get, find and refs and BEYOND_PLAN holds init only
+  · done when: PLAN-todo-tool.md §3 lists todo get, find, refs, approve, dispatch and dispatchable, and BEYOND_PLAN holds init only
   · tags: plan:PLAN-todo-tool.md§3
   · added: 2026-10-09
 

@@ -27,7 +27,7 @@ Every command acts on the repo holding the working directory, or on the one
 the environment variable `TODO_ROOT` does.
 
 A read that names its record (`show`, `get`, `find`, `refs`, `brief`, `tree ID`,
-`history ID`) needs no store of its own. Run from a folder with none, without
+`history ID`), and `dispatchable`, which reads every store, needs no store of its own. Run from a folder with none, without
 `-C` (the workspace root, or a repo not migrated yet), it answers from every
 store scanned from there: `--root`, else `TODO_ROOT`, else the folder itself when
 it is in no git repo. A write still needs its store, and `-C` naming a folder
@@ -58,6 +58,9 @@ without one stays an error rather than borrowing another store's answer.
 | `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
 | `todo split ID TITLE ... --size SIZE` | one child per title under `parent`, each a checkpoint of its own: SIZE is S or M; it copies the parent's kind, repo, work, files, `blocked_by`, tags and any field its kind requires, and gets its own `done_when` with `todo edit`. The parent becomes L, so `ready` never lists it, and `todo done` on its last open child closes it too |
 | `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
+| `todo approve ID --source S [--date D] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched |
+| `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`. Refused on an unapproved item or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
+| `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -154,6 +157,8 @@ each have one setter and are refused everywhere else:
 | `files` | paths the work touches |
 | `done_when` | the observable that closes it |
 | `handoff` | `{date, text, commit}`: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief` |
+| `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve` only, read by `todo dispatchable` |
+| `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
 | `added` | date added |
@@ -189,6 +194,36 @@ The shared vocabulary belongs to the architecture service, which does not exist
 yet; once it does, this table is read from there (TODO.md). `get`, `find` and
 `refs` are not declared in `services.json`: its schema (tools/checks) allows a
 service of `check` or `write` only, and these are reads (TODO.md).
+
+## Dispatch
+
+`todo ready` answers "what is well-formed enough to hand out"; `todo dispatchable`
+answers "what may be handed out now" (Jacob, 2026-10-09). It adds two facts this
+tool records itself, each with one setter:
+
+- **`approved`**, by `todo approve ID --source "..."`: Jacob's go-ahead, with the
+  day and where he gave it. Nothing else counts as approval: not the kind, not a
+  plan section, not an `origin:jacob` tag. `todo dispatch` refuses an item without
+  it, and `check` fails an `approved` of another shape or approver, or a
+  `dispatched` mark on an item with none.
+- **`dispatched`**, by `todo dispatch ID`: the item was handed to someone, so it is
+  in flight and left out. "In flight" is this mark alone: todo reads no roster and
+  no ledger, and the note never names who (items name repos). When the work comes
+  back unfinished, `todo dispatch ID --clear` lists it again; when it is finished,
+  `todo done` closes it.
+
+An item is listed when it is open (status `open`, not a report), approved, not
+dispatched, and `todo brief` would not call it NOT READY (repo, work, done_when,
+size S or M, every `blocked_by` id closed: one function, `not_ready_reasons`,
+answers both). An approved item failing any of that is listed under "held back"
+with the reason; a split item (size L with children) is left to its children,
+which carry its approval. Open items with no approval are counted. Its pointer for
+a Dispatch line is the `todo:` id: `todo brief todo:<id>` prints the work brief from
+any folder. Like the other reads that need no store of their own, it runs from
+the workspace root and scans from there (tests/test_dispatch.py).
+
+Items in a hand-kept `TODO.md` are not in any store, so this command cannot see
+them until that file is imported (`todo import`).
 
 ## The store files
 

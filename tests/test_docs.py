@@ -18,6 +18,11 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                # accepted only by a recorded verb; `help` is what tools/checks reads for cli.json.
                "reseal": "§9: accept a broken seal, recorded in hand_edits",
                "split": "PLAN-small-tasks.md §2.1: an L item into children, each one checkpoint",
+               # Jacob, 2026-10-09: "Please dispatch any available tasks, if we do not have a script
+               # for this, that should be added to the todo service" (the workspace TODO.md item
+               # 'No command answers "what can be dispatched now"').
+               "approve": "TODO.md 2026-10-09: record Jacob's approval", "dispatch": "the same: the dispatched mark",
+               "dispatchable": "the same: what can be dispatched now",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 
 

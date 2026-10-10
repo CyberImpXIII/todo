@@ -125,6 +125,8 @@ class Handled(Case):
         for w in works:
             self.todo("-C", a, "add", f"w {w}", "--kind", VOCAB.role("default_kind"), "--work", w)
         self.todo("-C", a, "edit", "aa-2", "--handoff", "h")
+        self.todo("-C", a, "approve", "aa-2", "--source", "s")
+        self.todo("-C", a, "dispatch", "aa-2")
         md = (a / "TODO.md").read_text()
         for kind, spec in VOCAB.kinds.items():
             self.assertIn(f"## {spec['heading']}", md, kind)

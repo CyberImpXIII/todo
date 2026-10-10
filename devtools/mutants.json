@@ -336,7 +336,7 @@
      "file": "todolib/checks.py", "old": "        if state == \"legacy\":", "new": "        if False:",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Legacy"]},
     {"id": "cli-json-verb-drift", "gate": "cli.json's verbs are the CLI's commands",
-     "file": "cli.json", "old": "\"reseal\", \"help\"]", "new": "\"reseal\"]",
+     "file": "cli.json", "old": "\"dispatchable\", \"help\"]", "new": "\"dispatchable\"]",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Declared"]},
     {"id": "ready-takes-a-large-item", "gate": "todo ready lists only the sizes one checkpoint holds",
      "file": "todolib/cli.py", "old": "    if it[\"size\"] not in VOCAB.ready_sizes:", "new": "    if False:",
@@ -360,7 +360,7 @@
      "file": "todolib/checks.py", "old": "    if it.get(\"size\") is not None and it[\"size\"] not in VOCAB.sizes:\n        out.append", "new": "    if False:\n        out.append",
      "run": ["python3", "-m", "unittest", "tests.test_sizes.Gate"]},
     {"id": "split-copies-nothing", "gate": "a child copies its parent's kind, repo, work, files, tags and required fields",
-     "file": "todolib/cli.py", "old": "        copied = (\"kind\", \"repo\", \"work\", \"files\", \"blocked_by\", \"tags\", *VOCAB.required(parent))", "new": "        copied = (\"kind\", *VOCAB.required(parent))",
+     "file": "todolib/cli.py", "old": "        copied = (\"kind\", \"repo\", \"work\", \"files\", \"blocked_by\", \"tags\", \"approved\", *VOCAB.required(parent))", "new": "        copied = (\"kind\", *VOCAB.required(parent))",
      "run": ["python3", "-m", "unittest", "tests.test_sizes.Split.test_children_copy_the_parent_and_point_at_it"]},
     {"id": "split-leaves-parent-size", "gate": "a split parent becomes L, so ready never lists it",
      "file": "todolib/cli.py", "old": "        parent[\"size\"] = VOCAB.split_size\n", "new": "",
@@ -421,6 +421,18 @@
      "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_writes_and_an_explicit_folder_still_need_a_store"]},
     {"id": "empty-scan-answers", "gate": "a read with no store here and none under the scan root fails",
      "file": "todolib/cli.py", "old": "    if not ws.stores:\n        raise TodoError(f\"no {STORE_FILE} in {d}, and none under", "new": "    if False:\n        raise TodoError(f\"no {STORE_FILE} in {d}, and none under",
-     "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_nothing_to_scan_is_an_error_not_an_empty_answer"]}
+     "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_nothing_to_scan_is_an_error_not_an_empty_answer"]},
+    {"id": "dispatchable-ignores-approval", "gate": "dispatchable leaves an unapproved item out and counts it",
+     "file": "todolib/cli.py", "old": "            if appr is None:\n                view[\"unapproved\"] += 1", "new": "            if False:\n                view[\"unapproved\"] += 1",
+     "run": ["python3", "-m", "unittest", "tests.test_dispatch.Dispatchable.test_an_unapproved_item_is_left_out_and_counted"]},
+    {"id": "dispatchable-ignores-dispatched", "gate": "dispatchable leaves a dispatched item out",
+     "file": "todolib/cli.py", "old": "            if it.get(\"dispatched\"):\n                d = it[\"dispatched\"]", "new": "            if False:\n                d = it[\"dispatched\"]",
+     "run": ["python3", "-m", "unittest", "tests.test_dispatch.Dispatchable.test_a_dispatched_item_is_left_out_until_cleared"]},
+    {"id": "dispatch-unapproved", "gate": "todo dispatch refuses an item Jacob has not approved",
+     "file": "todolib/cli.py", "old": "            if not item.get(\"approved\"):\n                raise TodoError(f\"{args.id} carries no approval: only", "new": "            if False:\n                raise TodoError(f\"{args.id} carries no approval: only",
+     "run": ["python3", "-m", "unittest", "tests.test_dispatch.Dispatchable.test_dispatch_refuses_an_unapproved_item_and_approve_needs_a_source"]},
+    {"id": "approved-shape-unchecked", "gate": "check fails an approved of another shape or approver",
+     "file": "todolib/checks.py", "old": "    if it.get(\"approved\") is not None and not approved_ok(it[\"approved\"]):", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_dispatch.Checked.test_check_fails_a_malformed_approval_or_dispatch"]}
   ]
 }

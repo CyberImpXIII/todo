@@ -56,6 +56,23 @@ def handoff_ok(h):
             and (h["commit"] is None or (isinstance(h["commit"], str) and bool(SHA_RE.match(h["commit"])))))
 
 
+def _one_line(v):
+    return isinstance(v, str) and bool(v.strip()) and "\n" not in v
+
+
+def approved_ok(a):
+    """The shape `todo approve` writes: {by (vocab.json approval.by), date, source}."""
+    return (isinstance(a, dict) and set(a) == {"by", "date", "source"} and a["by"] == VOCAB.approval_by
+            and isinstance(a["date"], str) and bool(DATE_RE.match(a["date"])) and _one_line(a["source"]))
+
+
+def dispatched_ok(d):
+    """The shape `todo dispatch` writes: {date, text (one line, or null)}."""
+    return (isinstance(d, dict) and set(d) == {"date", "text"}
+            and isinstance(d["date"], str) and bool(DATE_RE.match(d["date"]))
+            and (d["text"] is None or _one_line(d["text"])))
+
+
 def check_item(it, where, store, out):
     iid = it.get("id", "?")
     fields = set(VOCAB.field_names())
@@ -107,6 +124,16 @@ def check_item(it, where, store, out):
     if it.get("handoff") is not None and not handoff_ok(it["handoff"]):
         out.append(("FAIL", "schema", iid, "handoff must be {date (YYYY-MM-DD), text (one non-empty line), "
                                            "commit (a hex sha, or null)}: set it with todo edit --handoff"))
+    if it.get("approved") is not None and not approved_ok(it["approved"]):
+        out.append(("FAIL", "schema", iid, f"approved must be {{by ({VOCAB.approval_by}), date (YYYY-MM-DD), "
+                                           "source (one non-empty line)}: set it with todo approve"))
+    if it.get("dispatched") is not None:
+        if not dispatched_ok(it["dispatched"]):
+            out.append(("FAIL", "schema", iid, "dispatched must be {date (YYYY-MM-DD), text (one line, or null)}: "
+                                               "set it with todo dispatch"))
+        if it.get("approved") is None:
+            out.append(("FAIL", "schema", iid, "dispatched without approved: todo dispatch refuses an unapproved "
+                                               "item, so this was written around the CLI"))
     imported = it.get("imported") is not None
     for f in VOCAB.required(it):
         if _empty(it.get(f)):

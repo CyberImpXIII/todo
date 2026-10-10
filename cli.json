@@ -2,5 +2,5 @@
   "store": ["todo.json", "todo-history.json"],
   "cli": "todo",
   "verbs": ["init", "add", "edit", "done", "report", "list", "show", "render", "tree", "check", "import", "repos",
-            "ready", "brief", "history", "get", "find", "refs", "split", "reseal", "help"]
+            "ready", "brief", "history", "get", "find", "refs", "split", "reseal", "approve", "dispatch", "dispatchable", "help"]
 }
