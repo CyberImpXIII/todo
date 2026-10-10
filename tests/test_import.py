@@ -6,6 +6,7 @@ list markers comes back from the rendered TODO.md + TODO-HISTORY.md (a word
 count, by a filter written here, independent of the importer's own parser), and
 every source block comes back whole from exactly one rendered item.
 """
+import json
 import re
 import shutil
 from collections import Counter
@@ -13,7 +14,7 @@ from collections import Counter
 from tests.helpers import FIXTURES, Case
 from todolib.importer import md_blocks, reconstruct
 from todolib.render import parse_blocks, unseal
-from todolib.vocab import VOCAB
+from todolib.vocab import VOCAB, VOCAB_PATH, Vocab
 
 REAL = ["site-scrapers", "setup", "hub"]
 FENCE = re.compile(r"^\s*(```+|~~~+)")
@@ -161,3 +162,39 @@ class DoneBullets(Case):
         self.assertEqual(shown.count(f"-> {deprecated}"), 4)
         self.todo("-C", d, "render", "--history")
         self.assertEqual((d / "TODO-HISTORY.md").read_text().count(f"· resolution: {deprecated}"), 4)
+
+
+class ConfirmedHeading(Case):
+    """td-22 (PLAN-todo-tool.md §9 step 1, Jacob 2026-10-09): a block under a
+    Confirmed heading is settled work and imports closed; one under Unconfirmed
+    stays open. The vocab rule is the input that changes it."""
+    CONFIRMED = "Confirmed (2026-10-01, by probe unless stated)"
+    UNCONFIRMED = "Unconfirmed suspicions"
+
+    def test_confirmed_imports_done_and_unconfirmed_stays_open(self):
+        d = self.ws / "c"
+        d.mkdir()
+        (d / "TODO.md").write_text(f"# c\n\n## {self.CONFIRMED}\n\n- **a settled finding** probed and true\n\n"
+                                   f"## {self.UNCONFIRMED}\n\n- **maybe this** not probed yet\n")
+        self.todo("-C", d, "init", "--prefix", "cc")
+        self.todo("-C", d, "import", "TODO.md")
+        closed, open_ = self.history(d)["items"], self.store(d)["items"]
+        self.assertEqual([(it["title"], it["status"], it["resolution"]) for it in closed],
+                         [("a settled finding", VOCAB.role("closed_status"), VOCAB.role("import_resolution"))])
+        self.assertEqual([(it["title"], it["kind"], it["status"]) for it in open_],
+                         [("maybe this", "suspicion", VOCAB.role("default_status"))])
+
+    def test_removing_the_rule_leaves_confirmed_open(self):
+        raw = json.loads(VOCAB_PATH.read_text())
+        rules = raw["import"]["headings"]
+        self.assertEqual(sum(r["match"] == "confirmed" for r in rules), 1)
+        raw["import"]["headings"] = [r for r in rules if r["match"] != "confirmed"]
+        path = self.tmp / "vocab.json"
+        path.write_text(json.dumps(raw))
+        without = Vocab(path)
+        done, open_ = VOCAB.role("closed_status"), VOCAB.role("default_status")
+        note = VOCAB.role("default_kind")
+        self.assertEqual(VOCAB.heading_rule(["c", self.CONFIRMED]), (note, done))
+        self.assertEqual(without.heading_rule(["c", self.CONFIRMED]), (note, open_))
+        for v in (VOCAB, without):  # the word-start match keeps Unconfirmed out, rule or no rule
+            self.assertEqual(v.heading_rule(["c", self.UNCONFIRMED]), ("suspicion", open_))

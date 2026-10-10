@@ -138,7 +138,7 @@ each have one setter and are refused everywhere else:
 <!-- vocab:resolutions -->
 | resolution | meaning |
 |---|---|
-| `done-deprecated` | an imported closed bullet (DONE marker or Resolved heading) that carried no resolution: set by `todo import` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that was not imported |
+| `done-deprecated` | an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution: set by `todo import` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that was not imported |
 
 <!-- vocab:fields -->
 | field | meaning |
@@ -320,7 +320,7 @@ Closed items leave `todo.json` and are appended to `todo-history.json`, so
   so, so it is closed here rather than reported again).
 - `todo import` sends a bullet whose text starts `DONE 2026-10-03` (bold or
   struck-through markers allowed) to history with that date; a bullet under a
-  "Resolved" heading goes there with no date. A bullet carries no resolution, so
+  "Resolved" or "Confirmed" heading goes there with no date. A bullet carries no resolution, so
   every imported closed item gets the resolution `done-deprecated` (Jacob, td-1),
   shown as such by `todo history`, `show` and `render --history`; its evidence
   holds the bullet text. A closed item without a resolution is a FAIL wherever it
@@ -333,7 +333,8 @@ Closed items leave `todo.json` and are appended to `todo-history.json`, so
 word: one top-level bullet or paragraph is one item. Kind and status come from
 the headings above it (`vocab.json` `import`: "Needs Jacob" or "Waiting on Jacob"
 → decision waiting on Jacob, "Unconfirmed" → suspicion, "Reported" → report,
-"Bug" → bug, "Resolved" → done; `note` otherwise). A bold lead becomes the title
+"Bug" → bug, "Resolved" or "Confirmed" → done; `note` otherwise; a rule matches
+from a word start, so "Unconfirmed" is not "Confirmed"). A bold lead becomes the title
 and the rest the evidence; otherwise the title is the first sentence and the
 evidence the whole text. Each item records its block's sha, so re-running the
 import adds nothing. Items whose kind requires a field the bullet cannot supply (a

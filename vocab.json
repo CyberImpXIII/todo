@@ -41,7 +41,7 @@
   },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
-    "done-deprecated": {"doc": "an imported closed bullet (DONE marker or Resolved heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
+    "done-deprecated": {"doc": "an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
   },
   "roles": {
     "default_kind": "note",
@@ -94,7 +94,7 @@
     }
   },
   "import": {
-    "_comment": "Kind and status of an imported block come from its section headings, deepest heading first, first rule that matches (case-insensitive substring). A block whose own text starts with the done marker goes to history whatever its heading.",
+    "_comment": "Kind and status of an imported block come from its section headings, deepest heading first, first rule that matches (case-insensitive, from a word start: `confirmed` does not match 'Unconfirmed'). A block whose own text starts with the done marker goes to history whatever its heading. `confirmed` → done: a confirmed finding is settled work (PLAN-todo-tool.md §9 step 1, td-22, Jacob 2026-10-09).",
     "headings": [
       {"match": "needs jacob",   "kind": "decision", "status": "waiting-jacob"},
       {"match": "waiting on jacob", "kind": "decision", "status": "waiting-jacob"},
@@ -103,7 +103,8 @@
       {"match": "suspicion",     "kind": "suspicion"},
       {"match": "reported",      "kind": "report"},
       {"match": "bug",           "kind": "bug"},
-      {"match": "resolved",      "status": "done"}
+      {"match": "resolved",      "status": "done"},
+      {"match": "confirmed",     "status": "done"}
     ],
     "done_marker": "^(?:\\*\\*|~~)*DONE (\\d{4}-\\d{2}-\\d{2})\\b"
   }

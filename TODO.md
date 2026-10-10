@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (18 open, 17 closed in todo-history.json; seal 11d212b04d9a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (18 open, 18 closed in todo-history.json; seal 5ade02d1e914): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -11,12 +11,6 @@
   · work: decision
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
-
-- **td-22 · A Confirmed heading imports as open notes, not closed items**
-  Dry run on a copy of the top-level TODO.md (2026-10-09): 168 to the store, 33 to history. The 24 blocks under '## Confirmed (2026-10-01, by probe unless stated)' go to the store as note/open, but PLAN-todo-tool.md §9 step 1 says a confirmed finding becomes a closed item. One vocab.json import rule ({match: confirmed, status: done}; the \b match keeps 'Unconfirmed' out) would close them with done-deprecated. Hinges on a yes from the top level's owner: it changes every repo's import, and done-deprecated's meaning (DONE marker or Resolved heading) would widen. Also: 'Needs Jacob' bullets with DONE mid-text (e.g. 'knowledge-base sweep DONE') stay open by rule.
-  · work: decision
-  · done when: the top level's owner says yes or no; a yes lands as the rule with its test
-  · added: 2026-10-09
 
 - **td-26 · repo: tags here are repo names (repo:todo); PLAN-services.md §3's example is a path (repo:tools/todo)**
   todolib/tags.py derives repo: from the item's repo field, which is a repo name everywhere in this tool. The plan's example table writes repo:tools/todo. find repo:tools/todo returns nothing here. Hinges on S3's rule for repo: values (a repo that exists: by name or by path).
@@ -130,4 +124,8 @@
   2026-10-09: td-24, td-25, td-26, td-27 (PLAN-services.md §3, PLAN-todo-tool.md §3) and td-30 (PLAN-small-tasks.md, no section) carry plan: tags with no pin. Not pinned in bulk: a pin today would claim they match today's section text, which nobody checked. Pin each with todo edit ID --pin-plan when it is next brought up to date with its section.
   · work: labour
   · size: S
+  · added: 2026-10-09
+
+- **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
+  ./dev.sh check, 2026-10-09 (commit after 77bce39): checks gate FAIL hooks-installed: .claude/lib/extra-stores.sh, .claude/hooks/store-guard.sh and .claude/hooks/test-store-guard.sh 'drift; not covered by user scope (no shared hook of that name there)', .claude/hooks/test-no-inline-blobs.sh 'drift; not covered by user scope (not registered there)'. Last touched by 93532a8 (re-render of the shared hook copies from tools/hooks). Not this tool's files and not changed by td-22/td-27; reported to the hooks tool's owner through the dispatch report. Also live: ./dev.sh hooks FAIL 'store-guard.sh is not registered in .claude/settings.json' (td-2's remainder; the uncommitted settings.json now registers the other seven).
   · added: 2026-10-09
