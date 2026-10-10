@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (19 open, 16 closed in todo-history.json; seal e2e3e6b473c8): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (18 open, 17 closed in todo-history.json; seal 11d212b04d9a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -120,15 +120,6 @@
   check_history adds an INFO 'not a git repo: the append-only audit ... is skipped here' and the gate prints ok. The top-level store (PLAN §9 step 1) is never in git, so its history would never be audited. The store seal (PLAN §9 'The gap his question found', queued next) is the candidate guard; until then it is visible only as INFO.
   · work: audit
   · files: todolib/checks.py
-  · added: 2026-10-09
-
-- **td-27 · PLAN-todo-tool.md §3's command list does not name get, find, refs, approve, dispatch, dispatchable and stale-plans**
-  tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).
-  2026-10-09: approve, dispatch and dispatchable (the dispatch work Jacob approved 2026-10-09) joined BEYOND_PLAN for the same reason.
-  2026-10-09: stale-plans (plan pins, step 1 of the stale-plan work) joined BEYOND_PLAN the same way.
-  · work: docs
-  · done when: PLAN-todo-tool.md §3 lists todo get, find, refs, approve, dispatch, dispatchable and stale-plans, and BEYOND_PLAN holds init only
-  · tags: plan:PLAN-todo-tool.md§3
   · added: 2026-10-09
 
 - **td-28 · Other repos' stores are declared in no cli.json and still format 1**

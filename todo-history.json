@@ -368,7 +368,30 @@
       "done": "2026-10-09",
       "resolution": "built in a93147b: --pin-plan, plan_pins, todo stale-plans; step 2 (hooks) is not this repo's",
       "imported": null
+    },
+    {
+      "id": "td-27",
+      "title": "PLAN-todo-tool.md §3's command list does not name get, find, refs, approve, dispatch, dispatchable and stale-plans",
+      "kind": "note",
+      "status": "done",
+      "evidence": "tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).\n2026-10-09: approve, dispatch and dispatchable (the dispatch work Jacob approved 2026-10-09) joined BEYOND_PLAN for the same reason.\n2026-10-09: stale-plans (plan pins, step 1 of the stale-plan work) joined BEYOND_PLAN the same way.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "docs",
+      "files": null,
+      "done_when": "PLAN-todo-tool.md §3 lists todo get, find, refs, approve, dispatch, dispatchable and stale-plans, and BEYOND_PLAN holds init only",
+      "retire": null,
+      "tags": [
+        "plan:PLAN-todo-tool.md§3"
+      ],
+      "added": "2026-10-09",
+      "done": "2026-10-09",
+      "resolution": "PLAN-todo-tool.md §3 now lists get, find, refs, approve, dispatch, dispatchable and stale-plans (Jacob approved 2026-10-09). tests/test_docs.py: dropped those seven from BEYOND_PLAN; it now holds init, reseal, split and help, which §3 still does not list (done_when's 'init only' predates reseal, split and help being declared). Fixed the plan parser reading 'todo stale-plans' as 'stale' (regex now [a-z][a-z-]*). The check is a pure plan_drift() with three outcomes (planned-not-implemented, implemented-not-declared, stale exemption); PlanDrift tests prove each goes red on a fixture plan, with mutants plan-missing-command-tolerated, plan-stale-exemption-tolerated and plan-hyphen-misread.",
+      "imported": null
     }
   ],
-  "seal": "28599e7d437d2273"
+  "seal": "2d7486b79af9ca95"
 }
