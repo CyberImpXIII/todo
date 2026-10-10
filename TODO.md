@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (16 open, 15 closed in todo-history.json; seal 09c010d33e29): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (19 open, 16 closed in todo-history.json; seal e2e3e6b473c8): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -37,7 +37,19 @@
   · tags: plan:PLAN-small-tasks.md
   · added: 2026-10-09
 
+- **td-34 · In flight is only the CLI's dispatched mark; a ledger path is not read**
+  2026-10-09: the dispatch item allowed in flight to come from a ledger path given as a parameter. Not built: no ledger format is defined for this tool to read, and a guessed format would give wrong answers. Hinges on whether the dispatching side records each hand-out with todo dispatch (then no ledger is needed) or keeps its own ledger (then its format must be named first).
+  · work: decision
+  · added: 2026-10-09
+
 ## Unconfirmed suspicions
+
+- **td-33 · todo ready still lists an item marked dispatched**
+  2026-10-09: todo dispatchable leaves dispatched items out, but todo ready was left as it was (it answers 'well-formed enough to hand out', not 'free to hand out'). A caller that reads ready instead of dispatchable could hand the same item out twice. Unconfirmed whether any caller reads ready that way.
+  · probe: approve and dispatch a ready item, then run todo ready: it is listed; decide whether ready should leave it out or flag it
+  · work: code
+  · size: S
+  · added: 2026-10-09
 
 ## Reported to other owners
 
@@ -110,14 +122,21 @@
   · files: todolib/checks.py
   · added: 2026-10-09
 
-- **td-27 · PLAN-todo-tool.md §3's command list does not name get, find, refs, approve, dispatch and dispatchable**
+- **td-27 · PLAN-todo-tool.md §3's command list does not name get, find, refs, approve, dispatch, dispatchable and stale-plans**
   tests/test_docs.py BEYOND_PLAN declares them with a reason so the plan-equals-commands test stays green. Asked of the plan's owner in the 2026-10-09 report; when §3 lists them, drop them from BEYOND_PLAN (the test then fails until you do).
   2026-10-09: approve, dispatch and dispatchable (the dispatch work Jacob approved 2026-10-09) joined BEYOND_PLAN for the same reason.
+  2026-10-09: stale-plans (plan pins, step 1 of the stale-plan work) joined BEYOND_PLAN the same way.
   · work: docs
-  · done when: PLAN-todo-tool.md §3 lists todo get, find, refs, approve, dispatch and dispatchable, and BEYOND_PLAN holds init only
+  · done when: PLAN-todo-tool.md §3 lists todo get, find, refs, approve, dispatch, dispatchable and stale-plans, and BEYOND_PLAN holds init only
   · tags: plan:PLAN-todo-tool.md§3
   · added: 2026-10-09
 
 - **td-28 · Other repos' stores are declared in no cli.json and still format 1**
   The seal and the 0444 mode now apply wherever this CLI writes (2026-10-09), but cli.json declares only tools/todo's own todo.json and todo-history.json. Every other store (the top level, income, and each repo that runs todo init) is format 1 until its next CLI write, a WARN in its check till then, and no hook or accessor knows it is a store. unverified: no other repo has a cli.json naming todo.json -- settle: grep -l todo.json ../*/cli.json ../../cli.json
+  · added: 2026-10-09
+
+- **td-35 · Items tagged plan: before 2026-10-09 show as never pinned in todo stale-plans**
+  2026-10-09: td-24, td-25, td-26, td-27 (PLAN-services.md §3, PLAN-todo-tool.md §3) and td-30 (PLAN-small-tasks.md, no section) carry plan: tags with no pin. Not pinned in bulk: a pin today would claim they match today's section text, which nobody checked. Pin each with todo edit ID --pin-plan when it is next brought up to date with its section.
+  · work: labour
+  · size: S
   · added: 2026-10-09

@@ -336,7 +336,39 @@
       "done": "2026-10-09",
       "resolution": "built in 94a446c: todo approve, dispatch, dispatchable; dogfooded on this item (listed once approved, left out once dispatched)",
       "imported": null
+    },
+    {
+      "id": "td-32",
+      "title": "Items made from a plan record their section, and todo stale-plans lists those whose section changed",
+      "kind": "note",
+      "status": "done",
+      "evidence": "Pointer: claudeTest/TODO.md item 'Items made from a plan go stale when the plan changes', step 1 only (step 2, the hooks that route stale items for updating, is outside this repo). Built as --pin-plan and todo stale-plans (README 'Plan pins').",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "M",
+      "files": null,
+      "done_when": "tests/test_plan_pins.py: an unchanged section lists nothing, a changed one lists its items, a removed one says section gone, an unpinned one says never pinned; dev.sh check's own gates green",
+      "handoff": null,
+      "approved": {
+        "by": "jacob",
+        "date": "2026-10-09",
+        "source": "Jacob 2026-10-09: a command that determines the last time todos were created from a plan, if that plan has changed, then dispatch the todos ... that need to be updated"
+      },
+      "dispatched": null,
+      "retire": null,
+      "tags": [
+        "origin:jacob"
+      ],
+      "plan_pins": null,
+      "added": "2026-10-09",
+      "done": "2026-10-09",
+      "resolution": "built in a93147b: --pin-plan, plan_pins, todo stale-plans; step 2 (hooks) is not this repo's",
+      "imported": null
     }
   ],
-  "seal": "f02cfd066e4c46bf"
+  "seal": "28599e7d437d2273"
 }
