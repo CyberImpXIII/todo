@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 
-from . import deps, tags
+from . import deps, plans, tags
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_KEYS, HISTORY_FILE,
                     RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
@@ -73,6 +73,33 @@ def dispatched_ok(d):
             and (d["text"] is None or _one_line(d["text"])))
 
 
+def plan_pins_problem(it):
+    """Why the item's plan_pins is not what `--pin-plan` writes, or None: a non-empty
+    list of {plan, digest, date}, one per plan:FILE§n tag the item still carries
+    (a pin with no tag would be checked by stale-plans for a section the item no
+    longer claims), a sha256 hex digest, a YYYY-MM-DD date."""
+    pins = it.get("plan_pins")
+    if pins is None:
+        return None
+    if not isinstance(pins, list) or not pins:
+        return "plan_pins must be a non-empty list of {plan, digest, date}, or null"
+    tagged = plans.refs(it)
+    seen = set()
+    for p in pins:
+        if not (isinstance(p, dict) and set(p) == {"plan", "digest", "date"}):
+            return f"plan_pins entry {p!r} is not {{plan, digest, date}}"
+        if p["plan"] not in tagged or plans.split(p["plan"])[1] is None:
+            return f"plan_pins pins {p['plan']!r}, which is no {plans.namespace()}:FILE§n tag of the item"
+        if p["plan"] in seen:
+            return f"plan_pins pins {p['plan']!r} twice"
+        seen.add(p["plan"])
+        if not (isinstance(p["digest"], str) and plans.DIGEST_RE.match(p["digest"])):
+            return f"plan_pins {p['plan']}: digest is not a sha256 hex digest"
+        if not (isinstance(p["date"], str) and DATE_RE.match(p["date"])):
+            return f"plan_pins {p['plan']}: date is not YYYY-MM-DD"
+    return None
+
+
 def check_item(it, where, store, out):
     iid = it.get("id", "?")
     fields = set(VOCAB.field_names())
@@ -134,6 +161,9 @@ def check_item(it, where, store, out):
         if it.get("approved") is None:
             out.append(("FAIL", "schema", iid, "dispatched without approved: todo dispatch refuses an unapproved "
                                                "item, so this was written around the CLI"))
+    pin_why = plan_pins_problem(it)
+    if pin_why:
+        out.append(("FAIL", "schema", iid, pin_why + ": set it with todo edit ID --pin-plan"))
     imported = it.get("imported") is not None
     for f in VOCAB.required(it):
         if _empty(it.get(f)):

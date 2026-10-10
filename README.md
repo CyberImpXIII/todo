@@ -39,8 +39,8 @@ without one stays an error rather than borrowing another store's answer.
 | usage | what it does |
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
-| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags T ...]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]] [--handoff NOTE]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below) |
+| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags T ...] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]] [--handoff NOTE] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it |
 | `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
@@ -61,6 +61,7 @@ without one stays an error rather than borrowing another store's answer.
 | `todo approve ID --source S [--date D] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched |
 | `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`. Refused on an unapproved item or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
 | `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval. Exit 3 (`UNCHECKED`) when a store could not be read |
+| `todo stale-plans [--repo R] [--plans-dir D] [--plans-cli P] [--json]` | the open items, across every scanned store, whose plan section is not what they were made from (Plan pins, below): `changed`, `section gone`, or `never pinned` (a `plan:` tag with no pin, or one naming no section), each with its `todo:` id, repo, `FILE §n` and the day it last matched. Exit 3 (`UNCHECKED`) when a section could not be read (no plans CLI, an ambiguous section) or a store could not be read: such a section is never counted fresh |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -161,6 +162,7 @@ each have one setter and are refused everywhere else:
 | `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
+| `plan_pins` | `[{plan, digest, date}]`: for each `plan:FILE§n` tag, the sha256 of that section's text and the day it was read; set by `--pin-plan` only, read by `todo stale-plans` |
 | `added` | date added |
 | `done` | date closed; null while open |
 | `resolution` | how it closed; null while open |
@@ -224,6 +226,27 @@ the workspace root and scans from there (tests/test_dispatch.py).
 
 Items in a hand-kept `TODO.md` are not in any store, so this command cannot see
 them until that file is imported (`todo import`).
+
+## Plan pins
+
+An item made from a plan section goes stale when the section changes (Jacob,
+2026-10-09). `--pin-plan` on `add` or `edit` records, for each `plan:FILE§n` tag,
+the sha256 of the section's text as it reads that day (`plan_pins`), and
+`todo stale-plans` lists every open item, in every scanned store, whose section
+now reads differently (`changed`), is no longer there (`section gone`: the
+section or its file), or was never pinned (a `plan:` tag with no pin, or one naming
+no section: never read as fresh). "Last matched" is the day of the pin. Once the
+item is brought up to date, `todo edit ID --pin-plan` pins the section again.
+
+The section is read by the setup tool, `setup plans show FILE §n`, never parsed
+here: what a section is belongs to that tool. Its own `digest` line is of the whole
+file, so the pin hashes the section text it prints instead, and an edit to another
+section of the plan leaves the pin fresh. The tool is found as `setup/setup` in the
+first folder above this repo holding one, or named with `--plans-cli`; the plan
+files are read from the scan root, or `--plans-dir`. A section that tool cannot
+answer for (it is missing, the number is ambiguous, its output is in a form this
+tool does not know) is `UNCHECKED`, exit 3, never fresh and never gone
+(tests/test_plan_pins.py runs the real tool, so the seam itself is tested).
 
 ## The store files
 

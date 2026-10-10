@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import checks, deps, importer
+from . import checks, deps, importer, plans
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, STORE_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -154,6 +154,31 @@ def resolve_tags(ws, given):
     return out
 
 
+def plans_dir(args, ws):
+    """Where a plan:PLAN-x.md tag's file lives: --plans-dir, else the scan root."""
+    return Path(args.plans_dir) if args.plans_dir else ws.root
+
+
+def pin_plans(ws, item, args):
+    """The item's plan sections as they read today, one pin per plan:FILE§n tag
+    (README "Plan pins"). Refused when the item has no such tag, or when a section
+    cannot be read: a pin records a section as it is, never a guess."""
+    sections = [r for r in plans.refs(item) if plans.split(r)[1] is not None]
+    if not sections:
+        raise TodoError(f"--pin-plan: the item has no {plans.namespace()}:PLAN-<name>.md§<n> tag "
+                        "(a pin is of a section; --tags sets one)")
+    cli_path, why = plans.resolve_cli(args.plans_cli)
+    if why:
+        raise TodoError(f"--pin-plan: {why}")
+    out = []
+    for ref in sections:
+        state, value = plans.show(cli_path, plans_dir(args, ws), ref)
+        if state != plans.OK:
+            raise TodoError(f"--pin-plan {ref}: {value}")
+        out.append({"plan": ref, "digest": value, "date": today()})
+    return out
+
+
 class Unchecked(TodoError):
     """Not this service's to judge (an id of another service, a prefix no scanned
     store holds): exit 3, never a pass and never a failure."""
@@ -275,7 +300,7 @@ def print_item(it, where, store, ws):
             for ln in v.split("\n"):
                 print("  " + ln)
             continue
-        if name in ("handoff", "approved", "dispatched"):
+        if name in ("handoff", "approved", "dispatched", "plan_pins"):
             v = field_value(name, v)
         elif isinstance(v, dict):
             v = ", ".join(f"{k}={v[k]}" for k in v)
@@ -318,6 +343,8 @@ def cmd_add(args):
         item["id"] = store.allocate()
         item["blocked_by"] = resolve_blockers(ws, item["id"], args.blocked_by)
         item["tags"] = resolve_tags(ws, args.tags)
+        if args.pin_plan:
+            item["plan_pins"] = pin_plans(ws, item, args)
         store.items.append(item)
         commit(store)
     print(f"added {item['id']}: {item['title']}")
@@ -354,7 +381,7 @@ def cmd_edit(args):
             changes["handoff"] = ({"date": today(), "text": args.handoff.strip(),
                                    "commit": head_commit(work_dir(workspace(args, store), store, item))}
                                   if args.handoff.strip() else "")
-        if not changes:
+        if not changes and not args.pin_plan:
             raise TodoError("nothing to change: name at least one field")
         if changes.get("status") == VOCAB.closed:
             raise TodoError("close an item with `todo done ID --resolution ...`")
@@ -368,6 +395,14 @@ def cmd_edit(args):
             updated["blocked_by"] = resolve_blockers(workspace(args, store), args.id, updated["blocked_by"])
         if "tags" in changes:
             updated["tags"] = resolve_tags(workspace(args, store), updated["tags"])
+        if args.pin_plan:
+            updated["plan_pins"] = pin_plans(workspace(args, store), updated, args)
+            changes["plan_pins"] = updated["plan_pins"]
+        elif "tags" in changes and updated.get("plan_pins"):
+            # A tag taken off takes its pin with it: stale-plans checks only the sections the item claims.
+            kept = [p for p in updated["plan_pins"] if p.get("plan") in plans.refs(updated)]
+            updated["plan_pins"] = kept or None
+            changes["plan_pins"] = kept
         item.update(updated)
         commit(store)
     print(f"edited {args.id}: {', '.join(changes)}")
@@ -447,8 +482,9 @@ def cmd_split(args):
         if parent.get("kind") == VOCAB.role("report_kind"):
             raise TodoError(f"{args.id} is a {parent['kind']}: its work lives in the owner's store; split it there")
         # A child is a piece of the approved whole, so it carries the approval; never
-        # the dispatched mark, since each piece is handed out on its own.
-        copied = ("kind", "repo", "work", "files", "blocked_by", "tags", "approved", *VOCAB.required(parent))
+        # the dispatched mark, since each piece is handed out on its own. It carries the
+        # plan pins with the plan tags: a piece of the whole was made from the same section.
+        copied = ("kind", "repo", "work", "files", "blocked_by", "tags", "plan_pins", "approved", *VOCAB.required(parent))
         made = []
         for title in args.titles:
             child = new_item(**{f: parent.get(f) for f in copied}, title=title, status=VOCAB.role("default_status"),
@@ -891,6 +927,69 @@ def cmd_dispatchable(args):
         sys.exit(3)
 
 
+def stale_plans_view(ws, args):
+    """The open items, across every scanned store, whose plan section is no longer
+    what they were made from: `changed` (its text differs from the pin), `section
+    gone` (the file or the section is no longer there), or `never pinned` (a plan:
+    tag with no pin, so nothing says what the item was made from: never read as
+    fresh). A section the plans CLI could not answer for is `unchecked`, never
+    fresh and never gone."""
+    view = {"stale": [], "fresh": 0, "unchecked": [], "unreadable": list(ws.errors)}
+    cli_path, cli_why = plans.resolve_cli(args.plans_cli)
+    where = plans_dir(args, ws)
+    answers = {}  # one plans-show per section, however many items pin it
+    for s in ws.stores:
+        for it in s.items:
+            if args.repo and it.get("repo") != args.repo:
+                continue
+            pins = {p.get("plan"): p for p in (it.get("plan_pins") or []) if isinstance(p, dict)}
+            for ref in plans.refs(it):
+                row = {"id": tagging.global_id(it["id"]), "repo": it.get("repo"), "plan": plans.shown(ref),
+                       "title": it["title"], "last_matched": None}
+                pin = pins.get(ref)
+                if pin is None:
+                    why = "the tag names no section" if plans.split(ref)[1] is None else "no --pin-plan recorded"
+                    view["stale"].append(dict(row, state="never pinned", why=why))
+                    continue
+                row["last_matched"] = pin.get("date")
+                if cli_why:
+                    view["unchecked"].append(dict(row, why=cli_why))
+                    continue
+                if ref not in answers:
+                    answers[ref] = plans.show(cli_path, where, ref)
+                state, value = answers[ref]
+                if state == plans.ERROR:
+                    view["unchecked"].append(dict(row, why=value))
+                elif state == plans.GONE:
+                    view["stale"].append(dict(row, state="section gone", why=value))
+                elif value != pin.get("digest"):
+                    view["stale"].append(dict(row, state="changed", why=f"its text differs from the pin of {pin.get('date')}"))
+                else:
+                    view["fresh"] += 1
+    return view
+
+
+def cmd_stale_plans(args):
+    view = stale_plans_view(read_workspace(args), args)
+    if args.json:
+        print(json.dumps(view, indent=1, ensure_ascii=False))
+    else:
+        for r in view["stale"]:
+            since = f"last matched {r['last_matched']}" if r["last_matched"] else "never matched"
+            print(f"{r['id']:<11} repo {r['repo'] or '-':<16} {r['plan']:<28} {r['state']:<13} {since}  {r['title'][:TITLE_WIDTH]}")
+        if not view["stale"]:
+            print("(no open item's plan section has changed, gone, or gone unpinned)")
+        print(f"({view['fresh']} pinned section(s) still match)")
+        for r in view["unchecked"]:
+            print(f"UNCHECKED  {r['id']} {r['plan']}: {r['why']}")
+        for e in view["unreadable"]:
+            print(f"UNREADABLE  {e}")
+    if view["unchecked"] or view["unreadable"]:
+        print("todo: UNCHECKED: a section or a store could not be read, so this list may be missing items",
+              file=sys.stderr)
+        sys.exit(3)
+
+
 def handoff_line(it, where):
     """The brief's resume point (PLAN-small-tasks.md §4.3): the last handoff and
     the commit it was written at, with that commit's subject read from the work
@@ -1007,6 +1106,7 @@ COMMANDS = {
     "approve": (cmd_approve, "record Jacob's approval of an item: the day and where he gave it"),
     "dispatch": (cmd_dispatch, "mark an approved item handed out (--clear when it comes back unfinished)"),
     "dispatchable": (cmd_dispatchable, "what can be dispatched now: approved, not dispatched, ready; every store"),
+    "stale-plans": (cmd_stale_plans, "open items whose plan section changed, is gone, or was never pinned"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -1097,6 +1197,17 @@ def build_parser():
     ps["dispatch"].add_argument("--clear", action="store_true", help="it came back unfinished: list it again")
     ps["dispatchable"].add_argument("--repo", help="only items whose work lives in this repo")
     ps["dispatchable"].add_argument("--json", action="store_true")
+    ps["stale-plans"].add_argument("--repo", help="only items whose work lives in this repo")
+    ps["stale-plans"].add_argument("--json", action="store_true")
+    for name in ("add", "edit", "stale-plans"):
+        ps[name].add_argument("--plans-dir", dest="plans_dir", metavar="DIR",
+                              help="where the PLAN-*.md files are (default: the scan root)")
+        ps[name].add_argument("--plans-cli", dest="plans_cli", metavar="PATH",
+                              help="the setup tool whose `plans show` reads a section (default: setup/setup "
+                                   "in the first folder above this tool holding one)")
+    for name in ("add", "edit"):
+        ps[name].add_argument("--pin-plan", dest="pin_plan", action="store_true",
+                              help="record each plan:FILE§n tag's section as it reads today (todo stale-plans)")
     return ap
 
 

@@ -54,6 +54,9 @@ def field_value(name, value):
         return f"{value.get('by')} {value.get('date')}: {value.get('source')}"
     if name == "dispatched" and isinstance(value, dict):
         return f"{value.get('date')}" + (f": {value['text']}" if value.get("text") else "")
+    if name == "plan_pins" and isinstance(value, list):
+        return "; ".join(f"{p.get('plan')} as of {p.get('date')} (sha256 {str(p.get('digest'))[:12]})"
+                         if isinstance(p, dict) else repr(p) for p in value)
     if isinstance(value, list):
         return ", ".join(value)
     return str(value)

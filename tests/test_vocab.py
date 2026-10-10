@@ -127,6 +127,8 @@ class Handled(Case):
         self.todo("-C", a, "edit", "aa-2", "--handoff", "h")
         self.todo("-C", a, "approve", "aa-2", "--source", "s")
         self.todo("-C", a, "dispatch", "aa-2")
+        (self.ws / "PLAN-h.md").write_text("# H\n\n## 1. One\n\none\n")
+        self.todo("-C", a, "--root", self.ws, "edit", "aa-2", "--tags", "plan:PLAN-h.md§1", "--pin-plan")
         md = (a / "TODO.md").read_text()
         for kind, spec in VOCAB.kinds.items():
             self.assertIn(f"## {spec['heading']}", md, kind)

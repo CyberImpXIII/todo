@@ -71,6 +71,7 @@
     "dispatched":  {"doc": "{date, text}: the day the item was handed to someone to do, and an optional one-line note (never an agent's name: items name repos); set by `todo dispatch` only, cleared by `todo dispatch --clear` when it comes back unfinished; `todo dispatchable` leaves it out while set", "label": "dispatched", "optional": true},
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
     "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
+    "plan_pins":   {"doc": "[{plan, digest, date}]: for each plan:PLAN-<name>.md§<n> tag, the sha256 of that section's text (read by `setup plans show`) and the day it was read; set by `todo add/edit --pin-plan` only, read by `todo stale-plans`, which lists the item once its section changes or is gone", "label": "plan pins", "optional": true},
     "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},
     "done":        {"doc": "date closed, YYYY-MM-DD; null while open (or when an imported DONE bullet carried no date)", "label": "done"},
     "resolution":  {"doc": "how it closed; null while open; done-deprecated for an imported closed bullet", "label": "resolution"},

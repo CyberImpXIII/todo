@@ -23,6 +23,9 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                # 'No command answers "what can be dispatched now"').
                "approve": "TODO.md 2026-10-09: record Jacob's approval", "dispatch": "the same: the dispatched mark",
                "dispatchable": "the same: what can be dispatched now",
+               # Jacob, 2026-10-09: "a command that determines the last time todos were created
+               # from a plan, if that plan has changed" (step 1: section pins and the listing).
+               "stale-plans": "TODO.md 2026-10-09: items whose plan section changed",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 
 
