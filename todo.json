@@ -2,7 +2,7 @@
   "format": 2,
   "repo": "todo",
   "prefix": "td",
-  "next": 31,
+  "next": 32,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -376,5 +376,5 @@
       "imported": null
     }
   ],
-  "seal": "cfedab52d35198dc"
+  "seal": "b2718765cb790c3e"
 }

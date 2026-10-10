@@ -302,7 +302,41 @@
       "done": "2026-10-08",
       "resolution": "2026-10-08: drift gone. tools/hooks clean at 05a5ae4; setup re-rendered the copies (tools/setup/setup tools/todo --only hooks --rebuild). tools/checks/checks one hooks-installed tools/todo: OK, 1 ok -> green; ./dev.sh check: checks gate ok (10 ok, 3 unchecked). Remaining red is td-2 only (hooks + mutants baseline).",
       "imported": null
+    },
+    {
+      "id": "td-31",
+      "title": "A command answers what can be dispatched now: todo dispatchable",
+      "kind": "note",
+      "status": "done",
+      "evidence": "Pointer: claudeTest/TODO.md § Open, item 'No command answers \"what can be dispatched now\"'. Built as todo approve / dispatch / dispatchable (README 'Dispatch'); in flight is the dispatched mark the CLI records. The ledger-path alternative was not built: no ledger format is defined here to read.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "M",
+      "files": null,
+      "done_when": "todo dispatchable lists an approved, undispatched, ready item from any store and leaves out unapproved and dispatched ones (tests/test_dispatch.py); dev.sh check's own gates green",
+      "handoff": null,
+      "approved": {
+        "by": "jacob",
+        "date": "2026-10-09",
+        "source": "Jacob 2026-10-09: Please dispatch any available tasks, if we do not have a script for this, that should be added to the todo service"
+      },
+      "dispatched": {
+        "date": "2026-10-09",
+        "text": "built in this session, commit 94a446c"
+      },
+      "retire": null,
+      "tags": [
+        "origin:jacob"
+      ],
+      "added": "2026-10-09",
+      "done": "2026-10-09",
+      "resolution": "built in 94a446c: todo approve, dispatch, dispatchable; dogfooded on this item (listed once approved, left out once dispatched)",
+      "imported": null
     }
   ],
-  "seal": "499468e90112ef94"
+  "seal": "f02cfd066e4c46bf"
 }
