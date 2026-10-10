@@ -397,7 +397,11 @@ reads the delegation layer's files or names a roster agent; the shared copies
 installed in `.claude/hooks/` and its sibling `lib/` are skipped, being the hooks
 tool's files gated by its `hooks copies`, td-16), `todo check` on this
 repo's own store, tools/checks' `checks run .` (below), and the mutants (`devtools/mutate.py`: each gate broken once
-in a throwaway copy, which must turn its test red).
+in a throwaway copy, which must turn its test red). The copies live under
+`.mutants/run-*/` (gitignored) and are removed however the run ends, SIGTERM
+included (its commands are stopped first); only SIGKILL leaves one behind. An
+argument `mutate.py` does not know is refused with its usage (exit 2), never a
+full run (`tests/test_mutate.py`).
 
 The `hooks` gate reads each hook test's exit code as a gate: 0 pass, 3 UNCHECKED
 (the test could not run here, e.g. no site-scrapers above a lone clone; named with
