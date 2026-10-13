@@ -586,6 +586,15 @@
      "run": ["python3", "-m", "unittest", "tests.test_import_rules.Cli.test_a_real_import_refuses_a_waiting_item_naming_nothing_and_a_dry_run_lists_it"]},
     {"id": "import-owner-needs-store", "gate": "a report's owner may be a git repo with no store yet",
      "file": "todolib/store.py", "old": "(storeless or (d / STORE_FILE).is_file())", "new": "((d / STORE_FILE).is_file())",
-     "run": ["python3", "-m", "unittest", "tests.test_import_rules.Cli.test_an_owner_resolves_to_a_git_repo_the_scan_finds_store_or_none"]}
+     "run": ["python3", "-m", "unittest", "tests.test_import_rules.Cli.test_an_owner_resolves_to_a_git_repo_the_scan_finds_store_or_none"]},
+    {"id": "no-store-exits-as-a-refusal", "gate": "no store exits 4, never 1 as a missing id does",
+     "file": "todolib/cli.py", "old": "        return EXIT_NO_STORE", "new": "        return 1",
+     "run": ["python3", "-m", "unittest", "tests.test_exit_codes.ExitCodes.test_a_missing_id_and_a_storeless_repo_differ"]},
+    {"id": "store-load-no-store-is-a-refusal", "gate": "a repo's missing todo.json raises NoStore",
+     "file": "todolib/store.py", "old": "            raise NoStore(f\"no {STORE_FILE} in {self.dir}", "new": "            raise TodoError(f\"no {STORE_FILE} in {self.dir}",
+     "run": ["python3", "-m", "unittest", "tests.test_exit_codes.ExitCodes.test_every_way_to_meet_no_store_gives_its_code"]},
+    {"id": "scan-no-store-is-a-refusal", "gate": "a read by id that scans no store raises NoStore",
+     "file": "todolib/cli.py", "old": "        raise NoStore(f\"no {STORE_FILE} in {d}, and none under", "new": "        raise TodoError(f\"no {STORE_FILE} in {d}, and none under",
+     "run": ["python3", "-m", "unittest", "tests.test_exit_codes.ExitCodes.test_every_way_to_meet_no_store_gives_its_code"]}
   ]
 }

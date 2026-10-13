@@ -69,6 +69,20 @@ without one stays an error rather than borrowing another store's answer.
 flag by flag, and the command list in `PLAN-todo-tool.md` §3 equal to it too
 (when the plan is present).
 
+### Exit codes
+
+| exit | means |
+|---|---|
+| 0 | done, or the answer was printed |
+| 1 | refused: a missing (dangling) id, a field a kind requires, a `FAIL` from `check`, an item `brief` calls not ready |
+| 2 | a flag or argument the parser does not take |
+| 3 | `UNCHECKED`: not this scan's to judge (another service's id, a prefix no scanned store holds, a store or plan section that could not be read) |
+| 4 | no store: no `todo.json` where the command needs one (a write, or `-C DIR` naming a folder without one), or none anywhere a read by id scans |
+
+A missing id and a repo with no store never share a code, so a caller can tell
+"ask elsewhere" from "set this repo up first" without reading stderr
+(`tests/test_exit_codes.py`).
+
 ## Items
 
 One item is one JSON object with every field below, unset ones `null`. A field

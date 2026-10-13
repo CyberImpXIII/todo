@@ -12,7 +12,7 @@ from . import blockers as rootlib
 from .blockers import BRIEF_NEEDS, is_split, size_refusal
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
-from .store import (HISTORY_RENDER_FILE, STORE_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
+from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
                     id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today, write_atomic)
 from .vocab import VOCAB
 
@@ -47,7 +47,7 @@ def read_workspace(args):
     root = scan_root(d, args.root)
     ws = Workspace(None, root)
     if not ws.stores:
-        raise TodoError(f"no {STORE_FILE} in {d}, and none under {root} (todo repos lists the stores a scan finds; "
+        raise NoStore(f"no {STORE_FILE} in {d}, and none under {root} (todo repos lists the stores a scan finds; "
                         "-C DIR, --root DIR or TODO_ROOT points elsewhere)")
     return ws
 
@@ -1369,6 +1369,9 @@ def main(argv=None):
     except Unchecked as e:
         print(f"todo: UNCHECKED: {e}", file=sys.stderr)
         return 3
+    except NoStore as e:
+        print(f"todo: {e}", file=sys.stderr)
+        return EXIT_NO_STORE
     except TodoError as e:
         print(f"todo: {e}", file=sys.stderr)
         return 1

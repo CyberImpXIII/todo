@@ -41,6 +41,15 @@ class TodoError(Exception):
     """A refusal: printed as is, exit 1. Never a traceback for a user error."""
 
 
+# README "Exit codes": a missing id is a refusal (1); no store where one is
+# needed has a code of its own, so a caller can tell the two apart.
+EXIT_NO_STORE = 4
+
+
+class NoStore(TodoError):
+    """No todo.json where the command needs one: exit EXIT_NO_STORE, never 1."""
+
+
 def today():
     """Today, or TODO_TODAY (YYYY-MM-DD) for tests and reproducible runs."""
     forced = os.environ.get("TODO_TODAY")
@@ -186,7 +195,7 @@ class Store:
 
     def load(self):
         if not self.exists():
-            raise TodoError(f"no {STORE_FILE} in {self.dir}: run `todo init --prefix XX` there first")
+            raise NoStore(f"no {STORE_FILE} in {self.dir}: run `todo init --prefix XX` there first")
         try:
             self.data = json.loads(self.path.read_text())
         except ValueError as e:
