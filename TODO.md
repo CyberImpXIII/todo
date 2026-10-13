@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (19 open, 22 closed in todo-history.json; seal 3b316dedfc6f): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (19 open, 22 closed in todo-history.json; seal da96001f859b): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -25,7 +25,7 @@
   todolib/tags.py derives repo: from the item's repo field, which is a repo name everywhere in this tool. The plan's example table writes repo:tools/todo. find repo:tools/todo returns nothing here. Hinges on S3's rule for repo: values (a repo that exists: by name or by path).
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 15f573c2d74f)
+  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 b8607e72fa21)
   · added: 2026-10-09
 
 - **td-29 · cli.json declares the stores, so tools/checks' stores-exported now wants a verify verb**
@@ -93,7 +93,7 @@
   · reported to: checks on 2026-10-09 (no counterpart yet)
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 15f573c2d74f)
+  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 b8607e72fa21)
   · added: 2026-10-09
 
 ## Interim rules
@@ -105,7 +105,7 @@
   · files: vocab.json, todolib/tags.py
   · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 15f573c2d74f)
+  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 b8607e72fa21)
   · added: 2026-10-09
 
 ## Notes
