@@ -1,4 +1,4 @@
-"""The vocabulary (vocab.json): kinds, statuses, works, sizes, the brief's stop rule,
+"""The vocabulary (vocab.json): kinds, statuses, works, sizes, the brief's two rules,
 fields, roles, import rules.
 
 Code names a kind or a status only through `role()` or by iterating the
@@ -25,8 +25,9 @@ class Vocab:
         self.split_size = too_big[0]
         self.ready_sizes = [k for k, v in self.sizes.items() if v["ready"]]
         self.brief = {k: v for k, v in data["brief"].items() if not k.startswith("_")}
-        if not str(self.brief.get("stop_rule") or "").strip():
-            raise ValueError("vocab.json: brief.stop_rule is empty; every brief carries it")
+        for rule in ("stop_rule", "iterate_rule"):
+            if not str(self.brief.get(rule) or "").strip():
+                raise ValueError(f"vocab.json: brief.{rule} is empty; every brief carries it")
         self.fields = {k: v for k, v in data["fields"].items() if not k.startswith("_")}
         self.approval_by = str(data["approval"].get("by") or "").strip()
         if not self.approval_by:

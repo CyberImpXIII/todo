@@ -2,7 +2,7 @@
   "format": 2,
   "repo": "todo",
   "prefix": "td",
-  "next": 37,
+  "next": 38,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -309,31 +309,6 @@
       "imported": null
     },
     {
-      "id": "td-30",
-      "title": "brief: PLAN-small-tasks.md §3.5 says its iterate-small rule (run one part, then check --quick, the full suite once before the commit) goes in the brief too; only the §2.3 stop rule is carried",
-      "kind": "decision",
-      "status": "open",
-      "evidence": "Follow-on asked for the §2.3 stop rule; §3.5 ends 'That rule goes in the brief (§2.3)'. It names dev.sh test <part> and check --quick, which tools/checks' check-partial (§3.7) has not made general yet, so the wording would promise flags most repos lack.",
-      "probe": null,
-      "reported_to": null,
-      "parent": null,
-      "blocked_by": null,
-      "repo": "todo",
-      "work": "code",
-      "size": "S",
-      "files": null,
-      "done_when": "vocab.json brief carries the §3.5 rule (a test holds it to the plan), or the plan's owner says the stop rule alone is enough",
-      "handoff": null,
-      "retire": null,
-      "tags": [
-        "plan:PLAN-small-tasks.md"
-      ],
-      "added": "2026-10-09",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-33",
       "title": "todo ready still lists an item marked dispatched",
       "kind": "suspicion",
@@ -436,7 +411,33 @@
       "done": null,
       "resolution": null,
       "imported": null
+    },
+    {
+      "id": "td-37",
+      "title": "The shared runner has no per-part command: PLAN-small-tasks.md §3.5's dev.sh test <part> and check --quick are not reachable, so the brief's iterate rule says so",
+      "kind": "decision",
+      "status": "open",
+      "evidence": "2026-10-12, td-30: tools/checks checkslib/parts.py 1.0.0 offers run <parts.json> [--resume] [--json], validate, files, version. `python3 checkslib/parts.py run check.parts.json --only test.meta` (in tools/checks) printed 'parts: refused: unknown option --only' and exit 2; tools/checks dev.sh test runs every unit test and takes no part. So vocab.json brief.iterate_rule uses ./dev.sh check --resume and names the plan's two commands as absent; tests/test_handoff.py IterateRule fails once the runner gains them (reword the rule then). Reported to checks through the td-30 dispatch report (not written to their store). This repo's own dev.sh check is not on the runner either (no devtools/parts.py, no check.parts.json): adopting it is this repo's step once the runner passes check-partial (PLAN-small-tasks.md §5). Hinges on checks adding a per-part selector to parts.py run.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "decision",
+      "size": null,
+      "files": null,
+      "done_when": "the runner runs one named part and the iterate rule names that command, IterateRule green",
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "added": "2026-10-12",
+      "done": null,
+      "resolution": null,
+      "imported": null
     }
   ],
-  "seal": "aa63217d86948237"
+  "seal": "c84e9b7b6683ea05"
 }

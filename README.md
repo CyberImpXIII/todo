@@ -51,7 +51,7 @@ without one stays an error rather than borrowing another store's answer.
 | `todo import FILE [--dry-run]` | a hand-written or hand-edited `TODO.md` into items (below) |
 | `todo repos` | every store the scan finds, with its counts |
 | `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed: ready to hand to whoever does that work. An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it) |
-| `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, and the stop rule (below). Exit 1 when it is not ready (a field missing, a status other than open, a `blocked_by` id still open, or its size) |
+| `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, the iterate rule and the stop rule (below). Exit 1 when it is not ready (a field missing, a status other than open, a `blocked_by` id still open, or its size) |
 | `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
 | `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
@@ -131,6 +131,22 @@ the next dispatch resumes there. Every brief also carries the stop rule,
 `vocab.json` `brief.stop_rule`, in PLAN-small-tasks.md §2.3's words: "Commit after
 each step that passes. If the full check fails twice, stop and report what passed,
 what failed and where. Do not start the suite a third time."
+
+Every brief carries the iterate rule too, `vocab.json` `brief.iterate_rule`:
+PLAN-small-tasks.md §3.5 worded to the shared runner's real commands
+(tools/checks `checkslib/parts.py`, installed by setup as `devtools/parts.py`),
+not the plan's sketch, which names commands that do not exist: "Iterate small,
+then run whole once. While fixing one thing, re-run only what it touches: where
+dev.sh hands its parts to the shared runner (parts.py), `./dev.sh check --resume`
+re-runs only the parts whose files changed since they passed or that did not
+pass; where it does not, run the one test you changed by itself. Run the full
+suite once, before the commit: `./dev.sh check`, without --resume. The runner has
+no per-part command yet: the plan's dev.sh test <part> and check --quick do not
+exist." `tests/test_handoff.py` `IterateRule` holds each backticked command in it
+to `./dev.sh check` plus a flag of the runner's `parts.py run` usage line (pinned
+there, and compared with the runner itself when tools/checks is beside this
+repo), and holds the plan's sketch commands to "not in the runner", so the
+wording fails its test when either side is renamed.
 
 A resolution is free text written by `todo done`, except the values below, which
 each have one setter and are refused everywhere else:

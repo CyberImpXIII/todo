@@ -1041,6 +1041,7 @@ def cmd_brief(args):
     todo_bin = Path(sys.argv[0]).resolve()
     print(f"Hand off at each checkpoint: {todo_bin} -C {s.dir} edit {it['id']} --handoff \"done; next; how to verify\"")
     print(f"Close it: {todo_bin} -C {s.dir} done {it['id']} --resolution \"...\"")
+    print(f"Iterate rule: {VOCAB.brief['iterate_rule']}")
     print(f"Stop rule: {VOCAB.brief['stop_rule']}")
     why = not_ready_reasons(ws, it)
     if why:

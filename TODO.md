@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (18 open, 18 closed in todo-history.json; seal 5ade02d1e914): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (18 open, 19 closed in todo-history.json; seal bc8fda6d40c5): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -23,18 +23,16 @@
   · work: decision
   · added: 2026-10-09
 
-- **td-30 · brief: PLAN-small-tasks.md §3.5 says its iterate-small rule (run one part, then check --quick, the full suite once before the commit) goes in the brief too; only the §2.3 stop rule is carried**
-  Follow-on asked for the §2.3 stop rule; §3.5 ends 'That rule goes in the brief (§2.3)'. It names dev.sh test <part> and check --quick, which tools/checks' check-partial (§3.7) has not made general yet, so the wording would promise flags most repos lack.
-  · work: code
-  · size: S
-  · done when: vocab.json brief carries the §3.5 rule (a test holds it to the plan), or the plan's owner says the stop rule alone is enough
-  · tags: plan:PLAN-small-tasks.md
-  · added: 2026-10-09
-
 - **td-34 · In flight is only the CLI's dispatched mark; a ledger path is not read**
   2026-10-09: the dispatch item allowed in flight to come from a ledger path given as a parameter. Not built: no ledger format is defined for this tool to read, and a guessed format would give wrong answers. Hinges on whether the dispatching side records each hand-out with todo dispatch (then no ledger is needed) or keeps its own ledger (then its format must be named first).
   · work: decision
   · added: 2026-10-09
+
+- **td-37 · The shared runner has no per-part command: PLAN-small-tasks.md §3.5's dev.sh test <part> and check --quick are not reachable, so the brief's iterate rule says so**
+  2026-10-12, td-30: tools/checks checkslib/parts.py 1.0.0 offers run <parts.json> [--resume] [--json], validate, files, version. `python3 checkslib/parts.py run check.parts.json --only test.meta` (in tools/checks) printed 'parts: refused: unknown option --only' and exit 2; tools/checks dev.sh test runs every unit test and takes no part. So vocab.json brief.iterate_rule uses ./dev.sh check --resume and names the plan's two commands as absent; tests/test_handoff.py IterateRule fails once the runner gains them (reword the rule then). Reported to checks through the td-30 dispatch report (not written to their store). This repo's own dev.sh check is not on the runner either (no devtools/parts.py, no check.parts.json): adopting it is this repo's step once the runner passes check-partial (PLAN-small-tasks.md §5). Hinges on checks adding a per-part selector to parts.py run.
+  · work: decision
+  · done when: the runner runs one named part and the iterate rule names that command, IterateRule green
+  · added: 2026-10-12
 
 ## Unconfirmed suspicions
 
