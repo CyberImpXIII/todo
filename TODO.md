@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (21 open, 20 closed in todo-history.json; seal 07701ef633ab): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (20 open, 21 closed in todo-history.json; seal aec7fad56cdf): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -37,12 +37,6 @@
   2026-10-09: the dispatch item allowed in flight to come from a ledger path given as a parameter. Not built: no ledger format is defined for this tool to read, and a guessed format would give wrong answers. Hinges on whether the dispatching side records each hand-out with todo dispatch (then no ledger is needed) or keeps its own ledger (then its format must be named first).
   · work: decision
   · added: 2026-10-09
-
-- **td-37 · The shared runner has no per-part command: PLAN-small-tasks.md §3.5's dev.sh test <part> and check --quick are not reachable, so the brief's iterate rule says so**
-  2026-10-12, td-30: tools/checks checkslib/parts.py 1.0.0 offers run <parts.json> [--resume] [--json], validate, files, version. `python3 checkslib/parts.py run check.parts.json --only test.meta` (in tools/checks) printed 'parts: refused: unknown option --only' and exit 2; tools/checks dev.sh test runs every unit test and takes no part. So vocab.json brief.iterate_rule uses ./dev.sh check --resume and names the plan's two commands as absent; tests/test_handoff.py IterateRule fails once the runner gains them (reword the rule then). Reported to checks through the td-30 dispatch report (not written to their store). This repo's own dev.sh check is not on the runner either (no devtools/parts.py, no check.parts.json): adopting it is this repo's step once the runner passes check-partial (PLAN-small-tasks.md §5). Hinges on checks adding a per-part selector to parts.py run.
-  · work: decision
-  · done when: the runner runs one named part and the iterate rule names that command, IterateRule green
-  · added: 2026-10-12
 
 - **td-38 · Approval by rule (TD-B1) is open: only todo approve and an imported 'approved: Jacob <date>' lead set approved**
   PLAN-todo-tool.md §10.2 steps 1-3 and 6 are built (blockers, waits_on, dispatchable roots, import rules, 4801f3b). §10.3 was out of scope for this job and not started; TD-B1 decides whether a rule (a plan section, a kind) may count as approval. Until then nothing else does (README Fields, approved).

@@ -462,7 +462,33 @@
       "done": "2026-10-13",
       "resolution": "fixed: todo add takes --reported-to REPO; tests.test_reports.AddReportedTo gates every flag a refusal asks for against add and edit (commit below)",
       "imported": null
+    },
+    {
+      "id": "td-37",
+      "title": "The shared runner has no per-part command: PLAN-small-tasks.md §3.5's dev.sh test <part> and check --quick are not reachable, so the brief's iterate rule says so",
+      "kind": "decision",
+      "status": "done",
+      "evidence": "2026-10-12, td-30: tools/checks checkslib/parts.py 1.0.0 offers run <parts.json> [--resume] [--json], validate, files, version. `python3 checkslib/parts.py run check.parts.json --only test.meta` (in tools/checks) printed 'parts: refused: unknown option --only' and exit 2; tools/checks dev.sh test runs every unit test and takes no part. So vocab.json brief.iterate_rule uses ./dev.sh check --resume and names the plan's two commands as absent; tests/test_handoff.py IterateRule fails once the runner gains them (reword the rule then). Reported to checks through the td-30 dispatch report (not written to their store). This repo's own dev.sh check is not on the runner either (no devtools/parts.py, no check.parts.json): adopting it is this repo's step once the runner passes check-partial (PLAN-small-tasks.md §5). Hinges on checks adding a per-part selector to parts.py run.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "repo": "todo",
+      "work": "decision",
+      "size": null,
+      "files": null,
+      "done_when": "the runner runs one named part and the iterate rule names that command, IterateRule green",
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "added": "2026-10-12",
+      "done": "2026-10-13",
+      "resolution": "fixed: parts.py 1.3.0 runs one part (--only <name>, dev.sh test <part>); the iterate rule names ./dev.sh test <part> and IterateRule reads usage --json, green",
+      "imported": null
     }
   ],
-  "seal": "1b56c3184bb3fd45"
+  "seal": "377d4953b73f6a1e"
 }
