@@ -49,10 +49,15 @@ class Field(Case):
         self.assertNotIn(f"· waits on: {WAITS}\n", md)
         self.assertIn(f"{WITH_ARG}:intake", self.todo("-C", self.a, "show", "aa-1").stdout)
 
-    def test_leaving_waiting_jacob_clears_it_or_is_refused(self):
+    def test_leaving_waiting_jacob_clears_it_and_says_so(self):
         self.todo("-C", self.a, "add", "w", "--kind", NOTE, "--status", JACOB, "--waits-on", WAITS)
-        err = self.todo("-C", self.a, "edit", "aa-1", "--status", OPEN, ok=False).stderr
+        out = self.todo("-C", self.a, "edit", "aa-1", "--status", OPEN).stdout
+        self.assertIn(f"edited aa-1: status, waits_on (waits_on {WAITS} cleared: it left {JACOB})", out)
+        self.assertIsNone(self.store(self.a)["items"][0]["waits_on"])
+        self.check(self.a)
+        err = self.todo("-C", self.a, "edit", "aa-1", "--status", OPEN, "--waits-on", WAITS, ok=False).stderr
         self.assertIn("clear it with --waits-on ''", err)
+        self.todo("-C", self.a, "edit", "aa-1", "--status", JACOB, "--waits-on", WAITS)
         self.todo("-C", self.a, "edit", "aa-1", "--status", OPEN, "--waits-on", "")
         self.assertIsNone(self.store(self.a)["items"][0]["waits_on"])
         err = self.todo("-C", self.a, "edit", "aa-1", "--status", JACOB, ok=False).stderr

@@ -347,6 +347,9 @@ def cmd_add(args):
                         done_when=args.done_when, retire=args.retire, waits_on=args.waits_on, added=today())
         if item["status"] == VOCAB.closed:
             raise TodoError("add makes open items; close one with todo done")
+        if args.reported_to:
+            item["reported_to"] = reported_to_value(ws, store, item, args.reported_to)
+        check_reported_kind(item)
         validate(item)
         item["id"] = store.allocate()
         item["blocked_by"] = resolve_blockers(ws, item["id"], args.blocked_by)
@@ -398,10 +401,14 @@ def cmd_edit(args):
         updated = dict(item)
         for f, v in changes.items():
             updated[f] = None if v in ("", []) else v
+        cleared = None
+        if ("status" in changes and "waits_on" not in changes and updated.get("waits_on") is not None
+                and updated.get("status") != VOCAB.jacob_status):
+            # waits_on names what clears a waiting-jacob item; leaving that status
+            # ends the wait, so the field goes with it, said aloud below.
+            cleared, updated["waits_on"], changes["waits_on"] = updated["waits_on"], None, ""
         validate(updated, require_waits=bool({"status", "waits_on"} & set(changes)))
-        if updated.get("reported_to") is not None and updated["kind"] != VOCAB.role("report_kind"):
-            raise TodoError(f"reported_to is a {VOCAB.role('report_kind')}'s field and this item is a "
-                            f"{updated['kind']}: add --kind {VOCAB.role('report_kind')}, or clear it with --reported-to ''")
+        check_reported_kind(updated)
         if "parent" in changes:
             resolve_parent(workspace(args, store), updated["parent"])
         if "blocked_by" in changes:
@@ -418,7 +425,15 @@ def cmd_edit(args):
             changes["plan_pins"] = kept
         item.update(updated)
         commit(store)
-    print(f"edited {args.id}: {', '.join(changes)}")
+    print(f"edited {args.id}: {', '.join(changes)}"
+          + (f" (waits_on {cleared} cleared: it left {VOCAB.jacob_status})" if cleared else ""))
+
+
+def check_reported_kind(item):
+    """reported_to belongs to a report alone; add and edit both refuse it elsewhere."""
+    if item.get("reported_to") is not None and item["kind"] != VOCAB.role("report_kind"):
+        raise TodoError(f"reported_to is a {VOCAB.role('report_kind')}'s field and this item is a "
+                        f"{item['kind']}: add --kind {VOCAB.role('report_kind')}, or clear it with --reported-to ''")
 
 
 def reported_to_value(ws, store, item, value):
@@ -432,6 +447,13 @@ def reported_to_value(ws, store, item, value):
     repo, _, their = value.strip().partition(":")
     if not repo or repo == store.repo:
         raise TodoError(f"--reported-to {value!r}: name another repo (REPO or REPO:THEIR_ID)")
+    if item.get("id") is None:
+        # todo add: no counterpart can name an id not made yet, and a lookup by a
+        # null parent would pair any parentless item.
+        if their:
+            raise TodoError(f"--reported-to {value!r}: add takes REPO alone; pair a counterpart afterwards "
+                            "with todo edit ID --reported-to REPO:THEIR_ID")
+        return {"repo": repo, "date": today(), "their_id": None}
     hidden = never_scanned(repo)
     owner = None if hidden else ws.by_repo(repo)
     if their:
@@ -1230,6 +1252,10 @@ def add_item_fields(p, editing):
     p.add_argument("--retire")
     p.add_argument("--tags", nargs="*", metavar="TAG",
                    help="plan:, origin:, trust: and ref: tags (the rest derive from the fields); no tags clears them")
+    if not editing:
+        p.add_argument("--reported-to", dest="reported_to", metavar="REPO",
+                       help="a report's owner; writes no other store (todo report does). A counterpart "
+                            "is paired later with todo edit ID --reported-to REPO:THEIR_ID")
     if editing:
         p.add_argument("--title")
         p.add_argument("--append-evidence", dest="append_evidence", metavar="E",

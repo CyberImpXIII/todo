@@ -150,3 +150,46 @@ class EditReportedTo(Case):
         self.todo("-C", self.a, "render")
         out = self.check(self.a).stdout
         self.assertIn("WARN  reports   aa-1     imported, not paired with b's store", out)
+
+
+class AddReportedTo(Case):
+    """`todo add --kind report --reported-to REPO`: an open report needs its owner,
+    so add takes it; a counterpart is paired later, by edit or report."""
+
+    REPORT = VOCAB.role("report_kind")
+
+    def setUp(self):
+        super().setUp()
+        self.a, self.b = self.repo("a", "aa"), self.repo("b", "bb")
+        self.todo("-C", self.b, "add", "parentless", "--kind", VOCAB.role("default_kind"))
+
+    def test_add_sets_the_owner_pairs_nothing_and_writes_no_other_store(self):
+        before = (self.b / "todo.json").read_bytes()
+        err = self.todo("-C", self.a, "add", "theirs", "--kind", self.REPORT, ok=False).stderr
+        self.assertIn("needs --reported-to", err)
+        self.todo("-C", self.a, "add", "theirs", "--kind", self.REPORT, "--reported-to", "b")
+        self.assertEqual(self.store(self.a)["items"][0]["reported_to"],
+                         {"repo": "b", "date": "2026-10-04", "their_id": None})
+        self.assertEqual((self.b / "todo.json").read_bytes(), before)
+
+    def test_a_counterpart_id_another_kind_or_its_own_repo_is_refused(self):
+        for extra in (["--kind", self.REPORT, "--reported-to", "b:bb-1"],
+                      ["--kind", VOCAB.role("default_kind"), "--reported-to", "b"],
+                      ["--kind", self.REPORT, "--reported-to", "a"]):
+            with self.subTest(extra=extra):
+                self.todo("-C", self.a, "add", "theirs", *extra, ok=False)
+        self.assertEqual(self.store(self.a)["items"], [])
+
+    def test_every_field_a_refusal_asks_for_is_a_flag_of_add_and_edit(self):
+        """validate names a missing required field as its flag: both verbs that
+        call it must parse that flag, or the refusal asks for the impossible."""
+        from todolib.cli import build_parser
+        ps = build_parser()._subparsers._group_actions[0].choices
+        need = {f for spec in (*VOCAB.kinds.values(), *(VOCAB.statuses[s] for s in VOCAB.open_statuses()))
+                for f in spec.get("requires", [])}  # add and edit make open items only
+        self.assertTrue(need)
+        for verb in ("add", "edit"):
+            flags = {s for a in ps[verb]._actions for s in a.option_strings}
+            for f in sorted(need):
+                with self.subTest(verb=verb, field=f):
+                    self.assertIn("--" + f.replace("_", "-"), flags)
