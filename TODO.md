@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (20 open, 21 closed in todo-history.json; seal aec7fad56cdf): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (19 open, 22 closed in todo-history.json; seal 3b316dedfc6f): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -25,7 +25,7 @@
   todolib/tags.py derives repo: from the item's repo field, which is a repo name everywhere in this tool. The plan's example table writes repo:tools/todo. find repo:tools/todo returns nothing here. Hinges on S3's rule for repo: values (a repo that exists: by name or by path).
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 3f92987befc7)
+  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 15f573c2d74f)
   · added: 2026-10-09
 
 - **td-29 · cli.json declares the stores, so tools/checks' stores-exported now wants a verify verb**
@@ -93,7 +93,7 @@
   · reported to: checks on 2026-10-09 (no counterpart yet)
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 3f92987befc7)
+  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 15f573c2d74f)
   · added: 2026-10-09
 
 ## Interim rules
@@ -105,7 +105,7 @@
   · files: vocab.json, todolib/tags.py
   · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 3f92987befc7)
+  · plan pins: PLAN-services.md§3 as of 2026-10-13 (sha256 15f573c2d74f)
   · added: 2026-10-09
 
 ## Notes
@@ -141,8 +141,3 @@
 - **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
   ./dev.sh check, 2026-10-09 (commit after 77bce39): checks gate FAIL hooks-installed: extra-stores.sh (the installed hooks' lib folder), .claude/hooks/store-guard.sh and .claude/hooks/test-store-guard.sh 'drift; not covered by user scope (no shared hook of that name there)', .claude/hooks/test-no-inline-blobs.sh 'drift; not covered by user scope (not registered there)'. Last touched by 93532a8 (re-render of the shared hook copies from tools/hooks). Not this tool's files and not changed by td-22/td-27; reported to the hooks tool's owner through the dispatch report. Also live: ./dev.sh hooks FAIL 'store-guard.sh is not registered in .claude/settings.json' (td-2's remainder; the uncommitted settings.json now registers the other seven). 2026-10-12: the lib file's path is named without its folder here, because that folder in this store tripped the direction audit (audit, no-roster and two test_dev tests red).
   · added: 2026-10-09
-
-- **td-39 · PLAN-todo-tool.md §3's command list does not name todo blockers**
-  todo blockers is built (4374e6c, §10.2 step 1); tests/test_docs.py BEYOND_PLAN carries it as 'not yet in §3's command list'. Reported to the plans' owner in the 2026-10-13 hand-back. Remove the BEYOND_PLAN line once §3 lists it.
-  · work: docs
-  · added: 2026-10-13

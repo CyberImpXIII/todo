@@ -219,7 +219,7 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "3f92987befc7893c4be7213a0adeb36dec6d0d001ca39b2e406cc87dfce51524",
+          "digest": "15f573c2d74f0807df607026a0911a04c59d09909c3206a3b450cab76fed94fd",
           "date": "2026-10-13"
         }
       ]
@@ -253,7 +253,7 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "3f92987befc7893c4be7213a0adeb36dec6d0d001ca39b2e406cc87dfce51524",
+          "digest": "15f573c2d74f0807df607026a0911a04c59d09909c3206a3b450cab76fed94fd",
           "date": "2026-10-13"
         }
       ]
@@ -283,7 +283,7 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "3f92987befc7893c4be7213a0adeb36dec6d0d001ca39b2e406cc87dfce51524",
+          "digest": "15f573c2d74f0807df607026a0911a04c59d09909c3206a3b450cab76fed94fd",
           "date": "2026-10-13"
         }
       ]
@@ -462,33 +462,6 @@
       "imported": null
     },
     {
-      "id": "td-39",
-      "title": "PLAN-todo-tool.md §3's command list does not name todo blockers",
-      "kind": "note",
-      "status": "open",
-      "evidence": "todo blockers is built (4374e6c, §10.2 step 1); tests/test_docs.py BEYOND_PLAN carries it as 'not yet in §3's command list'. Reported to the plans' owner in the 2026-10-13 hand-back. Remove the BEYOND_PLAN line once §3 lists it.",
-      "probe": null,
-      "reported_to": null,
-      "parent": null,
-      "blocked_by": null,
-      "waits_on": null,
-      "repo": "todo",
-      "work": "docs",
-      "size": null,
-      "files": null,
-      "done_when": null,
-      "handoff": null,
-      "approved": null,
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "added": "2026-10-13",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-41",
       "title": "todo check has no --json; the checks repo's todo-valid gate reads its text output",
       "kind": "bug",
@@ -516,5 +489,5 @@
       "imported": null
     }
   ],
-  "seal": "24bcf8a6893d84a1"
+  "seal": "7b8c15c8db8a5943"
 }
