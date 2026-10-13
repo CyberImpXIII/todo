@@ -148,18 +148,15 @@ what failed and where. Do not start the suite a third time."
 Every brief carries the iterate rule too, `vocab.json` `brief.iterate_rule`:
 PLAN-small-tasks.md §3.5 worded to the shared runner's real commands
 (tools/checks `checkslib/parts.py`, installed by setup as `devtools/parts.py`),
-not the plan's sketch, which names commands that do not exist: "Iterate small,
-then run whole once. While fixing one thing, re-run only what it touches: where
-dev.sh hands its parts to the shared runner (parts.py), `./dev.sh check --resume`
-re-runs only the parts whose files changed since they passed or that did not
-pass; where it does not, run the one test you changed by itself. Run the full
-suite once, before the commit: `./dev.sh check`, without --resume. The runner has
-no per-part command yet: the plan's dev.sh test <part> and check --quick do not
-exist." `tests/test_handoff.py` `IterateRule` holds each backticked command in it
-to `./dev.sh check` plus a flag of the runner's `parts.py run` usage line (pinned
-there, and compared with the runner itself when tools/checks is beside this
-repo), and holds the plan's sketch commands to "not in the runner", so the
-wording fails its test when either side is renamed.
+not the plan's sketch where it names a command that does not exist: "Iterate small, then run whole once. While fixing one thing, run only what it touches: where dev.sh hands its parts to the shared runner (parts.py), `./dev.sh test <part>` runs that one part, and `./dev.sh check --resume` re-runs only the parts whose files changed since they passed or that did not pass; where it does not, run the one test you changed by itself. Run the full suite once, before the commit: `./dev.sh check`, without --resume. The plan's check --quick does not exist: --resume is the runner's nearest."
+`tests/test_handoff.py` `IterateRule` holds each backticked command in it to
+`./dev.sh check` plus options of the runner's `run`, or `./dev.sh test <part>`
+(which the reference dev.sh turns into `check --only <part>`), read from the
+runner's `parts.py usage --json` (`run.options`, pinned in the test and compared
+with the runner itself when tools/checks is beside this repo). Each command the
+plan sketches must be used in backticks when the runner runs it and named as
+absent when it does not, so the wording fails its test when an option is added,
+removed or renamed on either side.
 
 A resolution is free text written by `todo done`, except the values below, which
 each have one setter and are refused everywhere else:

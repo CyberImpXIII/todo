@@ -2,7 +2,9 @@
 stop rule and iterate rule every brief carries (§2.3, §3.5): `todo edit ID --handoff` records the note
 with the date and the work repo's commit at that moment (the checkpoint), and
 `todo brief` prints both, so a later or cloud dispatch resumes there."""
+import json
 import re
+import subprocess
 import unittest
 
 from tests.helpers import ROOT, TODAY, Case, git, git_commit, workspace_file
@@ -16,39 +18,73 @@ TEXT = "done: the parser; next: its tests; verify: ./dev.sh check"
 # its parts to it today; None in a fresh clone.
 RUNNER = workspace_file("tools/checks/checkslib/parts.py")
 RUNNER_DEV = workspace_file("tools/checks/dev.sh")
-# The runner's `run` usage line the iterate rule was worded against (parts.py
-# 1.0.0). IterateRule holds it equal to the runner's own when the runner is here.
-RUNNER_RUN_USAGE = "parts.py run <parts.json> [--resume] [--json]"
+# The runner's `run` options the iterate rule is worded against: `parts.py usage
+# --json` run.options (parts.py 1.3.0), flag -> the value it takes, or None.
+# IterateRule holds it equal to the runner's own when the runner is here.
+RUNNER_RUN_OPTIONS = {"--resume": None, "--only": "<name>", "--json": None}
 COMMAND_HEADS = ("./dev.sh", "dev.sh", "check")
 
 
-def run_flags(text):
-    """The flags of the `parts.py run <parts.json> [...]` usage line in text, or None."""
-    m = re.search(r"^\s*parts\.py run <parts\.json>((?: \[--[a-z-]+\])*)\s*$", text, re.M)
-    return None if m is None else re.findall(r"--[a-z-]+", m.group(1))
+def run_options(usage):
+    """{flag: value or None} from `parts.py usage --json`'s run.options, or None
+    when it has no such table (an older runner, or not this runner at all)."""
+    try:
+        return {o["flag"]: o.get("value") for o in usage["run"]["options"]}
+    except (KeyError, TypeError):
+        return None
 
 
-def command_faults(command, flags):
+def command_faults(command, options):
     """Why a dev.sh command is not one the runner runs, or []. dev.sh reaches the
-    runner only as `./dev.sh check`, whose arguments go to `parts.py run`."""
+    runner as `./dev.sh check OPTIONS`, whose arguments go to `parts.py run`, and
+    as `./dev.sh test <part>...`, which the reference dev.sh turns into
+    `check --only <part>...`."""
     words = command.split()
     if words[:1] == ["check"]:
         words = ["./dev.sh"] + words
     if words[:1] == ["dev.sh"]:
         words[0] = "./dev.sh"
+    if words[:2] == ["./dev.sh", "test"] and len(words) > 2:
+        words = ["./dev.sh", "check"] + [x for part in words[2:] for x in ("--only", part)]
     if words[:2] != ["./dev.sh", "check"]:
-        return [f"`{command}` is not `./dev.sh check`, the runner's one way in from dev.sh"]
-    return [f"`{command}`: {w} is not a flag of `parts.py run`" for w in words[2:] if w not in flags]
+        return [f"`{command}` is not `./dev.sh check` or `./dev.sh test <part>`, dev.sh's ways into the runner"]
+    faults, rest, i = [], words[2:], 0
+    while i < len(rest):
+        w = rest[i]
+        if w not in options:
+            faults.append(f"`{command}`: {w} is not an option of `parts.py run`")
+        elif options[w] is not None:
+            if i + 1 >= len(rest):
+                faults.append(f"`{command}`: {w} takes {options[w]}")
+            i += 1  # its value
+        i += 1
+    return faults
 
 
-def rule_faults(rule, flags):
-    """Every backticked dev.sh command in the rule, held to the runner's flags."""
-    if flags is None:
-        return ["no `parts.py run <parts.json> [...]` usage line to hold the rule to"]
+def rule_faults(rule, options):
+    """Every backticked dev.sh command in the rule, held to the runner's options."""
+    if options is None:
+        return ["no `parts.py usage --json` run.options to hold the rule to"]
     cmds = [c for c in re.findall(r"`([^`]+)`", rule) if c.split()[:1] and c.split()[0] in COMMAND_HEADS]
     if not cmds:
         return ["the rule names no dev.sh command"]
-    return [f for c in cmds for f in command_faults(c, flags)]
+    return [f for c in cmds for f in command_faults(c, options)]
+
+
+def sketch_faults(rule, sketch, options):
+    """The plan's sketched commands against the rule: one the runner runs is used in
+    backticks; one it does not run is named, unbackticked, as absent."""
+    faults = []
+    for cmd in sketch:
+        quoted = re.search(r"`(?:\./)?" + re.escape(cmd) + "`", rule)
+        if not command_faults(cmd, options):
+            if not quoted:
+                faults.append(f"the runner runs {cmd}: the rule should use it")
+        elif quoted:
+            faults.append(f"the rule offers {cmd}, which the runner does not run")
+        elif cmd not in rule:
+            faults.append(f"the rule does not name the plan's {cmd} as absent")
+    return faults
 
 
 def head(d):
@@ -147,8 +183,10 @@ class StopRule(Case):
 
 class IterateRule(Case):
     """PLAN-small-tasks.md §3.5, worded to the runner's real commands (vocab.json
-    brief.iterate_rule): a renamed command on either side turns this red."""
+    brief.iterate_rule): an option added, removed or renamed on either side turns
+    this red."""
     RULE = VOCAB.brief["iterate_rule"]
+    SKETCH = ["dev.sh test <part>", "check --quick"]  # §3.5's, when the plan is absent
 
     def test_every_brief_carries_the_iterate_rule(self):
         a = self.repo("a", "aa")
@@ -158,28 +196,37 @@ class IterateRule(Case):
             with self.subTest(id=iid):
                 out = self.todo("-C", a, "brief", iid, ok=ok).stdout
                 self.assertIn(f"Iterate rule: {self.RULE}", out)
+                self.assertIn("`./dev.sh test <part>`", out)
                 self.assertIn("`./dev.sh check --resume`", out)
                 self.assertIn("Run the full suite once, before the commit", out)
 
     def test_the_rules_commands_are_the_pinned_runners(self):
-        flags = run_flags(RUNNER_RUN_USAGE)
-        self.assertEqual(flags, ["--resume", "--json"])
-        self.assertEqual(rule_faults(self.RULE, flags), [])
+        self.assertEqual(rule_faults(self.RULE, RUNNER_RUN_OPTIONS), [])
+        self.assertEqual(sketch_faults(self.RULE, self.SKETCH, RUNNER_RUN_OPTIONS), [])
 
-    def test_a_renamed_command_on_either_side_fails(self):
-        flags = run_flags(RUNNER_RUN_USAGE)
-        for old, new in (("--resume`", "--quick`"), ("`./dev.sh check --resume`", "`./dev.sh test <part>`"),
+    def test_an_option_added_removed_or_renamed_changes_the_verdict(self):
+        """Counterfactuals: the same rule is red against a runner one option away."""
+        drop = lambda flag: {k: v for k, v in RUNNER_RUN_OPTIONS.items() if k != flag}
+        with self.subTest(runner="--only removed"):
+            self.assertTrue(rule_faults(self.RULE, drop("--only")))
+            self.assertTrue(sketch_faults(self.RULE, self.SKETCH, drop("--only")))
+        with self.subTest(runner="--only takes no value"):
+            self.assertTrue(rule_faults(self.RULE, dict(RUNNER_RUN_OPTIONS, **{"--only": None})))
+        with self.subTest(runner="--resume renamed --since"):
+            self.assertTrue(rule_faults(self.RULE, dict(drop("--resume"), **{"--since": None})))
+        with self.subTest(runner="--quick added"):
+            self.assertEqual(rule_faults(self.RULE, dict(RUNNER_RUN_OPTIONS, **{"--quick": None})), [])
+            self.assertTrue(sketch_faults(self.RULE, self.SKETCH, dict(RUNNER_RUN_OPTIONS, **{"--quick": None})))
+        with self.subTest(runner="no run.options table"):
+            self.assertIsNone(run_options({"run": {"usage": "parts.py run <parts.json> [--resume]"}}))
+            self.assertTrue(rule_faults(self.RULE, None))
+        for old, new in (("--resume`", "--quick`"), ("`./dev.sh test <part>`", "`./dev.sh test`"),
                          ("`./dev.sh check`", "`./dev.sh verify`")):
             with self.subTest(rule=new):
                 self.assertIn(old, self.RULE)
-                self.assertTrue(rule_faults(self.RULE.replace(old, new), flags))
-        with self.subTest(runner="--resume renamed --since"):
-            self.assertTrue(rule_faults(self.RULE, run_flags(RUNNER_RUN_USAGE.replace("--resume", "--since"))))
-        with self.subTest(runner="no run usage line"):
-            self.assertIsNone(run_flags("parts.py check <parts.json> [--resume]"))
-            self.assertTrue(rule_faults(self.RULE, None))
+                self.assertTrue(rule_faults(self.RULE.replace(old, new), RUNNER_RUN_OPTIONS))
         with self.subTest(rule="no command at all"):
-            self.assertTrue(rule_faults("Iterate small.", flags))
+            self.assertTrue(rule_faults("Iterate small.", RUNNER_RUN_OPTIONS))
 
     def test_the_readme_quotes_the_rule_vocab_json_carries(self):
         readme = " ".join((ROOT / "README.md").read_text().split())
@@ -187,30 +234,24 @@ class IterateRule(Case):
 
     @unittest.skipUnless(RUNNER and RUNNER_DEV, "the runner lives in tools/checks, not in a fresh clone")
     def test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments(self):
-        """parts.py's own usage carries the pinned line, its argument check accepts
-        exactly those flags, and the reference dev.sh passes `check`'s arguments on."""
-        runner = RUNNER.read_text()
-        self.assertEqual(run_flags(runner), run_flags(RUNNER_RUN_USAGE), f"{RUNNER}: reword the iterate rule")
-        accepted = re.search(r'bad = \[a for a in flags if a not in \(([^)]*)\)\]', runner)
-        self.assertIsNotNone(accepted, f"{RUNNER}: cmd_run's flag check moved; re-read it")
-        self.assertEqual(sorted(re.findall(r'"(--[a-z-]+)"', accepted.group(1))), sorted(run_flags(RUNNER_RUN_USAGE)))
-        self.assertRegex(RUNNER_DEV.read_text(), r'cmd_check\(\) \{ exec python3 [^\n]*parts\.py" run [^\n]*"\$@"; \}')
+        """parts.py's own `usage --json` gives the pinned options, and the reference
+        dev.sh passes `check`'s arguments on and turns `test <part>` into --only."""
+        r = subprocess.run(["python3", str(RUNNER), "usage", "--json"], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(run_options(json.loads(r.stdout)), RUNNER_RUN_OPTIONS, f"{RUNNER}: reword the iterate rule")
+        dev = RUNNER_DEV.read_text()
+        self.assertRegex(dev, r'cmd_check\(\) \{ exec python3 [^\n]*parts\.py" run [^\n]*"\$@"; \}')
+        self.assertRegex(dev, r'only\+=\(--only "\$p"\)')
 
     @unittest.skipUnless(SMALL_TASKS_PLAN, "the plan lives in the workspace, not in a fresh clone")
-    def test_the_rule_is_the_plans_and_names_its_sketch_as_absent(self):
+    def test_the_rule_is_the_plans_and_uses_or_names_each_sketched_command(self):
         """§3.5's lead and its 'full suite once, before the commit' are the rule's;
-        each command §3.5 sketches is named in the rule and is not one the runner has."""
+        each command §3.5 sketches is the pinned SKETCH, used when the runner runs it
+        and named as absent when it does not."""
         lead = "Iterate small, then run whole once."
         section = SMALL_TASKS_PLAN.read_text().split(f"**{lead}**", 1)[1].split("\n6.", 1)[0]
         section = " ".join(section.split())
         self.assertTrue(self.RULE.startswith(lead))
         self.assertIn("runs the full suite once, before the commit", section)
         self.assertIn("Run the full suite once, before the commit", self.RULE)
-        sketch = re.findall(r"`([^`]+)`", section)
-        self.assertTrue(sketch, "§3.5 names no command any more: reword the rule")
-        for cmd in sketch:
-            with self.subTest(sketch=cmd):
-                self.assertIn(cmd, self.RULE)
-                self.assertNotIn(f"`{cmd}`", self.RULE)
-                self.assertTrue(command_faults(cmd, run_flags(RUNNER_RUN_USAGE)),
-                                f"the runner now has {cmd}: the rule should use it, not call it absent")
+        self.assertEqual(re.findall(r"`([^`]+)`", section), self.SKETCH, "§3.5's commands changed: reword the rule")
