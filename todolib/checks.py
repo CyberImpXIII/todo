@@ -341,7 +341,12 @@ def check_reports(store, ws, out):
             continue
         their = rt.get("their_id")
         if not their:
-            out.append(("FAIL", "reports", it["id"], f"{rt['repo']} has a store now: pair it with `todo report {it['id']} --to {rt['repo']}`"))
+            if it.get("imported") is not None:
+                # Read from a hand-written TODO.md: the owner may hold it under any id, or
+                # never have had it; a guess at either is worse than saying so.
+                out.append(("WARN", "reports", it["id"], f"imported, not paired with {rt['repo']}'s store: `todo edit {it['id']} --reported-to {rt['repo']}:THEIR_ID` if it holds the counterpart, else `todo report {it['id']} --to {rt['repo']}` writes one"))
+            else:
+                out.append(("FAIL", "reports", it["id"], f"{rt['repo']} has a store now: pair it with `todo report {it['id']} --to {rt['repo']}`"))
             continue
         c, where = owner.find(their)
         if c is None:

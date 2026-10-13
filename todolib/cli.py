@@ -387,6 +387,8 @@ def cmd_edit(args):
             changes["handoff"] = ({"date": today(), "text": args.handoff.strip(),
                                    "commit": head_commit(work_dir(workspace(args, store), store, item))}
                                   if args.handoff.strip() else "")
+        if args.reported_to is not None:
+            changes["reported_to"] = reported_to_value(workspace(args, store), store, item, args.reported_to)
         if not changes and not args.pin_plan:
             raise TodoError("nothing to change: name at least one field")
         if changes.get("status") == VOCAB.closed:
@@ -395,6 +397,9 @@ def cmd_edit(args):
         for f, v in changes.items():
             updated[f] = None if v in ("", []) else v
         validate(updated, require_waits=bool({"status", "waits_on"} & set(changes)))
+        if updated.get("reported_to") is not None and updated["kind"] != VOCAB.role("report_kind"):
+            raise TodoError(f"reported_to is a {VOCAB.role('report_kind')}'s field and this item is a "
+                            f"{updated['kind']}: add --kind {VOCAB.role('report_kind')}, or clear it with --reported-to ''")
         if "parent" in changes:
             resolve_parent(workspace(args, store), updated["parent"])
         if "blocked_by" in changes:
@@ -412,6 +417,39 @@ def cmd_edit(args):
         item.update(updated)
         commit(store)
     print(f"edited {args.id}: {', '.join(changes)}")
+
+
+def reported_to_value(ws, store, item, value):
+    """`edit --reported-to REPO[:THEIR_ID]`: the reported_to it sets, writing no other
+    store (`todo report` writes the counterpart; this records one that exists, or an
+    owner whose store does not). THEIR_ID is taken only when REPO's scanned store holds
+    it with parent ID; with none given, a counterpart REPO already holds pairs (its
+    parent says so). The date is kept while the repo is unchanged. "" clears it."""
+    if not value.strip():
+        return ""
+    repo, _, their = value.strip().partition(":")
+    if not repo or repo == store.repo:
+        raise TodoError(f"--reported-to {value!r}: name another repo (REPO or REPO:THEIR_ID)")
+    hidden = never_scanned(repo)
+    owner = None if hidden else ws.by_repo(repo)
+    if their:
+        if owner is None:
+            raise TodoError(f"--reported-to {value!r}: {repo} has no scanned store"
+                            + (" (a hidden folder, never scanned)" if hidden else "")
+                            + f", so {their} cannot be confirmed: give {repo} alone")
+        c, _ = owner.find(their)
+        if c is None:
+            raise TodoError(f"--reported-to {value!r}: {their} is in neither {repo}'s store nor its history")
+        if c.get("parent") != item["id"]:
+            raise TodoError(f"--reported-to {value!r}: {their}'s parent is {c.get('parent')}, not {item['id']}")
+    elif owner is not None:
+        prior = [c["id"] for c in owner.items + owner.closed if c.get("parent") == item["id"]]
+        if len(prior) == 1:
+            their = prior[0]
+            print(f"{repo} holds {their} with parent {item['id']}: paired with it")
+    old = item.get("reported_to") or {}
+    date = old.get("date") if old.get("repo") == repo and old.get("date") else today()
+    return {"repo": repo, "date": date, "their_id": their or None}
 
 
 def cmd_done(args):
@@ -1145,6 +1183,9 @@ def add_item_fields(p, editing):
         p.add_argument("--handoff", metavar="NOTE",
                        help="at a checkpoint: 'done; next; how to verify', kept with today's date and the work "
                             "repo's commit; replaces the last one, \"\" clears it")
+        p.add_argument("--reported-to", dest="reported_to", metavar="REPO[:THEIR_ID]",
+                       help="a report's owner, and its counterpart there when it exists; writes no other store "
+                            "(todo report does); THEIR_ID must be an item of REPO's store whose parent is ID")
 
 
 def build_parser():

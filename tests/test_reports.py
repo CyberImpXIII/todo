@@ -86,3 +86,67 @@ class Reports(Case):
 
     def test_report_to_its_own_repo_is_refused(self):
         self.todo("-C", self.a, "report", "aa-1", "--to", "a", ok=False)
+
+
+class EditReportedTo(Case):
+    """`todo edit ID --reported-to REPO[:THEIR_ID]`: sets a report's owner, and its
+    counterpart only when the owner's store confirms it; writes no other store."""
+
+    REPORT = VOCAB.role("report_kind")
+
+    def setUp(self):
+        super().setUp()
+        self.a, self.b = self.repo("a", "aa"), self.repo("b", "bb")
+        self.todo("-C", self.a, "add", "their bug", "--kind", VOCAB.role("default_kind"))
+
+    def rt(self):
+        return self.store(self.a)["items"][0]["reported_to"]
+
+    def test_only_a_report_carries_one(self):
+        err = self.todo("-C", self.a, "edit", "aa-1", "--reported-to", "c", ok=False).stderr
+        self.assertIn(f"add --kind {self.REPORT}", err)
+        self.todo("-C", self.a, "edit", "aa-1", "--kind", self.REPORT, "--reported-to", "c")
+        self.assertEqual(self.rt(), {"repo": "c", "date": "2026-10-04", "their_id": None})
+        self.todo("-C", self.a, "edit", "aa-1", "--reported-to", "", ok=False)  # a report requires it
+
+    def test_it_writes_no_other_store(self):
+        before = (self.b / "todo.json").read_bytes()
+        self.todo("-C", self.a, "edit", "aa-1", "--kind", self.REPORT, "--reported-to", "b")
+        self.assertEqual((self.b / "todo.json").read_bytes(), before)
+        self.assertEqual(self.rt()["their_id"], None)
+
+    def test_their_id_is_taken_only_when_the_owner_confirms_it(self):
+        self.todo("-C", self.b, "add", "unrelated", "--kind", VOCAB.role("default_kind"))
+        self.todo("-C", self.b, "add", "the counterpart", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1")
+        edit = ("-C", self.a, "edit", "aa-1", "--kind", self.REPORT, "--reported-to")
+        for bad, why in (("b:bb-1", "parent is None, not aa-1"), ("b:bb-9", "in neither"),
+                         ("c:cc-1", "no scanned store"), ("a", "another repo"), (".layer:x-1", "hidden")):
+            with self.subTest(bad=bad):
+                self.assertIn(why, self.todo(*edit, bad, ok=False).stderr)
+        self.assertIsNone(self.rt())
+        self.todo(*edit, "b:bb-2")
+        self.assertEqual(self.rt(), {"repo": "b", "date": "2026-10-04", "their_id": "bb-2"})
+        self.check(self.a)
+
+    def test_a_counterpart_the_owner_holds_pairs_without_its_id(self):
+        self.todo("-C", self.b, "add", "the counterpart", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1")
+        out = self.todo("-C", self.a, "edit", "aa-1", "--kind", self.REPORT, "--reported-to", "b").stdout
+        self.assertIn("paired with it", out)
+        self.assertEqual(self.rt()["their_id"], "bb-1")
+
+    def test_the_date_is_kept_for_the_same_repo_and_reset_for_another(self):
+        self.todo("-C", self.a, "edit", "aa-1", "--kind", self.REPORT, "--reported-to", "c", today="2026-10-01")
+        self.todo("-C", self.a, "edit", "aa-1", "--reported-to", "c", today="2026-10-03")
+        self.assertEqual(self.rt()["date"], "2026-10-01")
+        self.todo("-C", self.a, "edit", "aa-1", "--reported-to", "d", today="2026-10-03")
+        self.assertEqual(self.rt(), {"repo": "d", "date": "2026-10-03", "their_id": None})
+
+    def test_an_imported_report_unpaired_is_a_warning_and_a_made_one_is_red(self):
+        self.todo("-C", self.a, "edit", "aa-1", "--kind", self.REPORT, "--reported-to", "b")
+        self.assertFails(self.a, "reports", "has a store now")
+        data = self.store(self.a)
+        data["items"][0]["imported"] = {"sha": "0" * 12, "section": ["Reported"], "title_from": "lead", "sep": None}
+        self.write_json(self.a / "todo.json", data)
+        self.todo("-C", self.a, "render")
+        out = self.check(self.a).stdout
+        self.assertIn("WARN  reports   aa-1     imported, not paired with b's store", out)

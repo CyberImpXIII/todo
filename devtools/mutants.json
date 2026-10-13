@@ -502,6 +502,18 @@
      "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_an_older_waiting_item_is_listed_not_failed_and_stays_editable"]},
     {"id": "waits-on-argument-ignored", "gate": "a waits_on argument matches its declared rule",
      "file": "todolib/vocab.py", "old": "        if rx is not None and not rx.match(arg):", "new": "        if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_only_a_declared_value_of_the_declared_form"]}
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_only_a_declared_value_of_the_declared_form"]},
+    {"id": "reported-to-their-id-unconfirmed", "gate": "edit --reported-to takes THEIR_ID only when its parent is this item",
+     "file": "todolib/cli.py", "old": "        if c.get(\"parent\") != item[\"id\"]:\n            raise TodoError(f\"--reported-to", "new": "        if False:\n            raise TodoError(f\"--reported-to",
+     "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_their_id_is_taken_only_when_the_owner_confirms_it"]},
+    {"id": "reported-to-on-any-kind", "gate": "only a report carries reported_to",
+     "file": "todolib/cli.py", "old": "        if updated.get(\"reported_to\") is not None and updated[\"kind\"] != VOCAB.role(\"report_kind\"):", "new": "        if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_only_a_report_carries_one"]},
+    {"id": "imported-report-unpaired-red", "gate": "an imported report unpaired with an owner store is a WARN, a made one red",
+     "file": "todolib/checks.py", "old": "            if it.get(\"imported\") is not None:\n                # Read", "new": "            if False:\n                # Read",
+     "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_an_imported_report_unpaired_is_a_warning_and_a_made_one_is_red"]},
+    {"id": "reported-to-date-reset", "gate": "edit --reported-to keeps the date while the repo is unchanged",
+     "file": "todolib/cli.py", "old": "    date = old.get(\"date\") if old.get(\"repo\") == repo and old.get(\"date\") else today()", "new": "    date = today()",
+     "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_the_date_is_kept_for_the_same_repo_and_reset_for_another"]}
   ]
 }
