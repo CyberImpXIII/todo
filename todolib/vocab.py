@@ -32,6 +32,12 @@ class Vocab:
         self.approval_by = str(data["approval"].get("by") or "").strip()
         if not self.approval_by:
             raise ValueError("vocab.json: approval.by is empty; `todo approve` records who approved")
+        self.waits_on = {k: v for k, v in data["waits_on"].items() if not k.startswith("_")}
+        self.waits_on_arg = {}
+        for name, spec in self.waits_on.items():
+            if ":" in name or not str(spec.get("clears") or "").strip():
+                raise ValueError(f"vocab.json: waits_on {name!r} needs a name without ':' and a `clears` pointer")
+            self.waits_on_arg[name] = re.compile(spec["argument"]) if spec["argument"] is not None else None
         self.resolutions = {k: v for k, v in data["resolutions"].items() if not k.startswith("_")}
         self.roles = data["roles"]
         self.service = data["tags"]["service"]
@@ -57,6 +63,28 @@ class Vocab:
     @property
     def closed(self):
         return self.roles["closed_status"]
+
+    @property
+    def jacob_status(self):
+        return self.roles["jacob_status"]
+
+    def waits_on_problem(self, value):
+        """Why `value` is not a declared waits_on (`<value>` or `<value>:<argument>`), or None."""
+        if not isinstance(value, str) or not value.strip():
+            return f"waits_on {value!r} is not a string"
+        name, sep, arg = value.partition(":")
+        if name not in self.waits_on:
+            return f"waits_on {value!r}: {name!r} is not one of {', '.join(self.waits_on)}"
+        rx = self.waits_on_arg[name]
+        if rx is None and sep:
+            return f"waits_on {value!r}: {name} takes no argument"
+        if rx is not None and not rx.match(arg):
+            return f"waits_on {value!r}: {name} takes an argument matching {rx.pattern} ({name}:<argument>)"
+        return None
+
+    def waits_on_forms(self):
+        """The forms a waits_on takes, for a message: wizard:<argument>, settings, ..."""
+        return ", ".join(n + (":<argument>" if self.waits_on_arg[n] else "") for n in self.waits_on)
 
     def open_statuses(self):
         return [s for s in self.statuses if s != self.closed]

@@ -484,6 +484,24 @@
      "run": ["python3", "-m", "unittest", "tests.test_plan_pins.Pins.test_taking_the_tag_off_takes_its_pin"]},
     {"id": "plan-pins-shape-unchecked", "gate": "check fails a plan_pins written around the CLI",
      "file": "todolib/checks.py", "old": "    pin_why = plan_pins_problem(it)", "new": "    pin_why = None",
-     "run": ["python3", "-m", "unittest", "tests.test_plan_pins.Checked.test_check_fails_a_pin_written_around_the_cli"]}
+     "run": ["python3", "-m", "unittest", "tests.test_plan_pins.Checked.test_check_fails_a_pin_written_around_the_cli"]},
+    {"id": "waiting-needs-no-waits-on", "gate": "a new waiting-jacob item names what it waits on (§10.2 step 2)",
+     "file": "todolib/checks.py", "old": "    elif require and status == VOCAB.jacob_status:", "new": "    elif False:",
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_a_waiting_item_needs_one_and_an_open_one_takes_none"]},
+    {"id": "waits-on-any-status", "gate": "waits_on only on a waiting-jacob item",
+     "file": "todolib/checks.py", "old": "        if status not in (VOCAB.jacob_status, VOCAB.closed):", "new": "        if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_leaving_waiting_jacob_clears_it_or_is_refused"]},
+    {"id": "waits-on-unchecked-by-check", "gate": "check fails a waits_on written around the CLI",
+     "file": "todolib/checks.py", "old": "    waits_why = waits_on_problem(it, require=False)", "new": "    waits_why = None",
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_check_fails_a_hand_written_bad_value_or_one_on_another_status"]},
+    {"id": "waits-on-older-item-unlisted", "gate": "check lists a waiting-jacob item that names no waits_on",
+     "file": "todolib/checks.py", "old": "    check_waiting(store, out)\n", "new": "",
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_an_older_waiting_item_is_listed_not_failed_and_stays_editable"]},
+    {"id": "waits-on-older-item-frozen", "gate": "an older waiting-jacob item stays editable in other fields",
+     "file": "todolib/cli.py", "old": "        validate(updated, require_waits=bool({\"status\", \"waits_on\"} & set(changes)))", "new": "        validate(updated)",
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_an_older_waiting_item_is_listed_not_failed_and_stays_editable"]},
+    {"id": "waits-on-argument-ignored", "gate": "a waits_on argument matches its declared rule",
+     "file": "todolib/vocab.py", "old": "        if rx is not None and not rx.match(arg):", "new": "        if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_waits_on.Field.test_only_a_declared_value_of_the_declared_form"]}
   ]
 }

@@ -40,6 +40,13 @@
     "_comment": "Who may approve work for dispatch (the `approved` field's `by`): Jacob alone. `todo approve` writes this value and nothing else; check fails an `approved` whose `by` differs.",
     "by": "jacob"
   },
+  "waits_on": {
+    "_comment": "What a waiting-jacob item (roles.jacob_status) waits on (PLAN-todo-tool.md §10.2 step 2): the field is `<value>`, or `<value>:<argument>` for a value whose `argument` is a regex the argument must match (null: it takes none). `clears` is the one pointer `todo blockers` prints for the group ({arg} is the argument). `todo add`, `edit` and `import` refuse a waiting-jacob item without one; check lists an older one that lacks it, and fails none.",
+    "wizard":   {"doc": "his answer to a question in a wizard definition, the argument", "argument": "^[a-z0-9][a-z0-9_-]*$", "clears": "wizard run {arg}"},
+    "settings": {"doc": "a settings step only he takes, such as applying a proposed settings file; the item's evidence says which", "argument": null, "clears": "his settings step (each item's evidence names it)"},
+    "approval": {"doc": "his yes to start the work", "argument": null, "clears": "todo approve ID --source ..."},
+    "decision": {"doc": "his answer to a decision written in a plan section, the argument (FILE §n)", "argument": "^\\S+\\.md ?§\\S+$", "clears": "his answer to {arg}"}
+  },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
     "done-deprecated": {"doc": "an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
@@ -48,6 +55,7 @@
     "default_kind": "note",
     "default_status": "open",
     "closed_status": "done",
+    "jacob_status": "waiting-jacob",
     "report_kind": "report",
     "import_resolution": "done-deprecated"
   },
@@ -62,6 +70,7 @@
     "reported_to": {"doc": "{repo, date, their_id}: whom it was reported to, and the counterpart's id there", "label": "reported to"},
     "parent":      {"doc": "any item's id, in any scanned repo, open or closed", "label": "parent"},
     "blocked_by":  {"doc": "ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history", "label": "blocked by", "optional": true},
+    "waits_on":    {"doc": "what a waiting-jacob item waits on: `<value>` or `<value>:<argument>`, a value of `waits_on` below; set by `todo add/edit --waits-on` or by `todo import`, and required on a waiting-jacob item (an older one is listed by check); `todo blockers` groups by it, never by prose", "label": "waits on", "optional": true},
     "repo":        {"doc": "where the work lives: a repo name, never an agent", "label": "repo"},
     "work":        {"doc": "one of the works", "label": "work"},
     "size":        {"doc": "one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready", "label": "size", "optional": true},

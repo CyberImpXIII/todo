@@ -9,6 +9,10 @@ import unittest
 from pathlib import Path
 
 from todolib.store import HISTORY_FILE, STORE_FILE, sealed
+from todolib.vocab import VOCAB
+
+# A declared waits_on that takes no argument: what a test's waiting-jacob item waits on.
+WAITS = next(n for n, rx in VOCAB.waits_on_arg.items() if rx is None)
 
 ROOT = Path(__file__).resolve().parent.parent
 TODO = ROOT / "todo"

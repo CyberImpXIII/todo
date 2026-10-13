@@ -161,6 +161,9 @@ def check_item(it, where, store, out):
         if it.get("approved") is None:
             out.append(("FAIL", "schema", iid, "dispatched without approved: todo dispatch refuses an unapproved "
                                                "item, so this was written around the CLI"))
+    waits_why = waits_on_problem(it, require=False)
+    if waits_why:
+        out.append(("FAIL", "vocab", iid, waits_why))
     pin_why = plan_pins_problem(it)
     if pin_why:
         out.append(("FAIL", "schema", iid, pin_why + ": set it with todo edit ID --pin-plan"))
@@ -173,6 +176,35 @@ def check_item(it, where, store, out):
     reserved = VOCAB.role("import_resolution")
     if it.get("resolution") == reserved and not imported:
         out.append(("FAIL", "vocab", iid, f"resolution {reserved!r} is set by todo import only, and this item was not imported"))
+
+
+def waits_on_problem(item, require=True):
+    """Why an item's waits_on is wrong for it, or None (PLAN-todo-tool.md §10.2 step 2):
+    a declared value of the declared form, on a waiting-jacob item only (a closed one
+    keeps what it had). `require`: a waiting-jacob item without one is wrong too; check
+    passes False and lists such items instead (written before the field existed), the
+    CLI passes True wherever it makes the item or sets its status."""
+    w, status = item.get("waits_on"), item.get("status")
+    if w is not None:
+        why = VOCAB.waits_on_problem(w)
+        if why:
+            return why
+        if status not in (VOCAB.jacob_status, VOCAB.closed):
+            return f"waits_on is for a {VOCAB.jacob_status} item, and this one is {status}: clear it with --waits-on ''"
+    elif require and status == VOCAB.jacob_status:
+        return f"a {status} item needs --waits-on, what clears it: {VOCAB.waits_on_forms()}"
+    return None
+
+
+def check_waiting(store, out):
+    """List, never fail, the open waiting-jacob items that name nothing they wait on:
+    written before waits_on existed, so `todo blockers` cannot group them."""
+    bare = [it["id"] for it in store.items if it.get("status") == VOCAB.jacob_status and it.get("waits_on") is None]
+    if bare:
+        shown = ", ".join(bare[:10]) + (f" (+{len(bare) - 10})" if len(bare) > 10 else "")
+        out.append(("INFO", "required", "-", f"{len(bare)} {VOCAB.jacob_status} item(s) name no waits_on, so "
+                                             f"`todo blockers` cannot group them: {shown} -- todo edit ID --waits-on "
+                                             f"({VOCAB.waits_on_forms()})"))
 
 
 def check_ids(store, out):
@@ -442,6 +474,7 @@ def check_store(store, ws):
         check_item(it, "store", store, out)
     for it in store.closed:
         check_item(it, "history", store, out)
+    check_waiting(store, out)
     check_ids(store, out)
     check_parents(store, ws, out)
     check_sizes(store, ws, out)

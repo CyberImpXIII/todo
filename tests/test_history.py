@@ -3,7 +3,7 @@ its own git log, and history/show read it back."""
 import json
 import os
 
-from tests.helpers import Case, git_commit
+from tests.helpers import WAITS, Case, git_commit
 from todolib.render import field_value
 from todolib.vocab import VOCAB
 
@@ -13,7 +13,7 @@ class RoundTrip(Case):
         a, b = self.repo("a", "aa"), self.repo("b", "bb")
         (self.ws / "PLAN-x.md").write_text("# X\n\n## 1. One\n\none\n")  # read by --pin-plan
         self.todo("-C", b, "add", "parent", "--kind", "note")
-        self.todo("-C", a, "--root", self.ws, "add", "every field", "--kind", "temp", "--status", "blocked",
+        self.todo("-C", a, "--root", self.ws, "add", "every field", "--kind", "temp", "--status", VOCAB.jacob_status, "--waits-on", WAITS,
                   "--evidence", "line one\n\n  indented line", "--probe", "p", "--parent", "bb-1", "--blocked-by", "bb-1", "--tags", "plan:PLAN-x.md§1", "--pin-plan", "--size", VOCAB.ready_sizes[0],
                   "--repo", "elsewhere", "--work", "test", "--files", "a.py", "b/c.js",
                   "--done-when", "suite passes", "--retire", "manifest:nodes", today="2026-10-01")

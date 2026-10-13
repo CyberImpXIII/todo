@@ -77,8 +77,11 @@ def commit(store):
     write_render(store)
 
 
-def validate(item, where="store"):
-    """Refuse an item `check` would fail: declared vocabulary, required fields."""
+def validate(item, where="store", require_waits=True):
+    """Refuse an item `check` would fail: declared vocabulary, required fields.
+    `require_waits` False lets a waiting-jacob item written before waits_on existed
+    be changed in other fields without naming one (check lists it); a new item, a
+    status change or a waits_on change always needs it."""
     for f in checks.SINGLE_LINE:
         if isinstance(item.get(f), str) and "\n" in item[f]:
             raise TodoError(f"{f} must be one line")
@@ -99,6 +102,9 @@ def validate(item, where="store"):
     if missing:
         flags = ", ".join("--" + f.replace("_", "-") for f in missing)
         raise TodoError(f"a {item['kind']} that is {item['status']} needs {flags}")
+    why = checks.waits_on_problem(item, require_waits)
+    if why:
+        raise TodoError(why)
 
 
 def work_dir(ws, store, item):
@@ -336,7 +342,7 @@ def cmd_add(args):
         item = new_item(title=args.title, kind=args.kind, status=args.status or VOCAB.role("default_status"),
                         evidence=args.evidence, probe=args.probe, parent=args.parent,
                         repo=args.repo or store.repo, work=args.work, size=args.size, files=args.files,
-                        done_when=args.done_when, retire=args.retire, added=today())
+                        done_when=args.done_when, retire=args.retire, waits_on=args.waits_on, added=today())
         if item["status"] == VOCAB.closed:
             raise TodoError("add makes open items; close one with todo done")
         validate(item)
@@ -350,8 +356,8 @@ def cmd_add(args):
     print(f"added {item['id']}: {item['title']}")
 
 
-EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "repo", "work", "size", "files",
-            "done_when", "retire", "tags"]
+EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "waits_on", "repo", "work", "size",
+            "files", "done_when", "retire", "tags"]
 
 
 def cmd_edit(args):
@@ -388,7 +394,7 @@ def cmd_edit(args):
         updated = dict(item)
         for f, v in changes.items():
             updated[f] = None if v in ("", []) else v
-        validate(updated)
+        validate(updated, require_waits=bool({"status", "waits_on"} & set(changes)))
         if "parent" in changes:
             resolve_parent(workspace(args, store), updated["parent"])
         if "blocked_by" in changes:
@@ -542,7 +548,7 @@ def cmd_report(args):
                 commit(owner)
         item["kind"] = VOCAB.role("report_kind")
         item["reported_to"] = {"repo": args.to, "date": (rt or {}).get("date") or today(), "their_id": their}
-        validate(item)
+        validate(item, require_waits=False)
         commit(store)
     finally:
         for lk in reversed(locks):
@@ -1120,6 +1126,9 @@ def add_item_fields(p, editing):
     p.add_argument("--parent")
     p.add_argument("--blocked-by", dest="blocked_by", nargs="*", metavar="ID",
                    help="ids that must close first (any scanned repo); no ids clears it")
+    p.add_argument("--waits-on", dest="waits_on", metavar="W",
+                   help=f"what a {VOCAB.jacob_status} item waits on: {VOCAB.waits_on_forms()}"
+                        + ("; \"\" clears it" if editing else ""))
     p.add_argument("--repo")
     p.add_argument("--work", choices=list(VOCAB.works) + ([""] if editing else []))
     p.add_argument("--size", choices=list(VOCAB.sizes) + ([""] if editing else []),

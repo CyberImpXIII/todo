@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (18 open, 19 closed in todo-history.json; seal 4431103518eb): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (18 open, 19 closed in todo-history.json; seal 4ad5bc732730): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -7,8 +7,9 @@
 
 - **td-2 · The shared hooks setup installed are not registered in settings.json**
   settings.json is tracked since 8523dd8 but predates the 2026-10-05 setup run (tools/setup 32aeaa9), which installed ask-first, git-stamp, no-secrets, primary-guard, push-gate, settings-guard and write-ledger. settings.proposed.json registers all seven, settings.json none, so ./dev.sh hooks fails 7 registrations (each hook's own test passes) and the mutants gate is BASELINE-RED from it. settings.json is Jacob's: he applies the proposal himself (setup prints the step).
-  2026-10-12, after Jacob's wiring --apply (agents.sh wiring: all 62 requirements in the top-level settings.json): ./dev.sh hooks in tools/todo still prints 'FAIL  store-guard.sh is not registered in .claude/settings.json', exit 1; this repo's .claude/settings.json (uncommitted, not this tool's to edit) registers the other seven. Not closed.
+  2026-10-12, after Jacob's wiring --apply (all 62 requirements in the top-level settings.json): ./dev.sh hooks in tools/todo still prints 'FAIL  store-guard.sh is not registered in .claude/settings.json', exit 1; this repo's .claude/settings.json (uncommitted, not this tool's to edit) registers the other seven. Not closed.
   · status: waiting-jacob
+  · waits on: settings
   · work: decision
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
@@ -91,7 +92,7 @@
 
 - **td-24 · The tag table in vocab.json is a local copy; read it from the architecture service once it exists**
   PLAN-services.md §3: the vocabulary lives in the architecture service (S3), which does not exist yet. vocab.json tags.shared copies its seven namespaces; tests/test_tags.py holds them equal to the plan's table (mutant shared-namespaces-drift). Closed values (origin: jacob, model, tool; trust: untrusted) are the plan's examples, not a ruling: S3 decides closed values.
-  2026-10-12, checked against PLAN-services.md §3 as it reads today: the seven namespaces and their order are unchanged; the plan names kind:, trust: and origin: as closed (a new value goes to the architecture service's agent). Its todo example (todo:td-21 with kind:audit, origin:planner, repo:tools/todo) is out of step with this tool: audit is a work here (todo.work:audit), origin:planner is not a declared value, repo: is td-26.
+  2026-10-12, checked against PLAN-services.md §3 as it reads today: the seven namespaces and their order are unchanged; the plan names kind:, trust: and origin: as closed (a new value goes to the architecture service's agent). Its todo example (todo:td-21 with kind:audit, an origin: naming the plan-writing agent, repo:tools/todo) is out of step with this tool: audit is a work here (todo.work:audit), an agent's name is not a declared origin: value (jacob, model, tool), and repo: is td-26.
   · work: code
   · files: vocab.json, todolib/tags.py
   · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan

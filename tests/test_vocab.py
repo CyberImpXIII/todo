@@ -6,7 +6,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from tests.helpers import ROOT, Case
+from tests.helpers import ROOT, WAITS, Case
 from todolib import cli, render
 from todolib.vocab import VOCAB, Vocab
 
@@ -29,7 +29,9 @@ class Declared(Case):
         silently stop matching when vocab.json is renamed. Field names and command
         names are allowed where they act as such: a key, a .get() argument, a tuple of
         field names, a COMMANDS key."""
-        names = set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works) | set(VOCAB.resolutions) | set(VOCAB.sizes)
+        names = (set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works) | set(VOCAB.resolutions) | set(VOCAB.sizes)
+                 | set(VOCAB.waits_on))
+        sections = set(RAW)  # vocab.json's own sections, read by key: data["approval"]
         fields = set(VOCAB.field_names())
         commands = set(cli.COMMANDS)
         hits = []
@@ -50,7 +52,7 @@ class Declared(Case):
             for node in ast.walk(tree):
                 if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or node.value not in names:
                     continue
-                if id(node) in allowed and (node.value in fields or node.value in commands):
+                if id(node) in allowed and (node.value in fields or node.value in commands or node.value in sections):
                     continue
                 hits.append(f"{f.name}:{node.lineno}: {node.value!r}")
         self.assertEqual(hits, [], "name kinds/statuses/works through VOCAB, never as literals")
@@ -121,7 +123,7 @@ class Handled(Case):
         for i, status in enumerate(VOCAB.open_statuses()):
             self.todo("-C", a, "add", f"s {status}", "--kind", VOCAB.role("default_kind"), "--parent", "aa-1", "--blocked-by", "aa-1", "--tags", "origin:tool",
                       "--status", status, "--work", works[i % len(works)], "--size", list(VOCAB.sizes)[0], "--files", "x.py", "--done-when", "dw",
-                      "--repo", "other", "--evidence", "ev")
+                      "--repo", "other", "--evidence", "ev", *(["--waits-on", WAITS] if status == VOCAB.jacob_status else []))
         for w in works:
             self.todo("-C", a, "add", f"w {w}", "--kind", VOCAB.role("default_kind"), "--work", w)
         self.todo("-C", a, "edit", "aa-2", "--handoff", "h")
@@ -156,7 +158,7 @@ class Handled(Case):
 class Documented(Case):
     def test_readme_vocab_tables_equal_vocab_json(self):
         for name, declared in (("kinds", VOCAB.kinds), ("statuses", VOCAB.statuses),
-                               ("works", VOCAB.works), ("sizes", VOCAB.sizes), ("resolutions", VOCAB.resolutions),
+                               ("works", VOCAB.works), ("sizes", VOCAB.sizes), ("resolutions", VOCAB.resolutions), ("waits_on", VOCAB.waits_on),
                                ("fields", VOCAB.fields), ("tags", VOCAB.namespaces)):
             doc = readme_table(name)
             self.assertIsNotNone(doc, f"README.md has no <!-- vocab:{name} --> table")

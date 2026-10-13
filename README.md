@@ -39,8 +39,8 @@ without one stays an error rather than borrowing another store's answer.
 | usage | what it does |
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
-| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags T ...] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]] [--handoff NOTE] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it |
+| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags T ...] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. A `waiting-jacob` item needs `--waits-on` (below), and only it may carry one. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--done-when D] [--retire C] [--tags [T ...]] [--handoff NOTE] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. Leaving `waiting-jacob` needs `--waits-on ""` with it, and entering it a value; an item written before `waits_on` existed still takes other edits without one. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it |
 | `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
@@ -92,9 +92,21 @@ the renderer, the importer, the checks and these tables all follow it, and
 | status | meaning | requires |
 |---|---|---|
 | `open` | workable now (the default; not shown in the render) | |
-| `waiting-jacob` | needs Jacob's answer before anyone can move it | |
+| `waiting-jacob` | needs Jacob's answer before anyone can move it; `add`, `edit` and `import` refuse one without `waits_on` (below), and check lists one written before that field | |
 | `blocked` | waits on something other than Jacob; the evidence says what | |
 | `done` | closed; the item lives in `todo-history.json` from then on | `done`, `resolution` |
+
+What a `waiting-jacob` item waits on (`waits_on`, `--waits-on W`): one of these,
+with its argument after a colon where it takes one. `todo blockers` groups the
+items by it and prints what clears each group; it never reads the prose.
+
+<!-- vocab:waits_on -->
+| waits_on | what it waits on | argument | cleared by |
+|---|---|---|---|
+| `wizard` | his answer to a question in a wizard definition | the definition (`wizard:intake`) | `wizard run <definition>` |
+| `settings` | a settings step only he takes, such as applying a proposed settings file; the evidence says which | none | that step |
+| `approval` | his yes to start the work | none | `todo approve ID --source ...` |
+| `decision` | his answer to a decision written in a plan section | `FILE §n` (`decision:PLAN-x.md §3`) | his answer |
 
 <!-- vocab:works -->
 | work | meaning |
@@ -168,6 +180,7 @@ each have one setter and are refused everywhere else:
 | `reported_to` | `{repo, date, their_id}`: whom it was reported to, and the counterpart's id there |
 | `parent` | any item's id, in any scanned repo, open or closed |
 | `blocked_by` | ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history |
+| `waits_on` | what a `waiting-jacob` item waits on: `<value>` or `<value>:<argument>`, a value of the table below; set by `--waits-on` or by `todo import`, on a `waiting-jacob` item only; `todo blockers` groups by it |
 | `repo` | where the work lives: a repo name, never a person or an agent |
 | `work` | one of the works |
 | `size` | one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready |

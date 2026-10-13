@@ -5,7 +5,7 @@ Every approved item is accounted for (listed, held with why, or dispatched) and 
 unapproved ones are counted, never silently dropped."""
 import json
 
-from tests.helpers import TODAY, Case
+from tests.helpers import TODAY, WAITS, Case
 from todolib.vocab import VOCAB
 
 NOTE = VOCAB.role("default_kind")
@@ -64,7 +64,7 @@ class Dispatchable(Case):
 
     def test_an_approved_item_not_ready_is_held_with_why(self):
         self.todo("-C", self.a, "add", "no done-when", "--kind", NOTE, "--work", next(iter(VOCAB.works)))
-        self.todo("-C", self.a, "add", "waiting", "--kind", NOTE, *READY, "--status", VOCAB.open_statuses()[1])
+        self.todo("-C", self.a, "add", "waiting", "--kind", NOTE, *READY, "--status", VOCAB.jacob_status, "--waits-on", WAITS)
         self.todo("-C", self.a, "add", "blocked", "--kind", NOTE, *READY, "--blocked-by", "aa-1")
         for i in (1, 2, 3):
             self.todo("-C", self.a, "approve", f"aa-{i}", "--source", "s")
@@ -72,7 +72,7 @@ class Dispatchable(Case):
         self.assertEqual(self.ids(v), [])
         why = {h["id"]: "; ".join(h["why"]) for h in v["held"]}
         self.assertIn("missing done_when", why["todo:aa-1"])
-        self.assertIn(f"status {VOCAB.open_statuses()[1]}", why["todo:aa-2"])
+        self.assertIn(f"status {VOCAB.jacob_status}", why["todo:aa-2"])
         self.assertIn("blocked by aa-1", why["todo:aa-3"])
 
     def test_dispatch_refuses_an_unapproved_item_and_approve_needs_a_source(self):
