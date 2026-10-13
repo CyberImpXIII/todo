@@ -29,9 +29,11 @@ BOLD_TITLE_MAX = 300
 
 
 class Block:
-    def __init__(self, kind, headings, first, marker_width=0):
+    def __init__(self, kind, headings, first, marker_width=0, levels=(), section_no=0):
         self.kind = kind            # "bullet" | "para"
         self.headings = list(headings)
+        self.levels = list(levels)  # each heading's level (1 for #), outermost first
+        self.section_no = section_no  # which heading the block sits under, in file order
         self.raw = [first]
         self.marker_width = marker_width
         self.pending = 0            # blank lines seen inside a bullet, not yet known to belong
@@ -57,7 +59,7 @@ class Block:
 def md_blocks(text):
     """(blocks, skipped): top-level bullets and paragraphs, each with its heading chain."""
     stack, blocks, skipped = [], [], {"rules": 0, "headings": 0, "render_header": 0}
-    cur, prev_blank, fence = None, True, None
+    cur, prev_blank, fence, section_no = None, True, None, 0
 
     def close():
         nonlocal cur
@@ -88,6 +90,7 @@ def md_blocks(text):
             close()
             level = len(h.group(1))
             stack = [s for s in stack if s[0] < level] + [(level, h.group(2))]
+            section_no += 1
             skipped["headings"] += 1
             prev_blank = True
             continue
@@ -97,19 +100,20 @@ def md_blocks(text):
             prev_blank = True
             continue
         b = BULLET_RE.match(raw) if indent == 0 else None
+        where = {"levels": [s[0] for s in stack], "section_no": section_no}
         headings = [s[1] for s in stack]
         if b:
             close()
-            cur = Block("bullet", headings, raw, marker_width=len(b.group(0)))
+            cur = Block("bullet", headings, raw, marker_width=len(b.group(0)), **where)
         elif indent > 0 and cur is not None:
             cur.add(raw)
         elif indent > 0:
-            cur = Block("para", headings, raw)
+            cur = Block("para", headings, raw, **where)
         elif cur is not None and not prev_blank and not cur.pending:
             cur.add(raw)  # a lazy continuation line
         else:
             close()
-            cur = Block("para", headings, raw)
+            cur = Block("para", headings, raw, **where)
         m = FENCE_RE.match(raw)
         if m:
             fence = m.group(1)
@@ -159,6 +163,110 @@ def reconstruct(item, title=None, evidence=None):
     return evidence
 
 
+def skip_reasons(blocks, vocab=VOCAB):
+    """{index: why} for the blocks that are not items (vocab.json import.skip): a
+    paragraph above the first bullet of a section holding bullets, a paragraph under
+    the top heading alone in a file with deeper ones, and a block that is only a heading."""
+    out = {}
+    bullets = {}
+    for i, b in enumerate(blocks):
+        if b.kind == "bullet":
+            bullets.setdefault(b.section_no, i)
+    deeper = any(lv > 1 for b in blocks for lv in b.levels)
+    for i, b in enumerate(blocks):
+        text = b.text().strip()
+        if vocab.import_heading_only.match(text):
+            out[i] = "only a heading"
+        elif vocab.import_skip_intro and b.kind == "para":
+            if b.section_no in bullets and i < bullets[b.section_no]:
+                out[i] = "text above the section's first bullet"
+            elif deeper and max(b.levels, default=0) <= 1:
+                out[i] = "text under the top heading alone"
+    return out
+
+
+def lead(text):
+    """A block's lead: its text up to the first blank line or nested list line."""
+    out = []
+    for ln in text.split("\n"):
+        if not ln.strip() or (out and BULLET_RE.match(ln.lstrip(" "))):
+            break
+        out.append(ln)
+    return "\n".join(out)
+
+
+def flat(text):
+    return " ".join(text.split())
+
+
+def read_approval(text, today, vocab=VOCAB):
+    """(approved, None) | (None, why listed) | (None, None) when the lead says nothing."""
+    m = vocab.import_approval.search(lead(text))
+    if not m:
+        return None, None
+    date = m.group("date")
+    if date > today:
+        return None, f"approval dated {date}, after today: not applied"
+    quote = m.group("quote")
+    source = flat(quote.strip("\"“”") if quote else m.group(0))
+    return {"by": vocab.approval_by, "date": date, "source": source}, None
+
+
+def read_waits_on(text, resolve_plan=None, vocab=VOCAB):
+    """(value, None) | (None, why listed): the earliest rule match whose value is a
+    declared waits_on and, for a rule with `plan`, whose plan section reads.
+    resolve_plan(ref) -> None when the section reads, else why not."""
+    hits = sorted(((m.start(), r, m) for r in vocab.import_waits_on for m in r["match"].finditer(text)),
+                  key=lambda h: h[0])
+    why = []
+    for _, r, m in hits:
+        value = m.expand(r["value"])
+        bad = vocab.waits_on_problem(value)
+        if bad is None and r["plan"] and resolve_plan is not None:
+            bad = resolve_plan(m.expand(r["plan"]))
+        if bad is None:
+            return value, None
+        why.append(bad)
+    mention = vocab.import_waits_mention.search(text)
+    if why:
+        return None, "no pointer resolves: " + "; ".join(why)
+    if mention:
+        return None, f"{flat(mention.group(0))!r} resolves to no waits_on"
+    return None, "names nothing it waits on"
+
+
+def read_probe(text, vocab=VOCAB):
+    m = vocab.import_probe.search(text)
+    if not m:
+        return None
+    rest, tick = flat(text[m.end():]), False
+    for i, ch in enumerate(rest):
+        if ch == "`":
+            tick = not tick
+        elif ch == "." and not tick and (i + 1 == len(rest) or rest[i + 1] == " "):
+            return rest[:i + 1].strip() or None
+    return rest.strip() or None
+
+
+def read_owner(text, repos, own, today, vocab=VOCAB):
+    """reported_to from the lead's first word, or None: only a repo the scan finds."""
+    first = lead(text)
+    m = vocab.import_owner.match(first.replace("**", ""))
+    if not m or m.group("repo") not in repos or m.group("repo") == own:
+        return None
+    d = vocab.import_report_date.match(first.split("\n")[0])
+    return {"repo": m.group("repo"), "date": d.group("date") if d else today, "their_id": None}
+
+
+# The fields a kind may require that a block's text can fill, each with its reader
+# (ctx: vocab, repos, own, today). A required field with no reader is never guessed:
+# the block imports as roles.default_kind (vocab.json import._fallback).
+FIELD_READERS = {
+    "probe": lambda body, ctx: read_probe(body, ctx["vocab"]),
+    "reported_to": lambda body, ctx: read_owner(body, ctx["repos"], ctx["own"], ctx["today"], ctx["vocab"]),
+}
+
+
 class Plan:
     def __init__(self):
         self.new = []          # (item, "store"|"history")
@@ -169,15 +277,21 @@ class Plan:
         self.missing = []      # store ids the file no longer shows
         self.rendered = False  # the file carries the render header
         self.skipped = {}
+        self.not_items = []    # (why, text): blocks import.skip says are not items
+        self.listed = []       # (title, why): what a rule could not read, for whoever imports
+        self.unnamed_waits = []  # titles of waiting-jacob items naming no waits_on
 
 
-def plan_import(text, store, today):
+def plan_import(text, store, today, repos=frozenset(), resolve_plan=None, waits_on=None, vocab=VOCAB):
+    """repos: the repo names a report's owner may be (the scan's); resolve_plan: see
+    read_waits_on; waits_on: the value for a waiting-jacob item that names none."""
     plan = Plan()
     plan.rendered = text.startswith(HEADER_PREFIX)
     blocks, plan.skipped = md_blocks(text)
     known_shas = {(it.get("imported") or {}).get("sha") for it in list(store.items) + list(store.closed)}
     seen_ids, occurrences = set(), {}
-    for blk in blocks:
+    skip = skip_reasons(blocks, vocab) if not plan.rendered else {}
+    for i, blk in enumerate(blocks):
         m = ITEM_RE.match(blk.raw[0])
         if m and store.owns(m.group(1)):
             item, where = store.find(m.group(1))
@@ -193,6 +307,9 @@ def plan_import(text, store, today):
         body = blk.text()
         if not body.strip():
             continue
+        if i in skip:
+            plan.not_items.append((skip[i], flat(body)))
+            continue
         section = " > ".join(blk.headings)
         key = section + "\n" + " ".join(body.split())
         occurrences[key] = occurrences.get(key, 0) + 1
@@ -204,17 +321,46 @@ def plan_import(text, store, today):
         bad = [ln for ln in evidence.split("\n") if ln.startswith(FIELD_MARK)]
         if bad:
             raise TodoError(f"cannot import a block with a line starting {FIELD_MARK!r} (the render's field mark): {bad[0][:80]!r}")
-        kind, status = VOCAB.heading_rule(blk.headings)
+        kind, status = vocab.heading_rule(blk.headings)
         done = None
-        dm = VOCAB.done_marker.match(body)
+        dm = vocab.done_marker.match(body)
         if dm:
-            status, done = VOCAB.closed, dm.group(1)
+            status, done = vocab.closed, dm.group(1)
+        extra, wanted = {}, None
+        if status != vocab.closed:
+            approved, why = read_approval(body, today, vocab)
+            if why:
+                plan.listed.append((title, why))
+            if approved:
+                extra["approved"] = approved
+                if status == vocab.jacob_status:
+                    status = vocab.role("default_status")
+            if status == vocab.jacob_status:
+                value, why = read_waits_on(body, resolve_plan, vocab)
+                if value is None:
+                    plan.listed.append((title, why + (f"; --waits-on {waits_on} given" if waits_on else "")))
+                    if waits_on:
+                        value = waits_on
+                    else:
+                        plan.unnamed_waits.append(title)
+                extra["waits_on"] = value
+            ctx = {"vocab": vocab, "repos": repos, "own": store.repo, "today": today}
+            for f in vocab.kinds.get(kind, {}).get("requires", []):
+                value = FIELD_READERS[f](body, ctx) if f in FIELD_READERS else None
+                if value is None:
+                    wanted, kind = kind, vocab.role("default_kind")
+                    plan.listed.append((title, f"no {f} read: imported as {kind} (todo edit ID --kind {wanted} --{f.replace('_', '-')} ...)"))
+                    break
+                extra[f] = value
+            if wanted:
+                extra = {k: v for k, v in extra.items() if k not in vocab.kinds[wanted].get("requires", [])}
         # A bullet carries no resolution field: a closed one gets the import's own
         # value, never a guess from its text (td-1, PLAN-todo-tool.md end).
         resolution = VOCAB.role("import_resolution") if status == VOCAB.closed else None
-        item = new_item(title=title, kind=kind, status=status, evidence=evidence, repo=store.repo,
+        item = new_item(**extra, title=title, kind=kind, status=status, evidence=evidence, repo=store.repo,
                         added=today, done=done, resolution=resolution,
-                        imported={"sha": sha, "section": section, "title_from": title_from, "sep": sep})
+                        imported={"sha": sha, "section": section, "title_from": title_from, "sep": sep,
+                                  **({"wanted": wanted} if wanted else {})})
         plan.new.append((item, "history" if status == VOCAB.closed else "store"))
     if plan.rendered:
         plan.missing = [it["id"] for it in store.items if it["id"] not in seen_ids]

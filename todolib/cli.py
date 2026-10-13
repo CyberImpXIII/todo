@@ -13,7 +13,7 @@ from .blockers import BRIEF_NEEDS, size_refusal
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, STORE_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
-                    id_number, never_scanned, new_item, scan_root, store_dir_for, today, write_atomic)
+                    id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today, write_atomic)
 from .vocab import VOCAB
 
 HAND_EDIT_DIFF_MAX = 4000
@@ -724,7 +724,14 @@ def cmd_import(args):
         store.load()
         require_history(store)
         text = src.read_text()
-        plan = importer.plan_import(text, store, today())
+        ws = workspace(args, store)
+        repos = {s.repo for s in ws.stores if s.data} | {d.name for d in scan_stores(ws.root, storeless=True)}
+        if args.waits_on is not None:
+            bad = VOCAB.waits_on_problem(args.waits_on)
+            if bad:
+                raise TodoError(f"--waits-on: {bad}")
+        plan = importer.plan_import(text, store, today(), repos=repos, resolve_plan=plan_resolver(args, ws),
+                                    waits_on=args.waits_on)
         to_store = [it for it, dest in plan.new if dest == "store"]
         to_hist = [it for it, dest in plan.new if dest == "history"]
         print(f"import {src}: {len(to_store)} new open, {len(to_hist)} new closed, {len(plan.unchanged)} unchanged, "
@@ -733,11 +740,15 @@ def cmd_import(args):
         if plan.changed:
             raise TodoError(f"rendered item(s) edited by hand: {', '.join(plan.changed)}. Nothing imported. "
                             "`todo render --force` keeps the diff in todo.json; then apply it with todo edit.")
+        print_import_notes(plan)
         if args.dry_run:
             for it, dest in plan.new:
                 print(("  history " if dest == "history" else "  store   ") + f"{it['kind']:<9} {it['status']:<13} {it['title'][:TITLE_WIDTH]}")
             print("(dry run: nothing written)")
             return
+        if plan.unnamed_waits:
+            raise TodoError(f"{len(plan.unnamed_waits)} {VOCAB.jacob_status} item(s) name no waits_on (listed above). "
+                            f"Nothing imported. Give --waits-on ({VOCAB.waits_on_forms()}) for them, or name it in the text.")
         fresh = not store.items and not store.closed
         for it, _ in plan.new:
             it["id"] = store.allocate()
@@ -752,6 +763,33 @@ def cmd_import(args):
     lacking = [it["id"] for it in to_store if any(it.get(f) in (None, "", []) for f in VOCAB.required(it))]
     print(f"wrote {len(plan.new)} item(s); rendered {store.render_path.name}. Review with todo list / todo check."
           + (f" {len(lacking)} lack a field their kind requires (todo check names them; fill with todo edit)" if lacking else ""))
+
+
+def plan_resolver(args, ws):
+    """For an import rule with `plan`: None when the PLAN section reads, else why not
+    (the plans CLI, as --pin-plan reads it). No CLI: every such pointer is unresolved."""
+    cli_path, why = plans.resolve_cli(getattr(args, "plans_cli", None))
+    where = plans_dir(args, ws)
+
+    def resolve(ref):
+        if cli_path is None:
+            return why
+        state, value = plans.show(cli_path, where, ref)
+        return None if state == plans.OK else value
+    return resolve
+
+
+def print_import_notes(plan):
+    """What the import read as no item, and what a rule could not read: every one
+    printed, so nothing is dropped unseen (vocab.json import)."""
+    if plan.not_items:
+        print(f"{len(plan.not_items)} block(s) not items (vocab.json import.skip):")
+        for why, text in plan.not_items:
+            print(f"  skipped  {why}: {text[:TITLE_WIDTH]}")
+    if plan.listed:
+        print(f"{len(plan.listed)} note(s) on what the text did not say:")
+        for title, why in plan.listed:
+            print(f"  listed   {title[:60]}: {why}")
 
 
 def cmd_repos(args):
@@ -1237,6 +1275,8 @@ def build_parser():
     ps["check"].add_argument("--all", action="store_true")
     ps["import"].add_argument("file")
     ps["import"].add_argument("--dry-run", action="store_true")
+    ps["import"].add_argument("--waits-on", dest="waits_on", metavar="VALUE",
+                              help="the waits_on of each waiting-jacob item whose text names none")
     ps["ready"].add_argument("--repo")
     ps["ready"].add_argument("--work", choices=list(VOCAB.works))
     ps["brief"].add_argument("id")
@@ -1268,7 +1308,7 @@ def build_parser():
     ps["blockers"].add_argument("--json", action="store_true", help="every root and every id, unbounded")
     ps["stale-plans"].add_argument("--repo", help="only items whose work lives in this repo")
     ps["stale-plans"].add_argument("--json", action="store_true")
-    for name in ("add", "edit", "stale-plans"):
+    for name in ("add", "edit", "stale-plans", "import"):
         ps[name].add_argument("--plans-dir", dest="plans_dir", metavar="DIR",
                               help="where the PLAN-*.md files are (default: the scan root)")
         ps[name].add_argument("--plans-cli", dest="plans_cli", metavar="PATH",

@@ -48,7 +48,7 @@ without one stays an error rather than borrowing another store's answer.
 | `todo render [--all] [--history] [--force]` | write `TODO.md` from the store. Refused over a hand edit unless `--force`, which keeps the diff in `todo.json` `hand_edits`. `--history` writes `TODO-HISTORY.md` instead: read-only, gitignored, never checked |
 | `todo tree [ID]` | items and their children across repos, closed ones marked |
 | `todo check [--all]` | every gate below over this store (`--all`: every scanned store); exit 1 on a FAIL |
-| `todo import FILE [--dry-run]` | a hand-written or hand-edited `TODO.md` into items (below) |
+| `todo import FILE [--dry-run] [--waits-on VALUE] [--plans-dir D] [--plans-cli P]` | a hand-written or hand-edited `TODO.md` into items (below). It prints the blocks it read as no item and what a rule could not read; `--waits-on` is the `waits_on` of each `waiting-jacob` item whose text names none, and without it a real import with such an item writes nothing. `--plans-dir`/`--plans-cli` read a `PLAN` pointer as `--pin-plan` does |
 | `todo repos` | every store the scan finds, with its counts |
 | `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed: ready to hand to whoever does that work. An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it) |
 | `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, the iterate rule and the stop rule (below). Exit 1 when it is not ready (a field missing, a status other than open, a `blocked_by` id still open, or its size) |
@@ -188,7 +188,7 @@ each have one setter and are refused everywhere else:
 | `files` | paths the work touches |
 | `done_when` | the observable that closes it |
 | `handoff` | `{date, text, commit}`: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief` |
-| `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve` only, read by `todo dispatchable` |
+| `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve`, or by `todo import` from "approved: Jacob <date>" in an item's lead, read by `todo dispatchable` |
 | `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
@@ -234,8 +234,9 @@ answers "what may be handed out now" (Jacob, 2026-10-09). It adds two facts this
 tool records itself, each with one setter:
 
 - **`approved`**, by `todo approve ID --source "..."`: Jacob's go-ahead, with the
-  day and where he gave it. Nothing else counts as approval: not the kind, not a
-  plan section, not an `origin:jacob` tag. `todo dispatch` refuses an item without
+  day and where he gave it (or by `todo import`, from his dated "approved: Jacob
+  YYYY-MM-DD" already written in an item's lead; Import, below). Nothing else counts
+  as approval: not the kind, not a plan section, not an `origin:jacob` tag. `todo dispatch` refuses an item without
   it, and `check` fails an `approved` of another shape or approver, or a
   `dispatched` mark on an item with none.
 - **`dispatched`**, by `todo dispatch ID`: the item was handed to someone, so it is
@@ -386,19 +387,36 @@ Closed items leave `todo.json` and are appended to `todo-history.json`, so
 ## Import
 
 `todo import FILE` turns a hand-written `TODO.md` into items without dropping a
-word: one top-level bullet or paragraph is one item. Kind and status come from
+word unseen: one top-level bullet or paragraph is one item. Kind and status come from
 the headings above it (`vocab.json` `import`: "Needs Jacob" or "Waiting on Jacob"
 → decision waiting on Jacob, "Unconfirmed" → suspicion, "Reported" → report,
 "Bug" → bug, "Resolved" or "Confirmed" → done; `note` otherwise; a rule matches
 from a word start, so "Unconfirmed" is not "Confirmed"). A bold lead becomes the title
 and the rest the evidence; otherwise the title is the first sentence and the
 evidence the whole text. Each item records its block's sha, so re-running the
-import adds nothing. Items whose kind requires a field the bullet cannot supply (a
-suspicion's probe) are imported anyway and named by `check` until filled with
-`todo edit`.
+import adds nothing.
+
+It also reads what the text already says (PLAN-todo-tool.md §10.2 step 6), each rule
+a knob in `vocab.json` `import`, and never guesses: a rule that reads nothing sets
+nothing, and the item is listed in the output instead.
+
+| rule | reads | sets |
+|---|---|---|
+| `approval` | "approved: Jacob YYYY-MM-DD", in the lead (the text up to its first blank line or nested list line), with any quoted words after it | `approved` {by, date, source: the quoted words, else the matched text}, and a `waiting-jacob` item becomes `open`. A date after today is listed, not applied |
+| `waits_on` | the earliest match of its rules in a still-waiting item: "waits on PLAN-x.md §n" (only when that section reads, through the plans CLI), "`wizard run DEF`", "waits on settings", "waits on his approval" | `waits_on`. A pointer no rule resolves ("waits on W-1"; `waits_on_mention` finds it) is listed; a real import then needs `--waits-on` |
+| `probe` | for a kind requiring `probe`, the text after "Probe:" or "settle:", to the first sentence end outside backticks | `probe` |
+| `report_owner`, `report_date` | for a report, the lead's first word when it is the whole owner and a repo the scan finds (a store's repo, or a git repo with no store yet), never this store's own; the first `(YYYY-MM-DD` on its first line, else today | `reported_to` {repo, date, their_id: null}; `check` then says how to pair it |
+| `skip` | `intro`: a paragraph above a section's first bullet, in a section holding bullets, and a paragraph under the top heading alone in a file with deeper ones; `heading_only`: a block that is only a heading (`**Group:**`) | nothing: not an item, printed as skipped |
+
+A kind whose required field no rule reads (a suspicion with no probe marker, a
+report naming two owners or none) imports as `note`, records the kind it would have
+had in `imported.wanted`, and is listed with the `todo edit` that completes it, so
+`check` passes on the result. `tests/test_import_rules.py` holds a passing and a
+failing fixture for each rule and shows each knob changes the output.
 
 `tests/test_import.py` proves it lossless on three real `TODO.md` files: every
-word comes back from the render, and every block comes back whole.
+word comes back from the render, but for the skipped blocks it printed, and every
+block comes back whole.
 
 ## Across repos
 

@@ -12,7 +12,7 @@ import shutil
 from collections import Counter
 
 from tests.helpers import FIXTURES, Case
-from todolib.importer import md_blocks, reconstruct
+from todolib.importer import md_blocks, reconstruct, skip_reasons
 from todolib.render import parse_blocks, unseal
 from todolib.vocab import VOCAB, VOCAB_PATH, Vocab
 
@@ -21,6 +21,14 @@ FENCE = re.compile(r"^\s*(```+|~~~+)")
 HEADING = re.compile(r"^#{1,6}\s")
 RULE = re.compile(r"^\s{0,3}([-*_])(\s*\1){2,}\s*$")
 MARKER = re.compile(r"^([-*+]|\d+[.)])\s+")
+# A waiting-jacob block whose text names no waits_on needs one given (§10.2 step 2).
+WAITS_ON = ["--waits-on", next(n for n, rx in VOCAB.waits_on_arg.items() if rx is None)]
+
+
+def not_items(text):
+    """The blocks vocab.json import.skip says are not items, as md_blocks reads them."""
+    blocks, _ = md_blocks(text)
+    return [blocks[i] for i in skip_reasons(blocks)]
 
 
 def source_words(text):
@@ -52,7 +60,9 @@ class Lossless(Case):
         d.mkdir()
         shutil.copy(FIXTURES / f"{name}.TODO.md", d / "TODO.md")
         self.todo("-C", d, "init", "--prefix", "xx")
-        self.todo("-C", d, "import", "TODO.md")
+        out = self.todo("-C", d, "import", "TODO.md", *WAITS_ON).stdout
+        skipped = not_items((FIXTURES / f"{name}.TODO.md").read_text())
+        self.assertEqual(out.count("\n  skipped  "), len(skipped), out)  # every one printed, none dropped unseen
         self.todo("-C", d, "render", "--history")
         return d
 
@@ -72,7 +82,8 @@ class Lossless(Case):
             with self.subTest(fixture=name):
                 d = self.imported(name)
                 back = Counter(w for text in self.rendered_items(d) for w in text.split())
-                src = Counter(source_words((FIXTURES / f"{name}.TODO.md").read_text()))
+                text = (FIXTURES / f"{name}.TODO.md").read_text()
+                src = Counter(source_words(text)) - Counter(w for b in not_items(text) for w in b.text().split())
                 self.assertEqual(src - back, Counter(), "words lost")
                 self.assertEqual(back - src, Counter(), "words invented")
 
@@ -80,8 +91,9 @@ class Lossless(Case):
         for name in REAL + ["done"]:
             with self.subTest(fixture=name):
                 d = self.imported(name)
-                blocks, _ = md_blocks((FIXTURES / f"{name}.TODO.md").read_text())
-                src = Counter(norm(b.text()) for b in blocks if b.text().strip())
+                text = (FIXTURES / f"{name}.TODO.md").read_text()
+                blocks, _ = md_blocks(text)
+                src = Counter(norm(b.text()) for b in blocks if b.text().strip()) - Counter(norm(b.text()) for b in not_items(text))
                 back = Counter(norm(t) for t in self.rendered_items(d))
                 self.assertEqual(src, back)
 
@@ -101,7 +113,7 @@ class Lossless(Case):
         two.mkdir()
         shutil.copy(FIXTURES / "setup.TODO.md", two / "TODO.md")
         self.todo("-C", two, "init", "--prefix", "xx")
-        self.todo("-C", two, "import", "TODO.md")
+        self.todo("-C", two, "import", "TODO.md", *WAITS_ON)
         strip = lambda d: [dict(it, repo=None) for it in self.store(d)["items"]]  # noqa: E731
         self.assertEqual(strip(one), strip(two))
         # The seal digests the whole file, repo name included, so it is left out here.
@@ -115,8 +127,9 @@ class DoneBullets(Case):
         d.mkdir()
         shutil.copy(FIXTURES / "done.TODO.md", d / "TODO.md")
         self.todo("-C", d, "init", "--prefix", "dd")
-        out = self.todo("-C", d, "import", "TODO.md").stdout
-        self.assertIn("4 new open, 4 new closed", out)
+        out = self.todo("-C", d, "import", "TODO.md", *WAITS_ON).stdout
+        self.assertIn("3 new open, 4 new closed", out)  # the preamble is no item (import.skip)
+        self.assertIn("skipped  text under the top heading alone: A synthetic fixture", out)
         hist = {it["title"][:24]: it for it in self.history(d)["items"]}
         self.assertEqual({k: (v["done"], v["kind"]) for k, v in hist.items()}, {
             "DONE 2026-10-02: the two": ("2026-10-02", "decision"),
@@ -127,10 +140,10 @@ class DoneBullets(Case):
         self.assertTrue(all(it["status"] == "done" for it in hist.values()))
         store = self.store(d)["items"]
         self.assertEqual(sorted(it["title"][:12] for it in store),
-                         ["A synthetic ", "Still open: ", "The parser d", "~~an old ide"])
+                         ["Still open: ", "The parser d", "~~an old ide"])
         self.assertNotIn("DONE 2026-10-02", (d / "TODO.md").read_text())
         out = self.check(d).stdout
-        self.assertIn("4 open, 4 closed", out)
+        self.assertIn("3 open, 4 closed", out)
         self.assertIn("ok    required", out)
         self.assertIn("1 imported closed item(s) carry no date", out)
 
@@ -155,7 +168,7 @@ class DoneBullets(Case):
         d.mkdir()
         shutil.copy(FIXTURES / "done.TODO.md", d / "TODO.md")
         self.todo("-C", d, "init", "--prefix", "dd")
-        self.todo("-C", d, "import", "TODO.md")
+        self.todo("-C", d, "import", "TODO.md", *WAITS_ON)
         self.assertEqual({it["resolution"] for it in self.history(d)["items"]}, {deprecated})
         self.assertEqual({it["resolution"] for it in self.store(d)["items"]}, {None})
         shown = self.todo("-C", d, "history").stdout
@@ -175,7 +188,7 @@ class ConfirmedHeading(Case):
         d = self.ws / "c"
         d.mkdir()
         (d / "TODO.md").write_text(f"# c\n\n## {self.CONFIRMED}\n\n- **a settled finding** probed and true\n\n"
-                                   f"## {self.UNCONFIRMED}\n\n- **maybe this** not probed yet\n")
+                                   f"## {self.UNCONFIRMED}\n\n- **maybe this** not probed yet. Probe: run it.\n")
         self.todo("-C", d, "init", "--prefix", "cc")
         self.todo("-C", d, "import", "TODO.md")
         closed, open_ = self.history(d)["items"], self.store(d)["items"]

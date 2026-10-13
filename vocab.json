@@ -90,7 +90,7 @@
     "files":       {"doc": "paths the work touches", "label": "files"},
     "done_when":   {"doc": "the observable that closes it", "label": "done when"},
     "handoff":     {"doc": "{date, text, commit}: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief`", "label": "handoff", "optional": true},
-    "approved":    {"doc": "{by, date, source}: Jacob's go-ahead to start the work (`by` is `approval.by` below), the day he gave it and where (his words, or a pointer to them); set by `todo approve` only, read by `todo dispatchable`", "label": "approved", "optional": true},
+    "approved":    {"doc": "{by, date, source}: Jacob's go-ahead to start the work (`by` is `approval.by` below), the day he gave it and where (his words, or a pointer to them); set by `todo approve`, or by `todo import` from \"approved: Jacob <date>\" in an item's lead (import.approval), read by `todo dispatchable`", "label": "approved", "optional": true},
     "dispatched":  {"doc": "{date, text}: the day the item was handed to someone to do, and an optional one-line note (never an agent's name: items name repos); set by `todo dispatch` only, cleared by `todo dispatch --clear` when it comes back unfinished; `todo dispatchable` leaves it out while set", "label": "dispatched", "optional": true},
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
     "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
@@ -129,6 +129,28 @@
       {"match": "resolved",      "status": "done"},
       {"match": "confirmed",     "status": "done"}
     ],
-    "done_marker": "^(?:\\*\\*|~~)*DONE (\\d{4}-\\d{2}-\\d{2})\\b"
+    "done_marker": "^(?:\\*\\*|~~)*DONE (\\d{4}-\\d{2}-\\d{2})\\b",
+    "_rules": "What a block's text already says, read into fields (PLAN-todo-tool.md §10.2 step 6). The lead is the text up to its first blank line or nested list line. A rule that reads nothing sets nothing: the item is listed in the import's output instead, never given a guess.",
+    "approval": "(?i)\\bapproved:?\\s+(?:by\\s+)?jacob,?\\s+(?P<date>\\d{4}-\\d{2}-\\d{2})(?:\\)?[,:]?\\s*(?P<quote>\"[^\"\\n]+\"|“[^”\\n]+”))?",
+    "_approval": "In the lead: sets `approved` {by: approval.by, date, source: the quoted words, else the matched text} and moves a waiting-jacob item to roles.default_status. A date after the import day is not applied; the item is listed.",
+    "waits_on": [
+      {"match": "(?i)\\bwaits? on (?:\\S+ )?(?P<file>PLAN-[\\w.-]+\\.md) ?§(?P<section>\\d+(?:\\.\\d+)*)", "value": "decision:\\g<file> §\\g<section>", "plan": "\\g<file>§\\g<section>"},
+      {"match": "`wizard run (?P<def>[a-z0-9][a-z0-9_-]*)`", "value": "wizard:\\g<def>"},
+      {"match": "(?i)\\bwaits? on (?:his |jacob's |a |the )?settings\\b", "value": "settings"},
+      {"match": "(?i)\\bwaits? on (?:his |jacob's |a |the )?(?:approval|go-ahead)\\b", "value": "approval"}
+    ],
+    "_waits_on": "For a block still waiting-jacob after the approval rule: the earliest match in its text of any rule gives its waits_on (`value`, a template of the match). One with `plan` resolves only when that PLAN section reads (the plans CLI, as --pin-plan). A block naming none, or naming a pointer no rule resolves (`waits_on_mention` shows it), is listed; a real import then needs --waits-on.",
+    "waits_on_mention": "(?i)\\bwaits? on\\b[^.;\\n]{0,60}",
+    "probe": "(?i)(?:\\bprobe|\\bsettle):\\s*",
+    "_probe": "For a kind requiring `probe`: the text after the first marker, up to the first '.' outside backticks that ends a sentence.",
+    "report_owner": "^(?P<repo>[A-Za-z0-9][\\w.-]*)(?=\\s\\(|:)",
+    "report_date": "^[^\\n]*?\\((?P<date>\\d{4}-\\d{2}-\\d{2})",
+    "_report": "For a kind requiring `reported_to`: the lead's first word, when it is the whole owner and a repo the scan finds (a store's repo, or a git repo folder's name), not this store's own. Date: the first `(YYYY-MM-DD` on its first line, else the import day. their_id: null (todo check then says how to pair it).",
+    "skip": {
+      "intro": true,
+      "heading_only": "^(?:\\*\\*[^*\\n]+\\*\\*:?|\\*\\*[^*\\n]+:\\*\\*|#{1,6}\\s[^\\n]*)$",
+      "_comment": "Not items: `intro`, a paragraph above a section's first bullet in a section holding bullets, and any paragraph under the top heading alone (or none); `heading_only`, a block whose whole text matches it. Each is counted and printed by the import, never dropped unseen."
+    },
+    "_fallback": "A kind whose required field no rule reads imports as roles.default_kind, recording the kind it would have had in imported.wanted, and is listed with the todo edit that completes it."
   }
 }

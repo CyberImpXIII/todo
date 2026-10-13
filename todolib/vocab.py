@@ -47,7 +47,27 @@ class Vocab:
             if "from" in spec and spec["from"] not in self.fields:
                 raise ValueError(f"vocab.json: tag namespace {ns} derives from {spec['from']!r}, which is no field")
         self.import_rules = data["import"]["headings"]
-        self.done_marker = re.compile(data["import"]["done_marker"])
+        imp = data["import"]
+        self.done_marker = re.compile(imp["done_marker"])
+        self.import_approval = re.compile(imp["approval"])
+        self.import_waits_on = [{"match": re.compile(r["match"]), "value": r["value"], "plan": r.get("plan")}
+                                for r in imp["waits_on"]]
+        for r in self.import_waits_on:
+            if r["value"].partition(":")[0] not in self.waits_on:
+                raise ValueError(f"vocab.json: import.waits_on value {r['value']!r} names no declared waits_on")
+        self.import_waits_mention = re.compile(imp["waits_on_mention"])
+        self.import_probe = re.compile(imp["probe"])
+        self.import_owner = re.compile(imp["report_owner"])
+        self.import_report_date = re.compile(imp["report_date"])
+        for rx, group in ((self.import_approval, "date"), (self.import_approval, "quote"),
+                          (self.import_owner, "repo"), (self.import_report_date, "date")):
+            if group not in rx.groupindex:
+                raise ValueError(f"vocab.json: import pattern {rx.pattern!r} has no (?P<{group}>...) group")
+        skip = imp["skip"]
+        if not isinstance(skip["intro"], bool):
+            raise ValueError("vocab.json: import.skip.intro is true or false")
+        self.import_skip_intro = skip["intro"]
+        self.import_heading_only = re.compile(skip["heading_only"])
         b = data["blockers"]
         self.blocker_roots = list(b["roots"])
         self.blocker_bounds = {k: b[k] for k in ("max_roots", "max_ids", "dispatchable_lines")}

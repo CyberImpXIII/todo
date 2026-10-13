@@ -336,10 +336,11 @@ def scan_root(store_dir, explicit=None):
     return store_dir.parent
 
 
-def scan_stores(root, depth=SCAN_DEPTH):
+def scan_stores(root, depth=SCAN_DEPTH, storeless=False):
     """Folders under root holding a todo.json: the root itself, and any git
     repo (a folder with .git) down to `depth`. Hidden folders, fixtures and
-    dependency folders are never entered."""
+    dependency folders are never entered. storeless: every git repo found, with a
+    todo.json or not (the repos a report may name; `todo import`)."""
     root = Path(root).resolve()
     found = []
     if (root / STORE_FILE).is_file():
@@ -350,7 +351,7 @@ def scan_stores(root, depth=SCAN_DEPTH):
         dirnames[:] = sorted(d for d in dirnames
                              if not never_scanned(d) and d not in SCAN_PRUNE) if level < depth else []
         d = Path(dirpath)
-        if d != root and (d / ".git").exists() and (d / STORE_FILE).is_file():
+        if d != root and (d / ".git").exists() and (storeless or (d / STORE_FILE).is_file()):
             found.append(d)
     return found
 
