@@ -435,7 +435,34 @@
       "done": "2026-10-12",
       "resolution": "vocab.json brief.iterate_rule carries PLAN-small-tasks.md §3.5 worded to the shared runner's real commands (./dev.sh check --resume while iterating, the full ./dev.sh check once before the commit; the plan's dev.sh test <part> and check --quick named as absent, since parts.py 1.0.0 has no per-part command: td-37). todo brief prints it; tests/test_handoff.py IterateRule holds it to the plan and to parts.py's run usage both ways; mutants brief-drops-iterate-rule, iterate-rule-names-a-missing-flag, iterate-rule-names-the-sketch go red.",
       "imported": null
+    },
+    {
+      "id": "td-40",
+      "title": "todo add refuses an open report with 'needs --reported-to', a flag only todo edit has",
+      "kind": "bug",
+      "status": "done",
+      "evidence": "2026-10-13: ./todo add 'x' --kind report --work docs printed 'todo: a report that is open needs --reported-to'; todo add --help lists no --reported-to (edit and report do). Worked around with add --kind note, then edit --kind report --reported-to. Fix: give add --reported-to, or name todo edit/todo report in the message; gate it with a test that every flag a refusal names is one its verb parses.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "waits_on": null,
+      "repo": "todo",
+      "work": "code",
+      "size": null,
+      "files": null,
+      "done_when": null,
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "added": "2026-10-13",
+      "done": "2026-10-13",
+      "resolution": "fixed: todo add takes --reported-to REPO; tests.test_reports.AddReportedTo gates every flag a refusal asks for against add and edit (commit below)",
+      "imported": null
     }
   ],
-  "seal": "e3b40b7f076c6d2a"
+  "seal": "1b56c3184bb3fd45"
 }

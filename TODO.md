@@ -1,7 +1,14 @@
-<!-- rendered by todo from todo.json (18 open, 19 closed in todo-history.json; seal fec28e0e1ef7): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (21 open, 20 closed in todo-history.json; seal 07701ef633ab): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
+
+- **td-41 · todo check has no --json; the checks repo's todo-valid gate reads its text output**
+  tools/checks/TODO.md lines 65-66 and 539 (2026-10-04) ask for it; ./todo check --help on 2026-10-13 lists no --json. Seen while importing that TODO.md on a temp copy for PLAN-todo-tool.md §10.2's motivating case.
+  · work: code
+  · size: S
+  · done when: todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it
+  · added: 2026-10-13
 
 ## Open decisions
 
@@ -36,6 +43,13 @@
   · work: decision
   · done when: the runner runs one named part and the iterate rule names that command, IterateRule green
   · added: 2026-10-12
+
+- **td-38 · Approval by rule (TD-B1) is open: only todo approve and an imported 'approved: Jacob <date>' lead set approved**
+  PLAN-todo-tool.md §10.2 steps 1-3 and 6 are built (blockers, waits_on, dispatchable roots, import rules, 4801f3b). §10.3 was out of scope for this job and not started; TD-B1 decides whether a rule (a plan section, a kind) may count as approval. Until then nothing else does (README Fields, approved).
+  · status: waiting-jacob
+  · waits on: decision:PLAN-todo-tool.md §10.3
+  · work: decision
+  · added: 2026-10-13
 
 ## Unconfirmed suspicions
 
@@ -133,3 +147,8 @@
 - **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
   ./dev.sh check, 2026-10-09 (commit after 77bce39): checks gate FAIL hooks-installed: extra-stores.sh (the installed hooks' lib folder), .claude/hooks/store-guard.sh and .claude/hooks/test-store-guard.sh 'drift; not covered by user scope (no shared hook of that name there)', .claude/hooks/test-no-inline-blobs.sh 'drift; not covered by user scope (not registered there)'. Last touched by 93532a8 (re-render of the shared hook copies from tools/hooks). Not this tool's files and not changed by td-22/td-27; reported to the hooks tool's owner through the dispatch report. Also live: ./dev.sh hooks FAIL 'store-guard.sh is not registered in .claude/settings.json' (td-2's remainder; the uncommitted settings.json now registers the other seven). 2026-10-12: the lib file's path is named without its folder here, because that folder in this store tripped the direction audit (audit, no-roster and two test_dev tests red).
   · added: 2026-10-09
+
+- **td-39 · PLAN-todo-tool.md §3's command list does not name todo blockers**
+  todo blockers is built (4374e6c, §10.2 step 1); tests/test_docs.py BEYOND_PLAN carries it as 'not yet in §3's command list'. Reported to the plans' owner in the 2026-10-13 hand-back. Remove the BEYOND_PLAN line once §3 lists it.
+  · work: docs
+  · added: 2026-10-13
