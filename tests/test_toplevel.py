@@ -6,6 +6,7 @@ like the real top level."""
 import subprocess
 
 from tests.helpers import FIXTURES, Case
+from tests.test_import import WAITS_ON
 
 
 class TopLevel(Case):
@@ -37,7 +38,7 @@ class TopLevel(Case):
         self.assertGreater(n_open, 0)
 
         # The dry run's counts are what the import then does.
-        self.todo("import", "TODO.md", cwd=self.ws)
+        self.todo("import", "TODO.md", *WAITS_ON, cwd=self.ws)  # its waiting items name none
         self.assertEqual(len(self.store(self.ws)["items"]), n_open)
         self.assertEqual(len(self.history(self.ws)["items"]), n_closed)
 

@@ -41,15 +41,23 @@ class Required(Case):
         self.todo("-C", self.a, "add", "x", "--kind", "bug")
         self.todo("-C", self.a, "edit", "aa-1", "--status", VOCAB.closed, ok=False)
 
-    def test_imported_items_missing_a_required_field_are_red(self):
+    def test_an_imported_item_whose_required_field_no_rule_reads_is_listed_not_red(self):
+        """PLAN-todo-tool.md §10.2 step 6: it imports as the default kind, records the
+        kind it wanted, and the listed todo edit makes it that kind; check passes
+        throughout. A hand-made item lacking the field is still red (above)."""
         b = self.ws / "b"
         b.mkdir()
         (b / "TODO.md").write_text("# b\n\n## Unconfirmed suspicions\n\n- **maybe x** no probe written\n")
         self.todo("-C", b, "init", "--prefix", "bb")
         out = self.todo("-C", b, "import", "TODO.md").stdout
-        self.assertIn("1 lack a field", out)
-        self.assertFails(b, "required", "requires probe")
-        self.todo("-C", b, "edit", "bb-1", "--probe", "run y")
+        wanted = next(k for k, v in VOCAB.kinds.items() if "probe" in v["requires"])
+        self.assertIn(f"maybe x: no probe read: imported as {VOCAB.role('default_kind')} "
+                      f"(todo edit ID --kind {wanted} --probe ...)", out)
+        item = self.store(b)["items"][0]
+        self.assertEqual((item["kind"], item["imported"]["wanted"]), (VOCAB.role("default_kind"), wanted))
+        self.check(b)
+        self.todo("-C", b, "edit", "bb-1", "--kind", wanted, ok=False)
+        self.todo("-C", b, "edit", "bb-1", "--kind", wanted, "--probe", "run y")
         self.check(b)
 
 
