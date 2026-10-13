@@ -33,6 +33,13 @@ def size_refusal(it):
     return None
 
 
+def is_split(ws, it):
+    """True when the item is the split size and has children (open or closed, any
+    store): the children carry the work, so ready, dispatchable and blockers leave
+    it out, and check passes it. The one test for "already split"."""
+    return it.get("size") == VOCAB.split_size and bool(checks.children_of(ws, it["id"]))
+
+
 def chain_ends(ws, item):
     """(ends, cycle): the open items (or unresolved ids) at the end of every open
     blocked_by chain from item, and a cycle met on the way (a list of ids) or None.
@@ -118,7 +125,7 @@ def root_kind(ws, it):
     dispatchable, dispatched, or a split item whose children carry the work)."""
     if it.get("dispatched"):
         return None
-    if it.get("size") == VOCAB.split_size and checks.children_of(ws, it["id"]):
+    if is_split(ws, it):
         return None
     if it.get("kind") == VOCAB.role("report_kind"):
         return "owner"

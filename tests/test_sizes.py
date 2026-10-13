@@ -89,6 +89,16 @@ class Split(Case):
         self.assertIn("every child of this split item is closed (aa-2, aa-3)", closed["aa-1"]["resolution"])
         self.check(self.a)
 
+    def test_ready_leaves_out_a_split_parent_and_still_refuses_an_unsplit_one(self):
+        self.todo("-C", self.a, "add", "big too", "--kind", NOTE, "--work", WORK, "--done-when", "dw", "--size", L)
+        self.todo("-C", self.a, "add", "piece", "--kind", NOTE, "--work", WORK, "--done-when", "dw", "--size", S,
+                  "--parent", "aa-1")
+        out = self.todo("-C", self.a, "ready").stdout
+        self.assertEqual(listed(out), ["aa-3"])
+        refused = out.split("refused", 1)[1]
+        self.assertNotIn("aa-1", refused)
+        self.assertIn("aa-2     size L: split it first", refused)
+
     def test_a_parent_that_is_not_large_stays_open(self):
         self.todo("-C", self.a, "add", "plain parent", "--kind", NOTE, "--size", M)
         self.todo("-C", self.a, "add", "child", "--kind", NOTE, "--size", S, "--parent", "aa-2")

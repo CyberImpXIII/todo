@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import checks, deps, importer, plans
 from . import blockers as rootlib
-from .blockers import BRIEF_NEEDS, size_refusal
+from .blockers import BRIEF_NEEDS, is_split, size_refusal
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, STORE_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -832,8 +832,8 @@ def ready_items(ws, repo=None, work=None, refused=None):
                 continue
             if (repo and it["repo"] != repo) or (work and it["work"] != work):
                 continue
-            if deps.open_blockers(ws, it):
-                continue
+            if deps.open_blockers(ws, it) or is_split(ws, it):
+                continue  # a split item's children are listed instead
             why = size_refusal(it)
             if why:
                 if refused is not None:
@@ -960,7 +960,7 @@ def dispatch_view(ws, repo=None):
             if not checks.approved_ok(appr):
                 view["held"].append({"id": gid, "why": ["approved is malformed (todo check names it)"]})
                 continue
-            if it.get("size") == VOCAB.split_size and checks.children_of(ws, it["id"]):
+            if is_split(ws, it):
                 continue  # split: its children carry the approval and the work
             why = not_ready_reasons(ws, it)
             if why:
