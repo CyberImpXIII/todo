@@ -60,7 +60,8 @@ without one stays an error rather than borrowing another store's answer.
 | `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
 | `todo approve ID --source S [--date D] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched |
 | `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`. Refused on an unapproved item or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
-| `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval. Exit 3 (`UNCHECKED`) when a store could not be read |
+| `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
+| `todo blockers [--repo R] [--json]` | every open item, across every scanned store, that is not dispatchable, grouped by its root blocker (Blockers, below): one line per root, most items freed first, with what clears it, the count and the first ids; bounded, and `--json` gives every root and id. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo stale-plans [--repo R] [--plans-dir D] [--plans-cli P] [--json]` | the open items, across every scanned store, whose plan section is not what they were made from (Plan pins, below): `changed`, `section gone`, or `never pinned` (a `plan:` tag with no pin, or one naming no section), each with its `todo:` id, repo, `FILE §n` and the day it last matched. Exit 3 (`UNCHECKED`) when a section could not be read (no plans CLI, an ambiguous section) or a store could not be read: such a section is never counted fresh |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
@@ -255,6 +256,32 @@ the workspace root and scans from there (tests/test_dispatch.py).
 
 Items in a hand-kept `TODO.md` are not in any store, so this command cannot see
 them until that file is imported (`todo import`).
+
+## Blockers
+
+`todo blockers` answers "why is nothing moving" (PLAN-todo-tool.md §10.2): every
+open item that is not dispatchable, across every scanned store, under the one root
+that holds it, the roots ranked by how many items wait behind each. An item's root
+is the first of these that holds it, since a later one cannot free an item an
+earlier one holds: a report waits on its owner; an item blocked by another waits on
+the open item at the end of that chain (followed to its end; a cycle, or an id no
+store holds, is a root of its own and is never looped on); a `waiting-jacob` item
+waits on Jacob, grouped by its `waits_on` (one naming none is grouped as such);
+an item lacking what `todo brief` needs waits on its store's owner to triage it; an
+item ready but for approval waits on his `todo approve`. Dispatched items and split
+items are not held. `todo dispatchable` judges the same items: every open item is
+in exactly one of the two (tests/test_blockers.py).
+
+The kinds of root, their tie-break order, and the bounds (roots shown, ids per root,
+lines under `dispatchable`) are `vocab.json` `blockers`:
+
+<!-- vocab:blockers -->
+| root | what holds the item |
+|---|---|
+| `jacob` | his answer, approval or settings step: the item's `waits_on`, or his yes on an item otherwise ready |
+| `item` | the open item at the end of a `blocked_by` chain; an id no store holds, or a cycle |
+| `owner` | a report: its counterpart in the owner's store, by id (or the report not yet written) |
+| `field` | what `todo brief` needs and the item lacks (repo, work, done_when, a size it can be dispatched at), or a `blocked` status naming no `blocked_by` |
 
 ## Plan pins
 

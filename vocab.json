@@ -47,6 +47,18 @@
     "approval": {"doc": "his yes to start the work", "argument": null, "clears": "todo approve ID --source ..."},
     "decision": {"doc": "his answer to a decision written in a plan section, the argument (FILE §n)", "argument": "^\\S+\\.md ?§\\S+$", "clears": "his answer to {arg}"}
   },
+  "blockers": {
+    "_comment": "`todo blockers` (PLAN-todo-tool.md §10.2 step 1, §10.4): every open item that is not dispatchable, grouped by its root. `roots` are the kinds of root, in tie-break order (roots rank by how many items wait behind them, then by this order); tests/test_blockers.py holds them equal to the kinds the code finds, both ways. The bounds are the text output's: the top `max_roots` roots, `max_ids` ids per root, and `dispatchable_lines` lines of it under `todo dispatchable` when nothing is dispatchable. --json is unbounded.",
+    "roots": {
+      "jacob": {"doc": "his answer, approval or settings step: a waiting-jacob item's waits_on (an item naming none is grouped as such), or an item ready but for his approval"},
+      "item":  {"doc": "the open item at the end of a blocked_by chain, followed to its end; an id no scanned store holds, or a cycle, is a root of its own"},
+      "owner": {"doc": "a report: another store's counterpart, by its id there (or the report not yet written)"},
+      "field": {"doc": "what `todo brief` needs and the item lacks (repo, work, done_when, a size it can be dispatched at), or a blocked status naming no blocked_by: the store's owner triages it"}
+    },
+    "max_roots": 10,
+    "max_ids": 5,
+    "dispatchable_lines": 5
+  },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
     "done-deprecated": {"doc": "an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
@@ -56,6 +68,7 @@
     "default_status": "open",
     "closed_status": "done",
     "jacob_status": "waiting-jacob",
+    "approval_waits_on": "approval",
     "report_kind": "report",
     "import_resolution": "done-deprecated"
   },

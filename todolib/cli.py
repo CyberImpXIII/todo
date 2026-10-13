@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from . import checks, deps, importer, plans
+from . import blockers as rootlib
+from .blockers import BRIEF_NEEDS, size_refusal
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (HISTORY_RENDER_FILE, STORE_FILE, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -763,21 +765,11 @@ def cmd_repos(args):
         print(f"  UNREADABLE  {e}")
 
 
-def size_refusal(it):
-    """Why an item's size keeps it from being dispatched, or None (PLAN-small-tasks.md
-    §2): unsized, it cannot be judged one checkpoint; too big, it is split first."""
-    if it.get("size") is None:
-        return f"no size (todo edit {it['id']} --size {'|'.join(VOCAB.sizes)})"
-    if it["size"] not in VOCAB.ready_sizes:
-        return f"size {it['size']}: split it first (todo split {it['id']} TITLE ... --size {'|'.join(VOCAB.ready_sizes)})"
-    return None
-
-
 def not_ready_reasons(ws, it):
     """Why `todo brief` would call this open item NOT READY, or []: one list, so
     brief and dispatchable never disagree on what ready means."""
     why = []
-    missing = [f for f in ("repo", "work", "done_when") if not it.get(f)]
+    missing = [f for f in BRIEF_NEEDS if not it.get(f)]
     if missing:
         why.append(f"missing {', '.join(missing)}")
     if it.get("status") != VOCAB.role("default_status"):
@@ -798,7 +790,7 @@ def ready_items(ws, repo=None, work=None, refused=None):
         for it in s.items:
             if it.get("status") != VOCAB.role("default_status") or it.get("kind") == VOCAB.role("report_kind"):
                 continue
-            if not (it.get("repo") and it.get("work") and it.get("done_when")):
+            if not all(it.get(f) for f in BRIEF_NEEDS):
                 continue
             if (repo and it["repo"] != repo) or (work and it["work"] != work):
                 continue
@@ -944,7 +936,8 @@ def dispatch_view(ws, repo=None):
 
 
 def cmd_dispatchable(args):
-    view = dispatch_view(read_workspace(args), args.repo)
+    ws = read_workspace(args)
+    view = dispatch_view(ws, args.repo)
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
     else:
@@ -953,9 +946,13 @@ def cmd_dispatchable(args):
                   f"approved {r['approved']['date']}  {r['title'][:TITLE_WIDTH]}")
             print(f"{'':<11} brief: {r['brief']}   mark it handed out: {r['mark']}")
         if not view["dispatchable"]:
-            print("(nothing dispatchable: an item needs Jacob's approval (todo approve), no dispatched mark, and "
-                  "what todo brief needs: status open, repo, work, done_when, size "
-                  f"{' or '.join(VOCAB.ready_sizes)}, every blocked_by id closed)")
+            # PLAN-todo-tool.md §10.2 step 3: what holds the rest, not a bare count.
+            n = VOCAB.blocker_bounds["dispatchable_lines"]
+            roots = rootlib.view(ws, args.repo)
+            print(f"(nothing dispatchable; {roots['items']} open item(s) held under {len(roots['roots'])} root(s), "
+                  f"the top {min(n, len(roots['roots']))} here, every one in todo blockers:)")
+            for line in rootlib.lines(dict(roots, roots=roots["roots"][:n])):
+                print(line)
         if view["held"]:
             print(f"approved, held back ({len(view['held'])}):")
             for h in view["held"]:
@@ -963,11 +960,29 @@ def cmd_dispatchable(args):
         if view["dispatched"]:
             print(f"approved, already dispatched ({len(view['dispatched'])}): "
                   + ", ".join(f"{d['id']} ({d['date']})" for d in view["dispatched"]))
-        print(f"({view['unapproved']} open item(s) carry no approval)")
+        if view['dispatchable']:
+            print(f"({view['unapproved']} open item(s) carry no approval)")
         for e in view["unreadable"]:
             print(f"UNREADABLE  {e}")
     if view["unreadable"]:
         print("todo: UNCHECKED: a store could not be read, so this list may be missing its items", file=sys.stderr)
+        sys.exit(3)
+
+
+def cmd_blockers(args):
+    """Every open item that is not dispatchable, across every scanned store, grouped
+    by its root and ranked by how many wait behind it (todolib/blockers.py)."""
+    v = rootlib.view(read_workspace(args), args.repo)
+    if args.json:
+        print(json.dumps(v, indent=1, ensure_ascii=False))
+    else:
+        print(f"todo blockers: {v['items']} open item(s) not dispatchable, under {len(v['roots'])} root(s)")
+        for line in rootlib.lines(v):
+            print(line)
+        for e in v["unreadable"]:
+            print(f"UNREADABLE  {e}")
+    if v["unreadable"]:
+        print("todo: UNCHECKED: a store could not be read, so its items are missing here", file=sys.stderr)
         sys.exit(3)
 
 
@@ -1151,6 +1166,7 @@ COMMANDS = {
     "approve": (cmd_approve, "record Jacob's approval of an item: the day and where he gave it"),
     "dispatch": (cmd_dispatch, "mark an approved item handed out (--clear when it comes back unfinished)"),
     "dispatchable": (cmd_dispatchable, "what can be dispatched now: approved, not dispatched, ready; every store"),
+    "blockers": (cmd_blockers, "every open item not dispatchable, grouped by its root blocker, most items freed first; every store"),
     "stale-plans": (cmd_stale_plans, "open items whose plan section changed, is gone, or was never pinned"),
     "help": (cmd_help, "this list of commands"),
 }
@@ -1248,6 +1264,8 @@ def build_parser():
     ps["dispatch"].add_argument("--clear", action="store_true", help="it came back unfinished: list it again")
     ps["dispatchable"].add_argument("--repo", help="only items whose work lives in this repo")
     ps["dispatchable"].add_argument("--json", action="store_true")
+    ps["blockers"].add_argument("--repo", help="only items whose work lives in this repo")
+    ps["blockers"].add_argument("--json", action="store_true", help="every root and every id, unbounded")
     ps["stale-plans"].add_argument("--repo", help="only items whose work lives in this repo")
     ps["stale-plans"].add_argument("--json", action="store_true")
     for name in ("add", "edit", "stale-plans"):

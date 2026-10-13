@@ -48,9 +48,16 @@ class Vocab:
                 raise ValueError(f"vocab.json: tag namespace {ns} derives from {spec['from']!r}, which is no field")
         self.import_rules = data["import"]["headings"]
         self.done_marker = re.compile(data["import"]["done_marker"])
+        b = data["blockers"]
+        self.blocker_roots = list(b["roots"])
+        self.blocker_bounds = {k: b[k] for k in ("max_roots", "max_ids", "dispatchable_lines")}
+        for k, v in self.blocker_bounds.items():
+            if not (isinstance(v, int) and not isinstance(v, bool) and v > 0):
+                raise ValueError(f"vocab.json: blockers.{k} is {v!r}, not a positive whole number")
         for name, value in self.roles.items():
             pool = (self.statuses if name.endswith("_status") else
-                    self.resolutions if name.endswith("_resolution") else self.kinds)
+                    self.resolutions if name.endswith("_resolution") else
+                    self.waits_on if name.endswith("_waits_on") else self.kinds)
             if value not in pool:
                 raise ValueError(f"vocab.json: role {name} names {value!r}, which is not declared")
         unnamed = set(self.resolutions) - {v for k, v in self.roles.items() if k.endswith("_resolution")}

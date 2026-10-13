@@ -117,6 +117,6 @@ class Declared(Case):
         by waits_on_problem, clears by `todo blockers`."""
         for name, spec in VOCAB.waits_on.items():
             self.assertEqual(set(spec), {"doc", "argument", "clears"}, name)
-        no_arg = self.load(dict(RAW, waits_on={WAITS: dict(RAW["waits_on"][WAITS], argument="^x$")}))
+        no_arg = self.load(dict(RAW, waits_on=dict(RAW["waits_on"], **{WAITS: dict(RAW["waits_on"][WAITS], argument="^x$")})))
         self.assertIsNone(no_arg.waits_on_problem(f"{WAITS}:x"))
         self.assertIsNotNone(VOCAB.waits_on_problem(f"{WAITS}:x"))

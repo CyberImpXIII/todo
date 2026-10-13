@@ -514,6 +514,27 @@
      "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_an_imported_report_unpaired_is_a_warning_and_a_made_one_is_red"]},
     {"id": "reported-to-date-reset", "gate": "edit --reported-to keeps the date while the repo is unchanged",
      "file": "todolib/cli.py", "old": "    date = old.get(\"date\") if old.get(\"repo\") == repo and old.get(\"date\") else today()", "new": "    date = today()",
-     "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_the_date_is_kept_for_the_same_repo_and_reset_for_another"]}
+     "run": ["python3", "-m", "unittest", "tests.test_reports.EditReportedTo.test_the_date_is_kept_for_the_same_repo_and_reset_for_another"]},
+    {"id": "blockers-cycle-unreported", "gate": "a blocked_by cycle is reported, never looped on (§10.2)",
+     "file": "todolib/blockers.py", "old": "        if cur in path[:-1]:", "new": "        if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Roots.test_item_a_cycle_is_reported_never_looped_on"]},
+    {"id": "blockers-chain-first-hop", "gate": "an item root is the end of its blocked_by chain",
+     "file": "todolib/blockers.py", "old": "        if not nxt:", "new": "        if True:",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Roots.test_item_a_chain_is_followed_to_its_end"]},
+    {"id": "blockers-rank-reversed", "gate": "roots rank by how many items wait behind them",
+     "file": "todolib/blockers.py", "old": "(-len(g[\"ids\"]), order[g[\"kind\"]], g[\"what\"])", "new": "(len(g[\"ids\"]), order[g[\"kind\"]], g[\"what\"])",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Roots.test_jacob_a_waits_on_groups_and_names_what_clears_it"]},
+    {"id": "blockers-bound-constant", "gate": "the output bounds are read from vocab.json",
+     "file": "todolib/blockers.py", "old": "    max_ids = max_ids or VOCAB.blocker_bounds[\"max_ids\"]", "new": "    max_ids = max_ids or 5",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Counts.test_the_bounds_are_read_from_vocab"]},
+    {"id": "blockers-unapproved-dropped", "gate": "every open item is dispatchable or under a root, never neither",
+     "file": "todolib/blockers.py", "old": "    if not checks.approved_ok(it.get(\"approved\")):", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Declared.test_dispatchable_and_blockers_split_the_open_items_between_them"]},
+    {"id": "blockers-root-undeclared", "gate": "declared root kinds are the implemented ones, both ways",
+     "file": "todolib/blockers.py", "old": "\"owner\": owner_root, \"field\": field_root}", "new": "\"owner\": owner_root}",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Declared.test_declared_root_kinds_are_the_implemented_ones_both_ways"]},
+    {"id": "dispatchable-all-roots", "gate": "dispatchable prints the top dispatchable_lines roots when nothing is dispatchable",
+     "file": "todolib/cli.py", "old": "roots=roots[\"roots\"][:n]", "new": "roots=roots[\"roots\"]",
+     "run": ["python3", "-m", "unittest", "tests.test_blockers.Declared.test_dispatchable_prints_the_top_roots_when_nothing_is_dispatchable"]}
   ]
 }

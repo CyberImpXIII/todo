@@ -158,7 +158,7 @@ class Handled(Case):
 class Documented(Case):
     def test_readme_vocab_tables_equal_vocab_json(self):
         for name, declared in (("kinds", VOCAB.kinds), ("statuses", VOCAB.statuses),
-                               ("works", VOCAB.works), ("sizes", VOCAB.sizes), ("resolutions", VOCAB.resolutions), ("waits_on", VOCAB.waits_on),
+                               ("works", VOCAB.works), ("sizes", VOCAB.sizes), ("resolutions", VOCAB.resolutions), ("waits_on", VOCAB.waits_on), ("blockers", VOCAB.blocker_roots),
                                ("fields", VOCAB.fields), ("tags", VOCAB.namespaces)):
             doc = readme_table(name)
             self.assertIsNotNone(doc, f"README.md has no <!-- vocab:{name} --> table")
