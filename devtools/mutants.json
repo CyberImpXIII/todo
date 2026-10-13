@@ -468,7 +468,7 @@
      "file": "todolib/cli.py", "old": "    if args.C or Store(d).exists():", "new": "    if Store(d).exists():",
      "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_writes_and_an_explicit_folder_still_need_a_store"]},
     {"id": "empty-scan-answers", "gate": "a read with no store here and none under the scan root fails",
-     "file": "todolib/cli.py", "old": "    if not ws.stores:\n        raise TodoError(f\"no {STORE_FILE} in {d}, and none under", "new": "    if False:\n        raise TodoError(f\"no {STORE_FILE} in {d}, and none under",
+     "file": "todolib/cli.py", "old": "    if not ws.stores:\n        raise NoStore(f\"no {STORE_FILE} in {d}, and none under", "new": "    if False:\n        raise NoStore(f\"no {STORE_FILE} in {d}, and none under",
      "run": ["python3", "-m", "unittest", "tests.test_read_anywhere.ReadAnywhere.test_nothing_to_scan_is_an_error_not_an_empty_answer"]},
     {"id": "dispatchable-ignores-approval", "gate": "dispatchable leaves an unapproved item out and counts it",
      "file": "todolib/cli.py", "old": "            if appr is None:\n                view[\"unapproved\"] += 1", "new": "            if False:\n                view[\"unapproved\"] += 1",
