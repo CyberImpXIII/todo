@@ -161,7 +161,7 @@ class StopRule(Case):
     def test_every_brief_carries_the_stop_rule_and_how_to_hand_off(self):
         a = self.repo("a", "aa")
         self.todo("-C", a, "add", "ready", "--kind", NOTE, *READY)
-        self.todo("-C", a, "add", "not ready", "--kind", NOTE)
+        self.todo("-C", a, "add", "not ready", "--kind", NOTE, "--done-when", "it is")  # no repo, work or size
         for iid, ok in (("aa-1", True), ("aa-2", False)):
             with self.subTest(id=iid):
                 out = self.todo("-C", a, "brief", iid, ok=ok).stdout
@@ -191,7 +191,7 @@ class IterateRule(Case):
     def test_every_brief_carries_the_iterate_rule(self):
         a = self.repo("a", "aa")
         self.todo("-C", a, "add", "ready", "--kind", NOTE, *READY)
-        self.todo("-C", a, "add", "not ready", "--kind", NOTE)
+        self.todo("-C", a, "add", "not ready", "--kind", NOTE, "--done-when", "it is")  # no repo, work or size
         for iid, ok in (("aa-1", True), ("aa-2", False)):
             with self.subTest(id=iid):
                 out = self.todo("-C", a, "brief", iid, ok=ok).stdout

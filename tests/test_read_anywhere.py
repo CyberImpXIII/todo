@@ -21,6 +21,7 @@ class ReadAnywhere(Case):
 
     def test_the_workspace_root_answers_every_read_by_id_or_tag(self):
         root = self.ws
+        self.todo("-C", self.b, "edit", "bb-1", "--done-when", "it reads")  # brief writes nothing without it
         self.assertIn("points at aa-1", self.todo("show", "bb-1", cwd=root).stdout)
         self.assertEqual(json.loads(self.todo("get", "todo:aa-1", cwd=root).stdout)["id"], "todo:aa-1")
         self.assertIn("todo:bb-1", self.todo("find", "origin:tool", cwd=root).stdout)

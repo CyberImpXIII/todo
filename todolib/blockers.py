@@ -21,6 +21,9 @@ from .vocab import VOCAB
 # What `todo brief` needs set before an item is dispatched (besides a size it can be
 # dispatched at, an open status and every blocked_by id closed). cli reads it too.
 BRIEF_NEEDS = ("repo", "work", "done_when")
+# The one of them without which `todo brief` writes no brief at all (exit 1), rather
+# than a brief marked NOT READY: a dispatch is held to its brief, and has no end without it.
+BRIEF_REFUSES_WITHOUT = "done_when"
 
 
 def size_refusal(it):

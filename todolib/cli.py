@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import checks, deps, importer, plans
 from . import blockers as rootlib
-from .blockers import BRIEF_NEEDS, is_split, size_refusal
+from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -1137,6 +1137,11 @@ def cmd_brief(args):
         raise TodoError(f"{args.id} is in no scanned store or history")
     if where == "history":
         raise TodoError(f"{args.id} closed {it.get('done') or '(undated)'}: {it.get('resolution') or ''}")
+    if not it.get(BRIEF_REFUSES_WITHOUT):
+        # No brief at all, not one marked NOT READY: a brief is what a dispatch is held to,
+        # and one without its done-when has no end (README "todo brief").
+        raise TodoError(f"todo:{it['id']} has no {BRIEF_REFUSES_WITHOUT}: no brief is written without one "
+                        f"(todo edit {it['id']} --done-when \"...\")")
     print(f"todo:{it['id']}  ({it.get('kind')}, {it.get('status')}; repo {it.get('repo')}, work {it.get('work')}, size {it.get('size')})")
     print(f"What: {it['title']}")
     if it.get("evidence"):

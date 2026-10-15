@@ -595,6 +595,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_exit_codes.ExitCodes.test_every_way_to_meet_no_store_gives_its_code"]},
     {"id": "scan-no-store-is-a-refusal", "gate": "a read by id that scans no store raises NoStore",
      "file": "todolib/cli.py", "old": "        raise NoStore(f\"no {STORE_FILE} in {d}, and none under", "new": "        raise TodoError(f\"no {STORE_FILE} in {d}, and none under",
-     "run": ["python3", "-m", "unittest", "tests.test_exit_codes.ExitCodes.test_every_way_to_meet_no_store_gives_its_code"]}
+     "run": ["python3", "-m", "unittest", "tests.test_exit_codes.ExitCodes.test_every_way_to_meet_no_store_gives_its_code"]},
+    {"id": "brief-without-done-when", "gate": "todo brief writes no brief for an item without done_when",
+     "file": "todolib/cli.py", "old": "    if not it.get(BRIEF_REFUSES_WITHOUT):", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_brief.NoDoneWhen.test_an_item_without_done_when_gets_no_brief"]}
   ]
 }
