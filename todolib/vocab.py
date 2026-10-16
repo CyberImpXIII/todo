@@ -69,6 +69,13 @@ class Vocab:
         if not self.research_service or ":" in self.research_service:
             raise ValueError("vocab.json: research.service is the research service's id prefix, without ':'")
         self.research_id = re.compile(rs["id"])
+        st = data["steps"]
+        self.step_shell = str(st.get("shell") or "")
+        self.step_timeout = st.get("timeout_s")
+        if not self.step_shell.startswith("/"):
+            raise ValueError("vocab.json: steps.shell is an absolute path to a shell")
+        if not (isinstance(self.step_timeout, (int, float)) and not isinstance(self.step_timeout, bool) and self.step_timeout > 0):
+            raise ValueError(f"vocab.json: steps.timeout_s is {self.step_timeout!r}, not a positive number of seconds")
         self.import_rules = data["import"]["headings"]
         imp = data["import"]
         self.done_marker = re.compile(imp["done_marker"])

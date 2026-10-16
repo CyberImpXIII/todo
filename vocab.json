@@ -6,6 +6,7 @@
     "suspicion": {"doc": "an unconfirmed suspicion, with the probe that would settle it", "heading": "Unconfirmed suspicions", "always": true, "requires": ["probe"]},
     "report":    {"doc": "a problem reported to another repo's owner; its counterpart lives in their store", "heading": "Reported to other owners", "always": true, "requires": ["reported_to"]},
     "temp":      {"doc": "an interim rule, with the check that retires it", "heading": "Interim rules", "always": false, "requires": ["retire"]},
+    "jacob-step": {"doc": "a step only Jacob takes, with the command that shows it taken (PLAN-architecture.md §11 S7); never ready or dispatchable; `todo steps` numbers them and `todo steps --run` closes each whose done_check exits 0", "heading": "Jacob's steps", "always": false, "requires": ["done_check"]},
     "research":  {"doc": "a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its rs- ids and never restates the answer", "heading": "Research", "always": false, "requires": ["research"]},
     "note":      {"doc": "anything else worth keeping; the import default", "heading": "Notes", "always": false, "requires": []}
   },
@@ -62,7 +63,7 @@
   "blockers": {
     "_comment": "`todo blockers` (PLAN-todo-tool.md §10.2 step 1, §10.4): every open item that is not dispatchable, grouped by its root. `roots` are the kinds of root, in tie-break order (roots rank by how many items wait behind them, then by this order); tests/test_blockers.py holds them equal to the kinds the code finds, both ways. The bounds are the text output's: the top `max_roots` roots, `max_ids` ids per root, and `dispatchable_lines` lines of it under `todo dispatchable` when nothing is dispatchable. --json is unbounded.",
     "roots": {
-      "jacob": {"doc": "his answer, approval or settings step: a waiting-jacob item's waits_on (an item naming none is grouped as such), or an item ready but for his approval"},
+      "jacob": {"doc": "his answer, approval or settings step: a waiting-jacob item's waits_on (an item naming none is grouped as such), one of his own steps (a jacob-step, grouped together), or an item ready but for his approval"},
       "item":  {"doc": "the open item at the end of a blocked_by chain, followed to its end; an id no scanned store holds, or a cycle, is a root of its own"},
       "owner": {"doc": "a report: another store's counterpart, by its id there (or the report not yet written)"},
       "field": {"doc": "what `todo brief` needs and the item lacks (repo, work, done_when, a size it can be dispatched at), or a blocked status naming no blocked_by: the store's owner triages it"}
@@ -73,7 +74,8 @@
   },
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
-    "done-deprecated": {"doc": "an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"}
+    "done-deprecated": {"doc": "an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"},
+    "done-checked": {"doc": "a jacob-step closed because its done_check exited 0; set by `todo steps --run` only, refused by `todo done`, and red in check on an item with no done_check"}
   },
   "roles": {
     "default_kind": "note",
@@ -82,7 +84,14 @@
     "jacob_status": "waiting-jacob",
     "approval_waits_on": "approval",
     "report_kind": "report",
-    "import_resolution": "done-deprecated"
+    "import_resolution": "done-deprecated",
+    "step_kind": "jacob-step",
+    "step_resolution": "done-checked"
+  },
+  "steps": {
+    "_comment": "`todo steps --run` (PLAN-architecture.md §11 S7): each open jacob-step's done_check runs as [shell, '-c', done_check] in the store's folder, stdin closed, and is killed after timeout_s seconds. Exit 0 closes the step (resolution roles.step_resolution); another exit leaves it open; a timeout or a command that cannot start is unchecked (exit 3), never a pass.",
+    "shell": "/bin/sh",
+    "timeout_s": 30
   },
   "fields": {
     "_comment": "Every item carries every field, unset ones null; an `optional` field was added after items existed, so an item written before it may lack the key (read as null). History is append-only, so its old entries never gain the key; new items always carry it.",
@@ -102,6 +111,7 @@
     "files":       {"doc": "paths the work touches", "label": "files"},
     "research":    {"doc": "the research service's questions this item rests on, by id (`rs-<n>`, PLAN-services.md §3 S7 R1); required on a research item; each gives the item a `ref:research:rs-<n>` tag; set by `todo add/edit --research`", "label": "research", "optional": true},
     "done_when":   {"doc": "the observable that closes it", "label": "done when"},
+    "done_check":  {"doc": "a shell command that exits 0 once the step is taken: run by `todo steps --run` under `steps.shell` in the store's folder, stdin closed, killed after `steps.timeout_s`; required on a jacob-step; set by `todo add/edit --done-check`", "label": "done check", "optional": true},
     "handoff":     {"doc": "{date, text, commit}: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief`", "label": "handoff", "optional": true},
     "approved":    {"doc": "{by, date, source}: Jacob's go-ahead to start the work (`by` is `approval.by` below), the day he gave it and where (his words, or a pointer to them); set by `todo approve`, or by `todo import` from \"approved: Jacob <date>\" in an item's lead (import.approval), read by `todo dispatchable`", "label": "approved", "optional": true},
     "dispatched":  {"doc": "{date, text}: the day the item was handed to someone to do, and an optional one-line note (never an agent's name: items name repos); set by `todo dispatch` only, cleared by `todo dispatch --clear` when it comes back unfinished; `todo dispatchable` leaves it out while set", "label": "dispatched", "optional": true},

@@ -15,7 +15,7 @@ from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_K
 from .vocab import VOCAB
 
 GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports", "workspace", "render", "history"]
-SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
+SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolution", "parent", "repo"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
 # so a closed item without one is red wherever it came from (PLAN §5).
@@ -196,6 +196,10 @@ def check_item(it, where, store, out):
     reserved = VOCAB.role("import_resolution")
     if it.get("resolution") == reserved and not imported:
         out.append(("FAIL", "vocab", iid, f"resolution {reserved!r} is set by todo import only, and this item was not imported"))
+    stepped = VOCAB.role("step_resolution")
+    if it.get("resolution") == stepped and (_empty(it.get("done_check")) or kind != VOCAB.role("step_kind")):
+        out.append(("FAIL", "vocab", iid, f"resolution {stepped!r} is set by todo steps --run only, on a "
+                                          f"{VOCAB.role('step_kind')} whose done_check passed, and this item has none"))
 
 
 def waits_on_problem(item, require=True):

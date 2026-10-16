@@ -15,7 +15,7 @@ class RoundTrip(Case):
         self.todo("-C", b, "add", "parent", "--kind", "note")
         self.todo("-C", a, "--root", self.ws, "add", "every field", "--kind", "temp", "--status", VOCAB.jacob_status, "--waits-on", WAITS,
                   "--evidence", "line one\n\n  indented line", "--probe", "p", "--parent", "bb-1", "--blocked-by", "bb-1", "--tags", "plan:PLAN-x.md§1", "--pin-plan", "--size", VOCAB.ready_sizes[0],
-                  "--repo", "elsewhere", "--work", "test", "--files", "a.py", "b/c.js", "--research", "rs-7",
+                  "--repo", "elsewhere", "--work", "test", "--files", "a.py", "b/c.js", "--research", "rs-7", "--done-check", "true",
                   "--done-when", "suite passes", "--retire", "manifest:nodes", today="2026-10-01")
         self.todo("-C", a, "edit", "aa-1", "--handoff", "done: half; next: the rest", today="2026-10-02")
         self.todo("-C", a, "approve", "aa-1", "--source", "his words", today="2026-10-02")

@@ -45,8 +45,8 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | usage | what it does |
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
-| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--retire C] [--tags T ...] [--reported-to REPO] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. A `waiting-jacob` item needs `--waits-on` (below), and only it may carry one. An open report needs `--reported-to REPO`, its owner (no `:THEIR_ID`: a counterpart is paired later by `edit` or `todo report`); it writes no other store. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--retire C] [--tags [T ...]] [--handoff NOTE] [--reported-to REPO[:THEIR_ID]] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. Leaving `waiting-jacob` clears `waits_on` and says so (an explicit value with another status is refused), and entering it needs a value; an item written before `waits_on` existed still takes other edits without one. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it. `--reported-to` sets a report's owner and writes no other store (`todo report` does): `THEIR_ID` only when that store holds it with `parent` ID, a counterpart it holds pairs without one, and the date stays while the repo does |
+| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags T ...] [--reported-to REPO] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. A `waiting-jacob` item needs `--waits-on` (below), and only it may carry one. An open report needs `--reported-to REPO`, its owner (no `:THEIR_ID`: a counterpart is paired later by `edit` or `todo report`); it writes no other store. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags [T ...]] [--handoff NOTE] [--reported-to REPO[:THEIR_ID]] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. Leaving `waiting-jacob` clears `waits_on` and says so (an explicit value with another status is refused), and entering it needs a value; an item written before `waits_on` existed still takes other edits without one. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it. `--reported-to` sets a report's owner and writes no other store (`todo report` does): `THEIR_ID` only when that store holds it with `parent` ID, a counterpart it holds pairs without one, and the date stays while the repo does |
 | `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
@@ -69,6 +69,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it; then, under their own heading (`by_rule` in `--json`), the ones approved by rule TD-B1 and not by him. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo blockers [--repo R] [--json]` | every open item, across every scanned store, that is not dispatchable, grouped by its root blocker (Blockers, below): one line per root, most items freed first, with what clears it, the count and the first ids; bounded, and `--json` gives every root and id. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo stale-plans [--repo R] [--plans-dir D] [--plans-cli P] [--json]` | the open items, across every scanned store, whose plan section is not what they were made from (Plan pins, below): `changed`, `section gone`, or `never pinned` (a `plan:` tag with no pin, or one naming no section), each with its `todo:` id, repo, `FILE §n` and the day it last matched. Exit 3 (`UNCHECKED`) when a section could not be read (no plans CLI, an ambiguous section) or a store could not be read: such a section is never counted fresh |
+| `todo steps [--run] [--json]` | this store's open `jacob-step` items, numbered, each with its `done_check` (Jacob's steps, below). `--run` runs every check in the store's folder first, then closes each step whose check exited 0 (resolution `done-checked`); a step whose check exited otherwise stays open with the exit and the start of its output; a check that timed out or could not start is `UNCHECKED` (exit 3) after the rest are closed |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -107,6 +108,7 @@ the renderer, the importer, the checks and these tables all follow it, and
 | `suspicion` | an unconfirmed suspicion, with the probe that would settle it | Unconfirmed suspicions | `probe` |
 | `report` | a problem reported to another repo's owner; its counterpart lives in their store | Reported to other owners | `reported_to` (set by `todo report`) |
 | `temp` | an interim rule, with the check that retires it | Interim rules | `retire` |
+| `jacob-step` | a step only Jacob takes, with the command that shows it taken (PLAN-architecture.md §11 S7); never ready or dispatchable; `todo steps` numbers them and `todo steps --run` closes each whose `done_check` exits 0 | Jacob's steps | `done_check` |
 | `research` | a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its `rs-` ids and never restates the answer | Research | `research` |
 | `note` | anything else worth keeping; the import default | Notes | |
 
@@ -186,6 +188,7 @@ each have one setter and are refused everywhere else:
 | resolution | meaning |
 |---|---|
 | `done-deprecated` | an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution: set by `todo import` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that was not imported |
+| `done-checked` | a `jacob-step` closed because its `done_check` exited 0: set by `todo steps --run` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that is not a `jacob-step` with a `done_check` |
 
 <!-- vocab:fields -->
 | field | meaning |
@@ -206,6 +209,7 @@ each have one setter and are refused everywhere else:
 | `files` | paths the work touches |
 | `research` | the research service's questions this item rests on, by id (`rs-<n>`, PLAN-services.md §3 S7 R1); required on a `research` item; each gives the item a `ref:research:rs-<n>` tag, so `todo find` and `todo refs` reach it; set by `todo add/edit --research`. `check` counts them (`INFO`), unchecked until a registry resolves that service's ids |
 | `done_when` | the observable that closes it |
+| `done_check` | a shell command that exits 0 once the step is taken: run by `todo steps --run` under `steps.shell` (vocab.json) in the store's folder, stdin closed, killed after `steps.timeout_s`; required on a `jacob-step`; one line; set by `todo add/edit --done-check` |
 | `handoff` | `{date, text, commit}`: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief` |
 | `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve`, or by `todo import` from "approved: Jacob <date>" in an item's lead, read by `todo dispatchable`. While an item is dispatched it may hold rule TD-B1's approval instead (its `source` the rule's), written by `todo dispatch` only |
 | `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
@@ -329,10 +333,35 @@ lines under `dispatchable`) are `vocab.json` `blockers`:
 <!-- vocab:blockers -->
 | root | what holds the item |
 |---|---|
-| `jacob` | his answer, approval or settings step: the item's `waits_on`, or his yes on an item otherwise ready |
+| `jacob` | his answer, approval or settings step: the item's `waits_on`, one of his own steps (every `jacob-step`, as one root: `todo steps`), or his yes on an item otherwise ready |
 | `item` | the open item at the end of a `blocked_by` chain; an id no store holds, or a cycle |
 | `owner` | a report: its counterpart in the owner's store, by id (or the report not yet written) |
 | `field` | what `todo brief` needs and the item lacks (repo, work, done_when, a size it can be dispatched at), or a `blocked` status naming no `blocked_by` |
+
+## Jacob's steps
+
+A step only Jacob can take (apply a settings file, answer a wizard, sign in
+somewhere) is an item of kind `jacob-step` with a `done_check`: a one-line shell
+command that exits 0 once the step is taken (PLAN-architecture.md §11 S7). It
+replaces a numbered list of his steps written in prose, which goes stale the day
+he takes one.
+
+    todo add "apply settings.proposed.json" --kind jacob-step \
+      --done-check "cmp -s .claude/settings.json .claude/settings.proposed.json"
+    todo steps          # numbered, with each check
+    todo steps --run    # closes each step whose check exits 0
+
+- A step is never ready, dispatchable or briefable, and `todo blockers` groups
+  every open step under one `jacob` root.
+- The check runs as `steps.shell -c CHECK` (vocab.json) in the store's folder,
+  stdin closed, killed after `steps.timeout_s`. Exit 0 closes the step with the
+  resolution `done-checked`; another exit leaves it open; a timeout or a shell
+  that cannot start is `UNCHECKED` (exit 3), never read as done or not done.
+- The checks run before the store is locked, so a check may call `todo`; a step
+  edited while its check ran is left for the next run.
+- `todo steps --run` executes what the store holds: anyone who can commit a
+  `done_check` can run a command on the machine of whoever runs it. Read new
+  checks (`todo steps`) before `--run`, as you would a script you pull.
 
 ## Plan pins
 

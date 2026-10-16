@@ -17,6 +17,7 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                # accepted only by a recorded verb; `help` is what tools/checks reads for cli.json.
                "reseal": "§9: accept a broken seal, recorded in hand_edits",
                "split": "PLAN-small-tasks.md §2.1: an L item into children, each one checkpoint",
+               "steps": "PLAN-architecture.md §11 S7: Jacob's steps, closed by their done_check",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 # A command name may hold a hyphen (stale-plans); `[a-z]+` read it as "stale".
 PLAN_COMMAND = re.compile(r"(?:^|\s)todo ([a-z][a-z-]*)")

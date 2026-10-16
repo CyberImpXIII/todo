@@ -10,6 +10,7 @@ from pathlib import Path
 from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
+from . import steps as stepping
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -365,7 +366,8 @@ def cmd_add(args):
         item = new_item(title=args.title, kind=args.kind, status=args.status or VOCAB.role("default_status"),
                         evidence=args.evidence, probe=args.probe, parent=args.parent,
                         repo=args.repo or store.repo, work=args.work, size=args.size, files=args.files,
-                        research=args.research or None, done_when=args.done_when, retire=args.retire, waits_on=args.waits_on, added=today())
+                        research=args.research or None, done_when=args.done_when, done_check=args.done_check,
+                        retire=args.retire, waits_on=args.waits_on, added=today())
         if item["status"] == VOCAB.closed:
             raise TodoError("add makes open items; close one with todo done")
         if args.reported_to:
@@ -383,7 +385,7 @@ def cmd_add(args):
 
 
 EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "waits_on", "repo", "work", "size",
-            "files", "research", "done_when", "retire", "tags"]
+            "files", "research", "done_when", "done_check", "retire", "tags"]
 
 
 def cmd_edit(args):
@@ -517,6 +519,9 @@ def cmd_done(args):
         if args.resolution.strip() == VOCAB.role("import_resolution"):
             raise TodoError(f"resolution {args.resolution!r} is set by todo import only, for a closed bullet "
                             "that carried none: say how this one closed")
+        if args.resolution.strip() == VOCAB.role("step_resolution"):
+            raise TodoError(f"resolution {args.resolution!r} is set by todo steps --run only, when the step's "
+                            "done_check exits 0: run that, or say how this one closed")
         closed = dict(item, status=VOCAB.closed, done=today(), resolution=args.resolution)
         validate(closed, "history")
         store.history["items"].append(closed)
@@ -861,6 +866,8 @@ def not_ready_reasons(ws, it):
         why.append(f"blocked by {', '.join(blockers)}")
     if size_refusal(it):
         why.append(size_refusal(it))
+    if stepping.is_step(it):
+        why.append(f"a {VOCAB.role('step_kind')}: Jacob's own, closed by its done_check (todo steps --run)")
     return why
 
 
@@ -872,6 +879,8 @@ def ready_items(ws, repo=None, work=None, refused=None):
         for it in s.items:
             if it.get("status") != VOCAB.role("default_status") or it.get("kind") == VOCAB.role("report_kind"):
                 continue
+            if stepping.is_step(it):
+                continue  # Jacob's own: nobody is dispatched to it
             if not all(it.get(f) for f in BRIEF_NEEDS):
                 continue
             if (repo and it["repo"] != repo) or (work and it["work"] != work):
@@ -969,6 +978,9 @@ def cmd_dispatch(args):
             if item.get("dispatched"):
                 raise TodoError(f"{args.id} was dispatched {item['dispatched'].get('date')} already "
                                 f"(todo dispatch {args.id} --clear when it came back unfinished)")
+            if stepping.is_step(item):
+                raise TodoError(f"{args.id} is a {VOCAB.role('step_kind')}: Jacob's own step, never dispatched; "
+                                "todo steps --run closes it once its done_check passes")
             appr, by_rule = approval.effective(item, store.repo)
             if appr is None:
                 raise TodoError(f"{args.id} carries no approval, and rule {VOCAB.approval_rule['id']} does not cover it "
@@ -1134,6 +1146,52 @@ def stale_plans_view(ws, args):
     return view
 
 
+def cmd_steps(args):
+    """Jacob's open steps in this store, numbered (PLAN-architecture.md §11 S7). With
+    --run, each done_check runs first, outside the lock (a check may itself call
+    todo); then, under the lock, each step whose check exited 0 closes with
+    resolution roles.step_resolution, provided it is still open with the same
+    done_check. A check that could not be judged is UNCHECKED (exit 3) once all the
+    rest are reported and closed."""
+    store = open_store(args)
+    rows = [{"n": n, "id": it["id"], "title": it["title"], "done_check": it.get("done_check"),
+             "verdict": None, "detail": None} for n, it in enumerate(stepping.open_steps(store), 1)]
+    closed = []
+    if args.run:
+        for r in rows:
+            r["verdict"], r["detail"] = stepping.run_check(r["done_check"], store.dir)
+        passed = {r["id"]: r for r in rows if r["verdict"] == stepping.DONE}
+        if passed:
+            with store.lock():
+                store.load()
+                require_clean(store)
+                for it in list(store.items):
+                    r = passed.get(it["id"])
+                    if r is None or not stepping.is_step(it) or it.get("done_check") != r["done_check"]:
+                        continue  # changed while its check ran: judged next run
+                    done = dict(it, status=VOCAB.closed, done=today(), resolution=VOCAB.role("step_resolution"))
+                    validate(done, "history")
+                    store.history["items"].append(done)
+                    store.items.remove(it)
+                    closed.append(it["id"])
+                if closed:
+                    commit(store)
+    unjudged = [r for r in rows if args.run and r["verdict"] is None]
+    if args.json:
+        print(json.dumps({"steps": rows, "closed": closed}, indent=2))
+    else:
+        if not rows:
+            print(f"(no open {VOCAB.role('step_kind')} in {store.path})")
+        for r in rows:
+            state = "" if not args.run else (" closed" if r["id"] in closed else
+                                             f" {r['verdict'] or 'UNCHECKED'} ({r['detail']})")
+            print(f"{r['n']:>2}. {r['id']:<8} {r['title'][:TITLE_WIDTH]}{state}")
+            print(f"    done when: {r['done_check']}")
+    if unjudged:
+        raise Unchecked(f"{len(unjudged)} step(s) could not be judged: "
+                        + "; ".join(f"{r['id']} {r['detail']}" for r in unjudged))
+
+
 def cmd_stale_plans(args):
     ws = read_workspace(args)
     known_repo(ws, args.repo)
@@ -1284,6 +1342,7 @@ COMMANDS = {
     "dispatchable": (cmd_dispatchable, "what can be dispatched now: approved, not dispatched, ready; every store"),
     "blockers": (cmd_blockers, "every open item not dispatchable, grouped by its root blocker, most items freed first; every store"),
     "stale-plans": (cmd_stale_plans, "open items whose plan section changed, is gone, or was never pinned"),
+    "steps": (cmd_steps, "Jacob's open steps, numbered; --run closes each whose done_check exits 0"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -1309,6 +1368,9 @@ def add_item_fields(p, editing):
                         f"(rs-3 or {VOCAB.research_service}:rs-3); required on a research item"
                         + ("; with no ids, clears them" if editing else ""))
     p.add_argument("--done-when", dest="done_when")
+    p.add_argument("--done-check", dest="done_check", metavar="COMMAND",
+                   help=f"a shell command that exits 0 once the step is taken; required on a {VOCAB.role('step_kind')} "
+                        "(todo steps --run runs it in this store's folder)")
     p.add_argument("--retire")
     p.add_argument("--tags", nargs="*", metavar="TAG",
                    help="plan:, origin:, trust: and ref: tags (the rest derive from the fields); no tags clears them")
@@ -1394,6 +1456,9 @@ def build_parser():
     ps["blockers"].add_argument("--json", action="store_true", help="every root and every id, unbounded")
     ps["stale-plans"].add_argument("--repo", help="only items whose work lives in this repo")
     ps["stale-plans"].add_argument("--json", action="store_true")
+    ps["steps"].add_argument("--run", action="store_true",
+                             help="run each step's done_check here; close the steps whose check exits 0")
+    ps["steps"].add_argument("--json", action="store_true")
     for name in ("add", "edit", "stale-plans", "import"):
         ps[name].add_argument("--plans-dir", dest="plans_dir", metavar="DIR",
                               help="where the PLAN-*.md files are (default: the scan root)")

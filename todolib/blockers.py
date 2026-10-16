@@ -4,7 +4,8 @@ how many items wait behind each root.
 
 One root per item, found in this order, because each later one cannot free an item
 an earlier one holds: a report waits on its owner; an item blocked by another waits
-on the end of that chain; a waiting-jacob item waits on Jacob (its waits_on); an
+on the end of that chain; one of Jacob's own steps (a jacob-step) waits on him; a
+waiting-jacob item waits on Jacob (its waits_on); an
 item lacking what `todo brief` needs waits on its store's owner to triage it; an
 item ready but for approval waits on Jacob's yes, unless rule TD-B1 approves it
 (todolib/approval.py). The kinds of root, their
@@ -15,7 +16,7 @@ holds every open item to exactly one of the two.
 """
 import os
 
-from . import approval, checks, deps
+from . import approval, checks, deps, steps
 from .store import never_scanned
 from .vocab import VOCAB
 
@@ -94,7 +95,10 @@ def item_root(ws, store, it):
 
 
 def jacob_root(ws, store, it):
-    w = it.get("waits_on") if it.get("status") == VOCAB.jacob_status else VOCAB.role("approval_waits_on")
+    if steps.is_step(it):
+        return ("step",), f"his own steps ({VOCAB.role('step_kind')})", \
+            "he takes each; todo steps --run closes the ones whose done_check passes", None
+    w =it.get("waits_on") if it.get("status") == VOCAB.jacob_status else VOCAB.role("approval_waits_on")
     if w is None:
         return ("unnamed",), f"{VOCAB.jacob_status}, naming no waits_on", \
             f"todo edit ID --waits-on ({VOCAB.waits_on_forms()})", None
@@ -136,6 +140,8 @@ def root_kind(ws, it, store_repo):
         return "owner"
     if deps.open_blockers(ws, it):
         return "item"
+    if steps.is_step(it):
+        return "jacob"
     if it.get("status") == VOCAB.jacob_status:
         return "jacob"
     if field_reasons(ws, it):
