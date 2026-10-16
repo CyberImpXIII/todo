@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (19 open, 30 closed in todo-history.json; seal 80e196d96344): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (25 open, 30 closed in todo-history.json; seal 166ccfd1ac8d): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -66,6 +66,11 @@
   fa05045: todo steps --run executes each done_check under /bin/sh; anyone who can commit todo.json can run a command on the runner's machine. README says to read checks with todo steps first; nothing enforces it.
   · probe: decide whether todo steps --run needs an allow-list or a confirmation for a done_check added since the last run
   · added: 2026-10-15
+
+- **td-52 · TODO_DETECTORS replaces the registered detector list for any run that sets it**
+  c400088: kept for fixtures and trial runs; said on stderr every time (mutant detect-override-silent)
+  · probe: TODO_DETECTORS=/tmp/x.json ./todo detect -> a NOTICE on stderr each time and the list checked as vocab.json's; unproven whether a stray env in a scheduled run could hide S7
+  · added: 2026-10-16
 
 ## Reported to other owners
 
@@ -154,6 +159,11 @@
   · plan pins: PLAN-services.md§3 as of 2026-10-15 (sha256 55621f435a82)
   · added: 2026-10-09
 
+- **td-54 · Nothing runs `todo detect` on a schedule yet**
+  c400088: detect is manual. Do not run it on this store by hand until it is scheduled: check then fails S7 stale (stale_factor x cadence_hours) once the run ages.
+  · retire: a session-start run and an hourly entry exist (reported to their owners)
+  · added: 2026-10-16
+
 ## Notes
 
 - **td-23 · Outside git the history append-only audit is skipped and history still prints ok**
@@ -164,3 +174,23 @@
   · files: todolib/checks.py
   · done when: outside git, a store file whose seal was removed and whose format was set back to 1 fails todo check (not a WARN); a test plants it
   · added: 2026-10-09
+
+- **td-50 · Step items are kind plan-step, where PLAN-services.md step 6.3 says `step`**
+  c400088/f444257: `step` read as any step; plan-step names where it comes from (sync-plans). Jacob to confirm or ask for a rename (vocab.json kinds, one place).
+  · work: docs
+  · added: 2026-10-16
+
+- **td-51 · Generated decisions recommend yes (vocab.json decisions.generated_recommend)**
+  fead4ca: a decision sync-plans generates from a plan carries recommend yes; Jacob may prefer no recommendation. One key to change.
+  · work: decision
+  · added: 2026-10-16
+
+- **td-53 · `todo show` prints plan_step whole while TODO.md shortens it**
+  f444257: render.field_value cuts plan_step text; show prints the JSON field. Harmless, but the two disagree.
+  · work: code
+  · added: 2026-10-16
+
+- **td-55 · The plan's closed_by is resolution done-detected plus the detector field**
+  c400088: PLAN-todo-tool.md §10.5 names closed_by; todo records the closing detector in the item's detector field and resolution done-detected (README Detectors). Jacob to confirm.
+  · work: docs
+  · added: 2026-10-16
