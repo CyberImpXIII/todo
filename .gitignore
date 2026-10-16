@@ -12,3 +12,4 @@ TODO-HISTORY.md
 *.bak
 registry.proposed.json
 .claude/state/
+.progress/

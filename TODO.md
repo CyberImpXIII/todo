@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (14 open, 28 closed in todo-history.json; seal 35c8556fbf71): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (15 open, 28 closed in todo-history.json; seal 5b783b36d83a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -108,6 +108,15 @@
   · done when: tools/checks serves the shared tag vocabulary (the seven namespaces and their closed values) by a verb or file todolib can read
   · tags: plan:PLAN-services.md§3
   · plan pins: PLAN-services.md§3 as of 2026-10-15 (sha256 6a0535436528)
+  · added: 2026-10-15
+
+- **td-43 · parts.py exits 0 when a part only said UNCHECKED (exit 3); dev.sh turns it into 3 itself**
+  devtools/parts.py (runner 1.3.0) header: a part that exits 3 is unchecked and 'does not make the run red'; exit 0 iff no part failed or errored. Proven 2026-10-15 by mutant check-unchecked-is-green (dev.sh's code=3 set to 0 turns tests.test_hooks_gate red: the runner alone exited 0 with the hooks part UNCHECKED). dev.sh cmd_check reads the run (UNCHK line, or --json unchecked with reason 'exit 3') and exits 3 itself.
+  · reported to: checks on 2026-10-15 (no counterpart yet)
+  · work: code
+  · size: S
+  · files: dev.sh, devtools/parts.py
+  · done when: parts.py exits 3 when a run part said UNCHECKED and none failed, and dev.sh's said_unchecked wrapper is removed with its mutants
   · added: 2026-10-15
 
 ## Interim rules

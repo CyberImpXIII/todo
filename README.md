@@ -484,7 +484,21 @@ gate that stopped running shows as a missing line:
 
 ## Development
 
-`./dev.sh check` is the one pre-commit command: the unit tests, the hook copies,
+`./dev.sh check` is the one pre-commit command. It hands `check.parts.json` to
+`devtools/parts.py`, the shared parts runner (tools/checks' runner, installed by
+setup's `parts` component; PLAN-small-tasks.md §5): one part per `tests/test_*.py`
+module, then the gates (`./dev.sh hooks`, `files`, `audit`, `self`, `checks`,
+`mutants`), each with its own timeout and recorded as it ends in `$PROGRESS_FILE`
+(default `.progress/check.json`, gitignored). The runner's options pass through:
+`--json` (one check-json document, one check per part), `--resume` (re-run only
+what did not pass or whose files changed), `--only PART` (repeatable). A part that
+reads outside this repo says `always` and `--resume` never skips it.
+`./dev.sh test PART ...` is `check --only PART ...`; `./dev.sh test` alone is the
+whole unittest suite in one process. `tests/test_parts_file.py` holds the parts
+file to the test modules and to dev.sh's gates, and runs tools/checks'
+`check-partial` and `check-json` contracts on this repo.
+
+The parts are: the unit tests, the hook copies,
 the files the tool needs, the direction audit (`devtools/audit.py`: no file here
 reads the delegation layer's files or names a roster agent; the shared copies
 installed in `.claude/hooks/` and its sibling `lib/` are skipped, being the hooks
@@ -499,18 +513,22 @@ full run (`tests/test_mutate.py`).
 The `hooks` gate reads each hook test's exit code as a gate: 0 pass, 3 UNCHECKED
 (the test could not run here, e.g. no site-scrapers above a lone clone; named with
 its reason), anything else FAIL. An UNCHECKED test makes the gate exit 3, never 0;
-a FAIL anywhere makes it 1. `./dev.sh check` exits 1 if any gate failed, else 3 if
-any was UNCHECKED, and its summary counts the two apart (`tests/test_hooks_gate.py`,
-mutants `hooks-unchecked-*`, `check-unchecked-is-green` and `check-json-unchecked-ok`).
+a FAIL anywhere makes it 1. `./dev.sh check` exits 1 if any part failed, else 3 if
+any said UNCHECKED (its exit 3), else 0. The runner alone exits 0 on an UNCHECKED
+part, so dev.sh reads the run (the `UNCHK` line, or in `--json` a check
+`unchecked` for `exit 3: ...`) and exits 3 itself; a part `--only` left out is
+`unchecked` with `not run` and does not count (`tests/test_hooks_gate.py`,
+`tests/test_parts_file.py` Unchecked, mutants `hooks-unchecked-*`,
+`check-unchecked-is-green`, `check-*-unchecked-unread`, `check-json-not-run-is-unchecked`).
 
-`./dev.sh check [--json] [GATE ...]` runs only the named gates, in the order
-given; `--json` prints `{"ok": bool, "gates": {gate: bool}}` and nothing else
-(an UNCHECKED gate is `false` there; the exit code, 3, tells it from a FAIL).
-`tests/test_dev.py` holds that contract on the cheap gates. A check run inside
-another check refuses the `test` and `mutants` gates, since either would run that
-test again without end; the test of that guard runs in a copy whose tests are one
-stub and whose mutants are none, so a broken guard goes red instead of recursing
-(mutant `check-nesting-unguarded`). The `self` gate's mutant plants a bad store
+`tests/test_dev.py` holds the check-json document on the cheap parts (`files`,
+`audit`): named parts `ok`, the rest `unchecked`; a red part `fail` and exit 1; an
+unknown part refused (exit 2). A check run inside another check (`TODO_DEV_CHECK`
+set) runs only parts named with `--only`, and never a `test.*` part or `mutants`,
+since either would run that test again without end (exit 2, nothing on stdout);
+a foreign parts file (`CHECK_PARTS`) is left alone. The test of that guard runs in
+a copy whose parts are one stub test, `files` and one stub mutant, so a broken
+guard goes red instead of recursing (mutants `check-nesting-*`). The `self` gate's mutant plants a bad store
 and runs `./dev.sh self` with `TODO_ROOT=.`: `TODO_ROOT` is the scan root when
 `--root` is not given, and keeps a copy under `.mutants/` from scanning the
 workspace and colliding with this repo's own prefix. Under that narrow root an
@@ -522,6 +540,10 @@ skips `devtools/audit.json` and `devtools/mutants.json`, which hold the directio
 audit's own terms and planted violations. `tests/test_audit.py` holds every
 exclusion there to a file that exists and that `devtools/audit.py` skips too, so
 `checks.json` never widens the exemptions beyond the ones `audit.json` documents.
+`accepted` in `audit.json` exempts single lines that hit a term and cannot change,
+each by file and exact text with its reason: today one append-only history entry
+(td-28's resolution names the installed `lib/extra-stores.sh`). An entry whose line
+is gone, or whose line hits no term, fails the audit (mutants `audit-*`).
 
 The `checks` gate (td-12) runs `checks run . --json --names <roster_names from
 devtools/audit.json>` with the sibling repo's CLI (`../checks/checks`, resolved

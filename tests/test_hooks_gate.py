@@ -84,16 +84,22 @@ class HooksGate(unittest.TestCase):
         self.assertIn("FAIL  test-h1.sh: exit 1", out)
 
     def test_check_counts_unchecked_apart_from_failed_and_never_green(self):
+        """The hooks gate as a part of `./dev.sh check` (the shared runner, one part):
+        exit 0, 1 and 3 give a pass, a fail and an UNCHECKED that exits 3, never 0."""
         results = {}
         for code in (0, 1, 3):
             copy = self.copy_with(code)
-            exit_code, out = self.run_dev(copy, "check", "hooks")
-            jexit, jout = self.run_dev(copy, "check", "--json", "hooks")
-            results[code] = (exit_code, out.strip().splitlines()[-1], jexit, json.loads(jout))
-        self.assertEqual(results[0], (0, "check: all 1 gates green", 0, {"ok": True, "gates": {"hooks": True}}))
-        self.assertEqual(results[1], (1, "check: 1 of 1 gates FAILED", 1, {"ok": False, "gates": {"hooks": False}}))
-        self.assertEqual(results[3], (3, "check: 0 of 1 gates FAILED, 1 UNCHECKED (did not run here, not a pass)",
-                                      3, {"ok": False, "gates": {"hooks": False}}))
+            (copy / "devtools").mkdir()
+            shutil.copy2(ROOT / "devtools" / "parts.py", copy / "devtools" / "parts.py")
+            (copy / "check.parts.json").write_text(json.dumps({"parts": [
+                {"name": "hooks", "run": "./dev.sh hooks", "files": ["."], "timeout_s": 120}]}))
+            exit_code, out = self.run_dev(copy, "check")
+            jexit, jout = self.run_dev(copy, "check", "--json")
+            statuses = [(c["name"], c["status"]) for c in json.loads(jout)["checks"]]
+            results[code] = (exit_code, out.strip().splitlines()[-1].split(";")[0], jexit, statuses)
+        self.assertEqual(results[0], (0, "check: 1 of 1 passed", 0, [("hooks", "ok")]))
+        self.assertEqual(results[1], (1, "check: 0 of 1 passed", 1, [("hooks", "fail")]))
+        self.assertEqual(results[3], (3, "check: 0 of 1 passed", 3, [("hooks", "unchecked")]))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
   "format": 2,
   "repo": "todo",
   "prefix": "td",
-  "next": 43,
+  "next": 44,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -391,7 +391,41 @@
       "done": null,
       "resolution": null,
       "imported": null
+    },
+    {
+      "id": "td-43",
+      "title": "parts.py exits 0 when a part only said UNCHECKED (exit 3); dev.sh turns it into 3 itself",
+      "kind": "report",
+      "status": "open",
+      "evidence": "devtools/parts.py (runner 1.3.0) header: a part that exits 3 is unchecked and 'does not make the run red'; exit 0 iff no part failed or errored. Proven 2026-10-15 by mutant check-unchecked-is-green (dev.sh's code=3 set to 0 turns tests.test_hooks_gate red: the runner alone exited 0 with the hooks part UNCHECKED). dev.sh cmd_check reads the run (UNCHK line, or --json unchecked with reason 'exit 3') and exits 3 itself.",
+      "probe": null,
+      "reported_to": {
+        "repo": "checks",
+        "date": "2026-10-15",
+        "their_id": null
+      },
+      "parent": null,
+      "blocked_by": null,
+      "waits_on": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "S",
+      "files": [
+        "dev.sh",
+        "devtools/parts.py"
+      ],
+      "done_when": "parts.py exits 3 when a run part said UNCHECKED and none failed, and dev.sh's said_unchecked wrapper is removed with its mutants",
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "added": "2026-10-15",
+      "done": null,
+      "resolution": null,
+      "imported": null
     }
   ],
-  "seal": "10bf5f4c9251926e"
+  "seal": "a32c92e5757628e9"
 }

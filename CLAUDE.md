@@ -8,7 +8,8 @@ the manual: commands, the vocabulary, the gates.
 
 | doing this | use |
 |---|---|
-| before committing | `./dev.sh check` (unit tests, hook copies, files, direction audit, `todo check` on this repo, mutants); `--json` prints `{"ok": bool, "gates": {...}}`; exit 1 on a FAIL, else 3 on an UNCHECKED gate; `./dev.sh check --json files audit` runs only those gates |
+| before committing | `./dev.sh check` (`check.parts.json` through the shared runner `devtools/parts.py`: one part per test module, hook copies, files, direction audit, `todo check` on this repo, checks, mutants); `--json` is one check-json document; exit 1 on a FAIL, else 3 on an UNCHECKED part |
+| iterating on one thing | `./dev.sh test PART` (one part alone), `./dev.sh check --resume` (only what did not pass or changed); the full `./dev.sh check` once, before the commit |
 | what is open here | `./todo list`, or read `TODO.md` (rendered; never edit it by hand) |
 | add, change, close an item | `./todo add` / `./todo edit` / `./todo done ID --resolution ...` |
 | what was closed, and how | `./todo history [ID]` |

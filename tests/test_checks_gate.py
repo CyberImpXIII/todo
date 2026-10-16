@@ -17,7 +17,10 @@ from pathlib import Path
 from tests.helpers import ROOT
 from devtools.checks_gate import judge
 
-IGNORE = shutil.ignore_patterns(".git", ".mutants", "__pycache__", "*.pyc")
+# A copy has no .git, so tools/checks' scans walk every file in it: leave out what git
+# never holds here, or the parts runner's logs (.progress/, which quote the last run's
+# findings) turn no-roster and accessor red on the copy alone.
+IGNORE = shutil.ignore_patterns(".git", ".mutants", ".progress", "__pycache__", "*.pyc")
 
 
 def report(*results):

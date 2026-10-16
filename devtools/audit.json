@@ -1,7 +1,7 @@
 {
   "_comment": "The direction audit (PLAN-todo-tool.md §5, §8 decision 4): todo never reads the delegation layer's files and never names a roster agent; items name repos, not agents. devtools/audit.py fails on any match in any file of this repo outside `skip`. The roster names below are the ones that are not also repo names; they are a copy, taken 2026-10-04, and a new roster agent needs adding here by hand (TODO.md records that this copy can go stale: the tool may not read the roster to refresh it).",
-  "skip": ["tests/fixtures/", "devtools/audit.json", "tests/test_audit.py", "devtools/mutants.json", ".git/", ".mutants/", ".claude/hooks/", ".claude/lib/"],
-  "_skip": "fixtures are other repos' text; audit.json, test_audit.py and mutants.json hold the terms and the planted violations that prove the audit can fail; .claude/hooks/ and .claude/lib/ hold the shared copies setup's hooks component installs, the renderer's files and not this repo's code, gated by `hooks copies` (td-16, Jacob 2026-10-05)",
+  "skip": ["tests/fixtures/", "devtools/audit.json", "tests/test_audit.py", "devtools/mutants.json", ".git/", ".mutants/", ".claude/hooks/", ".claude/lib/", ".progress/"],
+  "_skip": "fixtures are other repos' text; audit.json, test_audit.py and mutants.json hold the terms and the planted violations that prove the audit can fail; .claude/hooks/ and .claude/lib/ hold the shared copies setup's hooks component installs, the renderer's files and not this repo's code, gated by `hooks copies` (td-16, Jacob 2026-10-05); .progress/ is the parts runner's progress file and per-part logs (gitignored, never committed), which quote other tools' output verbatim (2026-10-15: checks.log quoted hooks-installed's paths and turned the audit red)",
   "patterns": [
     {"re": "agents\\.manifest", "why": "the roster's manifest"},
     {"re": "agents\\.sh", "why": "the roster's CLI"},
@@ -11,5 +11,10 @@
     {"re": "\\.claude/(agents|lib|archive)\\b", "why": "the delegation layer's folders"},
     {"re": "\\.\\./[^\\s\"']*\\.claude", "why": "reaching a .claude/ above this repo"}
   ],
+  "accepted": [
+    {"file": "todo-history.json", "line": "\"resolution\": \"stale: checked 2026-10-15: every store in the scan (top level, income, context-hygiene, todo) is format 2 and sealed; store-guard's .claude/lib/extra-stores.sh holds todo.json and todo-history.json at any repo root without a cli.json declaring them (tools/hooks b7a8c6b)\",",
+     "why": "td-28's resolution (fd52be9) names the installed copy's path, which this repo carries under .claude/lib/ (skipped above), not a read of the delegation layer; history is append-only, so the line stays (2026-10-15)"}
+  ],
+  "_accepted": "single lines that hit a term and cannot be changed (an append-only history entry): file and exact stripped text; audit.py fails an entry that matches no line, or a line that hits no term",
   "roster_names": ["dispatcher", "planner", "harness", "deep-work", "email-tools", "job-import-scripts", "cron-scheduler"]
 }

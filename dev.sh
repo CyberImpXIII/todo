@@ -13,10 +13,14 @@ usage() {
   cat <<'EOF'
 ./dev.sh <command>
 
-  check      every gate below, in order; 1 if any fails, else 3 if any is UNCHECKED, else 0. [--json] [GATE ...]:
-             --json prints {"ok": bool, "gates": {...}} (UNCHECKED is false there; the exit code tells it from a
-             FAIL); named gates run alone, in the order given (tests/test_dev.py, tests/test_hooks_gate.py)
-  test       the unit tests (tests/), trimmed to the result unless something fails
+  check      check.parts.json through devtools/parts.py, the shared runner (setup's copy of tools/checks'):
+             one part per tests/test_*.py module, then the gates below, each with its own timeout and
+             recorded as it ends ($PROGRESS_FILE, default .progress/check.json). [--json] [--resume |
+             --only PART ...]: the runner's options; --json is one check-json document, one check per part.
+             Exit 1 if a part fails, else 3 if one said UNCHECKED (exit 3; the runner alone exits 0), else 0.
+             CHECK_PARTS names another parts file (tests/test_parts_file.py, tests/test_dev.py)
+  test       the unit tests (tests/), trimmed to the result unless something fails; test PART ...: those
+             parts alone (check --only PART ...)
   hooks      the shared hook copies: present, executable, parse, their own tests pass (a test's exit 3: UNCHECKED,
              gate exit 3); registered once settings.json exists
   files      the files the tool needs: present, executable where they must be, data parses
@@ -29,7 +33,11 @@ EOF
 }
 
 cmd_test() {
-  local out code
+  local out code p only=()
+  if [ "$#" -gt 0 ]; then
+    for p in "$@"; do only+=(--only "$p"); done
+    cmd_check "${only[@]}"; return
+  fi
   out=$(python3 -m unittest discover -s tests -t . 2>&1); code=$?
   if [ $code -ne 0 ]; then printf '%s\n' "$out"; else printf '%s\n' "$out" | grep -E '^(Ran|OK)' | paste -sd' ' -; fi
   return $code
@@ -82,10 +90,10 @@ cmd_files() {
   for f in todo dev.sh devtools/audit.py devtools/mutate.py devtools/checks_gate.py; do
     [ -x "$f" ] || { echo "  FAIL  $f missing or not executable"; fails=$((fails+1)); }
   done
-  for f in vocab.json devtools/audit.json devtools/mutants.json checks.json cli.json; do
+  for f in vocab.json devtools/audit.json devtools/mutants.json checks.json cli.json check.parts.json; do
     jq -e . "$f" >/dev/null 2>&1 || { echo "  FAIL  $f missing or does not parse"; fails=$((fails+1)); }
   done
-  for f in CLAUDE.md README.md TODO.md .gitignore todolib/__init__.py; do
+  for f in CLAUDE.md README.md TODO.md .gitignore todolib/__init__.py devtools/parts.py; do
     [ -f "$f" ] || { echo "  FAIL  $f missing"; fails=$((fails+1)); }
   done
   ./todo --help >/dev/null 2>&1 || { echo "  FAIL  ./todo --help does not run"; fails=$((fails+1)); }
@@ -114,42 +122,46 @@ cmd_mutants() { python3 devtools/mutate.py "$@"; }
 
 GATES=(test hooks files audit self checks mutants)
 
+# The parts are check.parts.json (CHECK_PARTS names another), run by the shared runner;
+# its options pass through. Two things are this repo's own:
+#  - A check inside a check (tests/test_dev.py runs one) runs only parts named with
+#    --only, and never a test.* part or the mutants: either would run that test again,
+#    and so on without end (td-11). A foreign suite (CHECK_PARTS) is not this repo's
+#    tests, so the guard leaves it alone (tools/checks' check-partial hands one in).
+#  - The runner exits 0 when a part only said UNCHECKED (its exit 3). This check exits 3
+#    then, so a part that could not run here is never green by exit code; a part --only
+#    left out is not one of those (tests/test_parts_file.py Unchecked).
 cmd_check() {
-  local json=0 g code fails=0 unchecked=0 results="" run=()
-  [ "${1:-}" = "--json" ] && { json=1; shift; }
-  for g in "$@"; do
-    case " ${GATES[*]} " in *" $g "*) run+=("$g") ;; *) echo "check: unknown gate '$g' (gates: ${GATES[*]})" >&2; return 2 ;; esac
+  local a only=0 heavy=0 json=0 out code
+  for a in "$@"; do
+    case "$a" in --only) only=1 ;; --json) json=1 ;; test.*|mutants) heavy=1 ;; esac
   done
-  [ ${#run[@]} -eq 0 ] && run=("${GATES[@]}")
-  # A check inside a check (tests/test_dev.py runs one) never runs the tests or the
-  # mutants again: either would run that test again, and so on without end.
-  if [ -n "${TODO_DEV_CHECK:-}" ]; then
-    case " ${run[*]} " in *" test "*|*" mutants "*)
-      echo "check: refusing test/mutants inside another ./dev.sh check (TODO_DEV_CHECK is set): name the gates to run" >&2; return 2 ;;
-    esac
+  if [ -z "${CHECK_PARTS:-}" ] && [ -n "${TODO_DEV_CHECK:-}" ] && { [ $only -eq 0 ] || [ $heavy -eq 1 ]; }; then
+    echo "check: refusing test/mutants inside another ./dev.sh check (TODO_DEV_CHECK is set): name the other parts to run (--only PART)" >&2
+    return 2
   fi
   export TODO_DEV_CHECK=1
-  for g in "${run[@]}"; do
-    if [ $json -eq 1 ]; then "cmd_$g" >/dev/null 2>&1; code=$?
-    else echo "== $g"; "cmd_$g"; code=$?; fi
-    # Exit 3 is a gate that could not check here (cmd_hooks): not green, not FAILED.
-    if [ $code -eq 3 ]; then unchecked=$((unchecked+1)); elif [ $code -ne 0 ]; then fails=$((fails+1)); fi
-    results="$results\"$g\": $([ $code -eq 0 ] && echo true || echo false), "
-  done
-  if [ $json -eq 1 ]; then
-    printf '{"ok": %s, "gates": {%s}}\n' "$([ $((fails + unchecked)) -eq 0 ] && echo true || echo false)" "${results%, }"
-  elif [ $((fails + unchecked)) -eq 0 ]; then echo "check: all ${#run[@]} gates green"
+  out=$(mktemp "${TMPDIR:-/tmp}/todo-check.XXXXXX") || return 2
+  python3 devtools/parts.py run "${CHECK_PARTS:-check.parts.json}" "$@" | tee "$out"; code=${PIPESTATUS[0]}
+  if [ "$code" -eq 0 ] && said_unchecked "$json" "$out"; then code=3; fi
+  rm -f "$out"
+  return "$code"
+}
+
+# said_unchecked JSON FILE: did a part of the run in FILE exit 3 (UNCHECKED)? Text: the
+# runner's `UNCHK <part>` line; --json: a check `unchecked` for `exit 3: <why>`, not one
+# merely not run.
+said_unchecked() {
+  if [ "$1" -eq 1 ]; then
+    jq -e '[.checks[] | select(.status == "unchecked" and ((.reason // "") | startswith("exit 3")))] | length > 0' "$2" >/dev/null 2>&1
   else
-    echo "check: $fails of ${#run[@]} gates FAILED$([ $unchecked -gt 0 ] && echo ", $unchecked UNCHECKED (did not run here, not a pass)")"
+    grep -q '^UNCHK ' "$2"
   fi
-  [ $fails -gt 0 ] && return 1
-  [ $unchecked -gt 0 ] && return 3
-  return 0
 }
 
 case "${1:-}" in
   check)   shift; cmd_check "$@" ;;
-  test)    cmd_test ;;
+  test)    shift; cmd_test "$@" ;;
   hooks)   cmd_hooks ;;
   files)   cmd_files ;;
   audit)   cmd_audit ;;
