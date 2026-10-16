@@ -490,7 +490,9 @@ nothing, and the item is listed in the output instead.
 A kind whose required field no rule reads (a suspicion with no probe marker, a
 report naming two owners or none) imports as `note`, records the kind it would have
 had in `imported.wanted`, and is listed with the `todo edit` that completes it, so
-`check` passes on the result. `tests/test_import_rules.py` holds a passing and a
+`check` passes on the result. A closed (DONE) block is held to the same rule and
+goes to history as a closed `note`, listed as kept as it is: history is never
+edited, so a closed report with no `reported_to` would fail `check` for good (td-47). `tests/test_import_rules.py` holds a passing and a
 failing fixture for each rule and shows each knob changes the output.
 
 `tests/test_import.py` proves it lossless on three real `TODO.md` files: every

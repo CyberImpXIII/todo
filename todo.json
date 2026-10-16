@@ -487,36 +487,7 @@
       "done": null,
       "resolution": null,
       "imported": null
-    },
-    {
-      "id": "td-47",
-      "title": "an import makes a closed report with no reported_to, which `todo check` then fails and history ne...",
-      "kind": "bug",
-      "status": "open",
-      "evidence": "reported by setup to todo in dispatch toolu_01GrRJXCgNtyh79o9fmKSoFs (setup: resume fanout and Q7, kb docs), filed from the dispatch ledger by the delegation layer's report filer (its path is not named here: devtools/audit.py fails on it): an import makes a closed report with no reported_to, which `todo check` then fails and history never lets be edited -- input: a \"- DONE 2026-10-04: ...\" bullet under \"## Reported to other owners\" (tools/setup su-72) -- expected: it imports as a note, as open blocks do",
-      "probe": null,
-      "reported_to": null,
-      "parent": "tl-214",
-      "blocked_by": null,
-      "waits_on": null,
-      "repo": "todo",
-      "work": null,
-      "size": null,
-      "files": null,
-      "research": null,
-      "done_when": null,
-      "done_check": null,
-      "handoff": null,
-      "approved": null,
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "added": "2026-10-15",
-      "done": null,
-      "resolution": null,
-      "imported": null
     }
   ],
-  "seal": "69a8336dc5d6b490"
+  "seal": "4342c9d1825b0a80"
 }

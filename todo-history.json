@@ -687,7 +687,36 @@
       "done": "2026-10-15",
       "resolution": "TD-B1 approved by Jacob 2026-10-12 (PLAN-todo-tool.md §10.1 cause 1, not §10.3 as waits_on said); built in decf44c: vocab.json approval.rule, todolib/approval.py, README Approval by rule, tests/test_approval_rule.py, 12 mutants",
       "imported": null
+    },
+    {
+      "id": "td-47",
+      "title": "an import makes a closed report with no reported_to, which `todo check` then fails and history ne...",
+      "kind": "bug",
+      "status": "done",
+      "evidence": "reported by setup to todo in dispatch toolu_01GrRJXCgNtyh79o9fmKSoFs (setup: resume fanout and Q7, kb docs), filed from the dispatch ledger by the delegation layer's report filer (its path is not named here: devtools/audit.py fails on it): an import makes a closed report with no reported_to, which `todo check` then fails and history never lets be edited -- input: a \"- DONE 2026-10-04: ...\" bullet under \"## Reported to other owners\" (tools/setup su-72) -- expected: it imports as a note, as open blocks do\nfixed: importer.py holds a closed block to its kind's required fields; tests.test_import_rules.Owner.test_a_closed_report_naming_no_owner_is_a_closed_note, mutant import-closed-report-unchecked red",
+      "probe": null,
+      "reported_to": null,
+      "parent": "tl-214",
+      "blocked_by": null,
+      "waits_on": null,
+      "repo": "todo",
+      "work": null,
+      "size": null,
+      "files": null,
+      "research": null,
+      "done_when": null,
+      "done_check": null,
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "added": "2026-10-15",
+      "done": "2026-10-15",
+      "resolution": "fixed",
+      "imported": null
     }
   ],
-  "seal": "7fda5f95d2f75b86"
+  "seal": "dc188853a86265fb"
 }

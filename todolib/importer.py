@@ -344,16 +344,21 @@ def plan_import(text, store, today, repos=frozenset(), resolve_plan=None, waits_
                     else:
                         plan.unnamed_waits.append(title)
                 extra["waits_on"] = value
-            ctx = {"vocab": vocab, "repos": repos, "own": store.repo, "today": today}
-            for f in vocab.kinds.get(kind, {}).get("requires", []):
-                value = FIELD_READERS[f](body, ctx) if f in FIELD_READERS else None
-                if value is None:
-                    wanted, kind = kind, vocab.role("default_kind")
-                    plan.listed.append((title, f"no {f} read: imported as {kind} (todo edit ID --kind {wanted} --{f.replace('_', '-')} ...)"))
-                    break
-                extra[f] = value
-            if wanted:
-                extra = {k: v for k, v in extra.items() if k not in vocab.kinds[wanted].get("requires", [])}
+        # A closed block is held to its kind's required fields too: a DONE bullet
+        # under the reports heading naming no owner is a note, not a report with
+        # no reported_to that check fails and history never lets be edited (td-47).
+        ctx = {"vocab": vocab, "repos": repos, "own": store.repo, "today": today}
+        for f in vocab.kinds.get(kind, {}).get("requires", []):
+            value = FIELD_READERS[f](body, ctx) if f in FIELD_READERS else None
+            if value is None:
+                wanted, kind = kind, vocab.role("default_kind")
+                fix = "history keeps it as it is" if status == vocab.closed else \
+                    f"todo edit ID --kind {wanted} --{f.replace('_', '-')} ..."
+                plan.listed.append((title, f"no {f} read: imported as {kind} ({fix})"))
+                break
+            extra[f] = value
+        if wanted:
+            extra = {k: v for k, v in extra.items() if k not in vocab.kinds[wanted].get("requires", [])}
         # A bullet carries no resolution field: a closed one gets the import's own
         # value, never a guess from its text (td-1, PLAN-todo-tool.md end).
         resolution = VOCAB.role("import_resolution") if status == VOCAB.closed else None

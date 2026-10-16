@@ -151,6 +151,14 @@ class Owner(Case):
         items, _ = imported(under(REPORT_HEADING, "hooks (2026-10-09): x"), repos=self.REPOS)
         self.assertEqual((items[0]["kind"], items[0]["reported_to"]["repo"]), (REPORT, "hooks"))
 
+    def test_a_closed_report_naming_no_owner_is_a_closed_note(self):
+        # td-47: a DONE bullet under the reports heading (tools/setup su-72)
+        items, plan = imported(under(REPORT_HEADING, "DONE 2026-10-04: hooks fixed it"), repos=self.REPOS)
+        it = items[0]
+        self.assertEqual((it["kind"], it["status"], it["imported"]["wanted"]), (NOTE, VOCAB.closed, REPORT))
+        self.assertIsNone(it.get("reported_to"))
+        self.assertIn("history keeps it", plan.listed[0][1])
+
     def test_the_patterns_are_read_from_vocab(self):
         lead = "hooks (2026-10-09): x"
         self.assertIsNone(read_owner(lead, self.REPOS, "me", TODAY, vocab=vocab_with(report_owner="^(?P<repo>x)y")))

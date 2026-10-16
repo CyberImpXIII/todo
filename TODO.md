@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (18 open, 29 closed in todo-history.json; seal 304a74bac49f): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (17 open, 30 closed in todo-history.json; seal 171aede7383b): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -9,11 +9,6 @@
   · size: S
   · done when: todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it
   · added: 2026-10-13
-
-- **td-47 · an import makes a closed report with no reported_to, which `todo check` then fails and history ne...**
-  reported by setup to todo in dispatch toolu_01GrRJXCgNtyh79o9fmKSoFs (setup: resume fanout and Q7, kb docs), filed from the dispatch ledger by the delegation layer's report filer (its path is not named here: devtools/audit.py fails on it): an import makes a closed report with no reported_to, which `todo check` then fails and history never lets be edited -- input: a "- DONE 2026-10-04: ..." bullet under "## Reported to other owners" (tools/setup su-72) -- expected: it imports as a note, as open blocks do
-  · parent: tl-214
-  · added: 2026-10-15
 
 ## Open decisions
 
