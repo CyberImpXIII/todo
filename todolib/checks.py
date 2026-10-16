@@ -14,7 +14,7 @@ from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_K
                     RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
 from .vocab import VOCAB
 
-GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "reports", "workspace", "render", "history"]
+GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports", "workspace", "render", "history"]
 SINGLE_LINE = ["title", "probe", "done_when", "retire", "resolution", "parent", "repo"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
@@ -331,6 +331,29 @@ def check_tags(store, ws, out):
         out.append(("INFO", "tags", "-", f"{foreign} ref: tag(s) name another service's record: unchecked until a registry resolves them"))
 
 
+def check_groups(store, ws, out):
+    """A heading is not an item (PLAN-todo-tool.md §10.2 step 4): an open item with
+    no work, used as a group by open items (their parent, or a todo.group: tag
+    naming its id), is a WARN, so a store still holding headings is not red while
+    its owner converts them. Not a report (its work is the owner's). A split item
+    with no work is one too: the imported headings inc-2..12 are size L."""
+    users = {}
+    for s in ws.stores:
+        for it in s.items:
+            for g in [it.get("parent")] + tags.group_names(it):
+                if g:
+                    users.setdefault(g, []).append(it["id"])
+    for it in store.items:
+        if it.get("work") or it.get("kind") == VOCAB.role("report_kind"):
+            continue
+        who = list(dict.fromkeys(users.get(it["id"], [])))
+        if who:
+            shown = ", ".join(who[:5]) + (f" (+{len(who) - 5})" if len(who) > 5 else "")
+            out.append(("WARN", "groups", it["id"], f"a heading, not an item: it has no work and {len(who)} open "
+                        f"item(s) use it as a group ({shown}). Tag them {tags.GROUP_NS}:{it['id']} "
+                        f"(todo edit ID --tags ...), then close it (PLAN-todo-tool.md §10.2 step 4)"))
+
+
 def check_reports(store, ws, out):
     for it in store.items:
         rt = it.get("reported_to")
@@ -489,6 +512,7 @@ def check_store(store, ws):
     check_sizes(store, ws, out)
     check_blockers(store, ws, out)
     check_tags(store, ws, out)
+    check_groups(store, ws, out)
     check_reports(store, ws, out)
     check_workspace(store, ws, out)
     check_render(store, out)

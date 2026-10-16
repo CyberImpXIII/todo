@@ -208,7 +208,7 @@ each have one setter and are refused everywhere else:
 | `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve`, or by `todo import` from "approved: Jacob <date>" in an item's lead, read by `todo dispatchable`. While an item is dispatched it may hold rule TD-B1's approval instead (its `source` the rule's), written by `todo dispatch` only |
 | `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
 | `retire` | the check that retires an interim rule |
-| `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
+| `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:`, `ref:` and `todo.group:` (below); the rest are derived from the fields and never stored |
 | `plan_pins` | `[{plan, digest, date}]`: for each `plan:FILE§n` tag, the sha256 of that section's text and the day it was read; set by `--pin-plan` only, read by `todo stale-plans` |
 | `added` | date added |
 | `done` | date closed; null while open |
@@ -236,7 +236,11 @@ Every `parent`, `blocked_by` id and report counterpart also gives a
 | `status` | its state in its owner's vocabulary | the `status` field |
 | `ref` | another record it points at, by id: `<service>:<id>` | set by hand, and from `parent`, `blocked_by`, `reported_to` |
 | `todo.work` | the item's work (this service's own namespace) | the `work` field |
+| `todo.group` | a group the item belongs to, by name (lowercase letters, digits, `.`, `_`, `-`), such as the id of the heading it replaced; this service's own namespace, so a group outlives its heading | set by hand |
 
+A namespace of this service's own is under its prefix (`todo.`), as PLAN-services.md
+§3 row 2 says, so the plan's `group:` (PLAN-todo-tool.md §10.2 step 4) is
+`todo.group:` here; `vocab.json` refuses an own namespace outside the prefix.
 The first seven are a local copy of PLAN-services.md §3's shared table:
 `tests/test_tags.py` holds them equal to it, in order, when the plan is present.
 The shared vocabulary belongs to the architecture service, which does not exist
@@ -510,6 +514,7 @@ gate that stopped running shows as a missing line:
 | sizes | an open L item has no children (`todo split` it); an unsized open item is counted (`INFO`), since it is never ready |
 | blockers | a `blocked_by` that is not a non-empty list of ids (`schema`), an id that resolves in no scanned store or history, or a chain of `blocked_by` that leads an open item back to itself (nothing in a cycle can ever be ready). A prefix no scanned store holds is a `WARN`, as for parents |
 | tags | a stored tag outside the vocabulary, in a namespace derived from a field, with a value a closed namespace does not hold, or of the wrong form; a `ref:todo:<id>` that resolves nowhere (dangling). A `ref:` to another service's record is counted (`INFO`), unchecked until a registry resolves it; a `ref:todo:` prefix no scanned store holds is a `WARN`, as for parents |
+| groups | a `WARN`, never red: an open item with no `work` (split or not), not a report, that open items use as a group (as their `parent`, or by a `todo.group:<its id>` tag). A heading is not an item (PLAN-todo-tool.md §10.2 step 4): tag its children `todo.group:<name>` and close it |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere |
 | workspace | two stores share a prefix or a repo name |
 | render | `TODO.md` is not the render of `todo.json`: missing, stale (an unedited render of another store or format), hand-edited or hand-written |

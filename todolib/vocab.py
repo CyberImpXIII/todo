@@ -57,6 +57,10 @@ class Vocab:
         self.service = data["tags"]["service"]
         self.namespaces = {**data["tags"]["shared"], **data["tags"]["own"]}
         self.shared_namespaces = list(data["tags"]["shared"])
+        stray = [ns for ns in data["tags"]["own"] if not ns.startswith(self.service + ".")]
+        if stray:
+            raise ValueError(f"vocab.json: own tag namespace(s) {stray} are not under the service prefix "
+                             f"{self.service}. (PLAN-services.md §3: the shared namespaces are defined once)")
         for ns, spec in self.namespaces.items():
             if "from" in spec and spec["from"] not in self.fields:
                 raise ValueError(f"vocab.json: tag namespace {ns} derives from {spec['from']!r}, which is no field")

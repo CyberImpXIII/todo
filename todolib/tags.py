@@ -20,6 +20,14 @@ PLAN_RE = re.compile(r"^PLAN-[A-Za-z0-9._-]+\.md(§[0-9A-Za-z.-]+)?$")
 # A global id: a service prefix, then that service's own id (which may hold ':', '/', '#').
 GLOBAL_RE = re.compile(r"^([a-z][a-z0-9.-]*):(\S+)$")
 PREFIX = VOCAB.service + ":"
+# A todo.group: value, a name (rule "name").
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+# The form checks problem() knows; a vocab.json `rule` naming another would check nothing.
+RULES = ("plan", "ref", "name")
+_unknown = {ns: s["rule"] for ns, s in VOCAB.namespaces.items() if "rule" in s and s["rule"] not in RULES}
+if _unknown:
+    raise ValueError(f"vocab.json: tag namespace rule(s) {_unknown} are none of {', '.join(RULES)} (todolib/tags.py)")
+GROUP_NS = next(ns for ns, s in VOCAB.namespaces.items() if s.get("rule") == "name")
 
 
 def local_id(text):
@@ -72,7 +80,15 @@ def problem(tag, stored=False):
         return f"plan:{value} is not PLAN-<name>.md or PLAN-<name>.md§<section>"
     if spec.get("rule") == "ref" and not GLOBAL_RE.match(value):
         return f"ref:{value} is not <service>:<id>"
+    if spec.get("rule") == "name" and not NAME_RE.match(value):
+        return f"{ns}:{value} is not a name: lowercase letters, digits, '.', '_' and '-'"
     return None
+
+
+def group_names(item):
+    """The groups an item's stored tags put it in."""
+    head = GROUP_NS + ":"
+    return [t[len(head):] for t in (item.get("tags") or []) if isinstance(t, str) and t.startswith(head)]
 
 
 def ref_target(tag):
