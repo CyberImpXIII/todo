@@ -33,6 +33,12 @@ store scanned from there: `--root`, else `TODO_ROOT`, else the folder itself whe
 it is in no git repo. A write still needs its store, and `-C` naming a folder
 without one stays an error rather than borrowing another store's answer.
 
+`--repo R` on `list`, `ready`, `dispatchable`, `blockers` and `stale-plans` names a
+repo the scan knows: a readable store's own, or one an open or closed item names.
+Any other is refused (exit 1) with the known repos listed, never answered "0
+items"; with a store unreadable it is `UNCHECKED` (exit 3), since that store may
+hold it (tests/test_repo_filter.py). `history --repo` names a store.
+
 ## Commands
 
 <!-- commands -->

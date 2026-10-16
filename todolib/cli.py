@@ -192,6 +192,27 @@ class Unchecked(TodoError):
     store holds): exit 3, never a pass and never a failure."""
 
 
+def known_repo(ws, repo):
+    """Refuse a --repo filter no scanned store knows, so a misspelt repo is an error,
+    never "0 items" (exit 0). Known: each readable store's own repo, and every repo an
+    open or closed item names. With a store unreadable, an unknown repo is Unchecked
+    (exit 3): that store may hold it. One reader for every --repo filter."""
+    if not repo:
+        return
+    known = {s.repo for s in ws.stores if s.data}
+    for s in ws.stores:
+        known.update(it.get("repo") for it in s.items)
+        known.update(it.get("repo") for it in s.closed)
+    known.discard(None)
+    if repo in known:
+        return
+    names = ", ".join(sorted(known)) or "none"
+    if ws.errors:
+        raise Unchecked(f"--repo {repo!r}: no readable store knows it, and {len(ws.errors)} store(s) could not be "
+                        f"read (known: {names})")
+    raise TodoError(f"--repo {repo!r}: no scanned store or item names that repo (known: {names})")
+
+
 def resolve_record(ws, text):
     """(item, where, store) for an id, `todo:td-3` or `td-3`. Unchecked for an id
     this scan cannot judge; TodoError for a malformed id or a dangling one."""
@@ -630,6 +651,7 @@ def cmd_list(args):
     if args.status == VOCAB.closed:
         raise TodoError("closed items are in history: todo history")
     ws = workspace(args, store)
+    known_repo(ws, args.repo)
     scope = ws.stores if (args.all or args.repo) else [store]
     n = 0
     for s in scope:
@@ -867,7 +889,9 @@ def ready_items(ws, repo=None, work=None, refused=None):
 def cmd_ready(args):
     store = open_store(args)
     n, refused = 0, []
-    for it, _ in ready_items(workspace(args, store), args.repo, args.work, refused):
+    ws = workspace(args, store)
+    known_repo(ws, args.repo)
+    for it, _ in ready_items(ws, args.repo, args.work, refused):
         print(f"{it['id']:<8} {it['repo']:<20} {it['work']:<9} {it.get('size'):<2} {it['title'][:TITLE_WIDTH]}")
         n += 1
     if n == 0:
@@ -1007,6 +1031,7 @@ def dispatch_view(ws, repo=None):
 
 def cmd_dispatchable(args):
     ws = read_workspace(args)
+    known_repo(ws, args.repo)
     view = dispatch_view(ws, args.repo)
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
@@ -1051,7 +1076,9 @@ def cmd_dispatchable(args):
 def cmd_blockers(args):
     """Every open item that is not dispatchable, across every scanned store, grouped
     by its root and ranked by how many wait behind it (todolib/blockers.py)."""
-    v = rootlib.view(read_workspace(args), args.repo)
+    ws = read_workspace(args)
+    known_repo(ws, args.repo)
+    v = rootlib.view(ws, args.repo)
     if args.json:
         print(json.dumps(v, indent=1, ensure_ascii=False))
     else:
@@ -1108,7 +1135,9 @@ def stale_plans_view(ws, args):
 
 
 def cmd_stale_plans(args):
-    view = stale_plans_view(read_workspace(args), args)
+    ws = read_workspace(args)
+    known_repo(ws, args.repo)
+    view = stale_plans_view(ws, args)
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
     else:
