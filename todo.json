@@ -180,7 +180,7 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "6a0535436528968968bee73dc5a915322e7ace1e8fffa6558fd15a5a231bec9a",
+          "digest": "55621f435a82bc2eabd079273a5d9bb6107af828f52b5c94307ad909024745b8",
           "date": "2026-10-15"
         }
       ],
@@ -215,7 +215,7 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "6a0535436528968968bee73dc5a915322e7ace1e8fffa6558fd15a5a231bec9a",
+          "digest": "55621f435a82bc2eabd079273a5d9bb6107af828f52b5c94307ad909024745b8",
           "date": "2026-10-15"
         }
       ]
@@ -356,7 +356,7 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "6a0535436528968968bee73dc5a915322e7ace1e8fffa6558fd15a5a231bec9a",
+          "digest": "55621f435a82bc2eabd079273a5d9bb6107af828f52b5c94307ad909024745b8",
           "date": "2026-10-15"
         }
       ],
@@ -400,5 +400,5 @@
       "imported": null
     }
   ],
-  "seal": "e5af9a5f5aea6b72"
+  "seal": "964ee546040c2e9d"
 }
