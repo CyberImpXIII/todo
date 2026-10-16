@@ -5,6 +5,7 @@
   {"name": "test.audit", "run": "python3 -m unittest tests.test_audit", "files": ["tests/test_audit.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.blocked", "run": "python3 -m unittest tests.test_blocked", "files": ["tests/test_blocked.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.approval_rule", "run": "python3 -m unittest tests.test_approval_rule", "files": ["tests/test_approval_rule.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.report_fallback", "run": "python3 -m unittest tests.test_report_fallback", "files": ["tests/test_report_fallback.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.steps", "run": "python3 -m unittest tests.test_steps", "files": ["tests/test_steps.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.research_kind", "run": "python3 -m unittest tests.test_research_kind", "files": ["tests/test_research_kind.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.groups", "run": "python3 -m unittest tests.test_groups", "files": ["tests/test_groups.py"], "except": ["tests/", "TODO.md"]},

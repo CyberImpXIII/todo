@@ -14,7 +14,8 @@ from . import steps as stepping
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
-                    id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today, write_atomic)
+                    file_report_bullet, id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today,
+                    write_atomic)
 from .vocab import VOCAB
 
 HAND_EDIT_DIFF_MAX = 4000
@@ -634,6 +635,11 @@ def cmd_report(args):
                 owner.items.append(counterpart)
                 their = counterpart["id"]
                 commit(owner)
+        filed = None
+        if not owner and not hidden:
+            filed = file_without_store(ws, store, item, args.to)
+            if filed and filed[1]:
+                item["evidence"] = ((item.get("evidence") + "\n") if item.get("evidence") else "") + filed[2]
         item["kind"] = VOCAB.role("report_kind")
         item["reported_to"] = {"repo": args.to, "date": (rt or {}).get("date") or today(), "their_id": their}
         validate(item, require_waits=False)
@@ -646,9 +652,39 @@ def cmd_report(args):
     elif hidden:
         print(f"reported {args.id} to {args.to}: a hidden folder, which the scan never enters, so this report "
               f"never pairs. Relay it to its owner by hand (your final report) and close {args.id} by its done_when.")
+    elif filed:
+        path, written, _ = filed
+        print(f"reported {args.id} to {args.to}: it has no store, so "
+              + (f"a bullet marked {tagging.global_id(args.id)} was added to {path}" if written else
+                 f"{path} names {tagging.global_id(args.id)} already: nothing added")
+              + f". Commit it there (it is {args.to}'s file); `todo check` lists the report as unpaired "
+              f"until {args.to} has a todo.json, then re-run this to pair it.")
     else:
         print(f"reported {args.id} to {args.to}: no store for {args.to} in the scan, so no counterpart yet. "
               f"`todo check` lists it as unpaired; re-run this once {args.to} has a todo.json.")
+
+
+def file_without_store(ws, store, item, repo):
+    """A report to a git repo the scan finds with no store is filed in its
+    hand-written TODO.md (PLAN-architecture.md §11 S4), never left only here.
+    (path, written, evidence line), or None when no such repo is found, or more
+    than one folder bears the name (then nothing is written: which is meant?)."""
+    dirs = [d for d in scan_stores(ws.root, storeless=True) if d.name == repo and not (d / STORE_FILE).is_file()]
+    if len(dirs) != 1:
+        if len(dirs) > 1:
+            print(f"{len(dirs)} repos are named {repo} ({', '.join(os.path.relpath(d, ws.root) for d in dirs)}): "
+                  "none is written to")
+        return None
+    marker = tagging.global_id(item["id"])
+    where = os.path.relpath(store.dir, ws.root)
+    lines = [f"- {marker} from {store.repo} ({today()}): {item['title']}"]
+    for label, value in (("evidence", item.get("evidence")), ("done when", item.get("done_when"))):
+        for i, ln in enumerate(str(value or "").splitlines()):
+            lines.append(f"  {label + ': ' if i == 0 else ''}{ln}".rstrip())
+    lines.append(f"  (todo -C {where} show {item['id']}; filed here because {repo} has no todo store)")
+    path, written = file_report_bullet(dirs[0], marker, lines)
+    rel = os.path.relpath(path, ws.root)
+    return path, written, f"filed {today()} in {rel} as a bullet marked {marker}: {repo} has no store (their_id stays null)"
 
 
 def cmd_list(args):

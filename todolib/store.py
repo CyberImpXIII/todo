@@ -133,6 +133,42 @@ def write_atomic(path, text, readonly=False):
     os.replace(tmp, path)
 
 
+def marker_in(text, marker):
+    """True when text names marker (todo:td-3) as a whole id: never todo:td-30."""
+    return re.search(r"(?<![\w:-])" + re.escape(marker) + r"(?![\w-])", text) is not None
+
+
+def file_report_bullet(repo_dir, marker, lines):
+    """The one write todo makes in a repo with no store (PLAN-architecture.md §11
+    S4): `lines` (a bullet and its indented continuation lines) go into the repo's
+    vocab.json report_fallback.file, at the end of the report_fallback.heading
+    section (an h2 added at the end of the file when absent; the file is made when
+    missing). Nothing is written when the file already names marker.
+    Returns (path, written)."""
+    path = Path(repo_dir) / VOCAB.fallback_file
+    text = path.read_text() if path.is_file() else ""
+    if marker_in(text, marker):
+        return path, False
+    rows = text.splitlines()
+    heading = "## " + VOCAB.fallback_heading
+    if heading in rows:
+        end = rows.index(heading) + 1
+        while end < len(rows) and not re.match(r"#{1,2} ", rows[end]):
+            end += 1
+        while not rows[end - 1].strip():
+            end -= 1  # the heading line itself stops it
+        block = ([""] if rows[end - 1] == heading else []) + list(lines)
+        if end < len(rows) and rows[end].strip():
+            block.append("")  # the next heading follows at once
+        rows[end:end] = block
+    else:
+        while rows and not rows[-1].strip():
+            rows.pop()
+        rows += ([""] if rows else []) + [heading, ""] + list(lines)
+    write_atomic(path, "\n".join(rows) + "\n")
+    return path, True
+
+
 def content_seal(data):
     """The digest of a store file's content with its seal left out. Canonical
     JSON, so it judges what the file says, not how it is spaced."""

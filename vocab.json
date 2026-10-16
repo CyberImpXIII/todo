@@ -88,6 +88,11 @@
     "step_kind": "jacob-step",
     "step_resolution": "done-checked"
   },
+  "report_fallback": {
+    "_comment": "`todo report ID --to REPO` when REPO is a git repo the scan finds with no todo store (PLAN-architecture.md §11 S4): one bullet in its hand-written `file`, under the `heading` (an h2, added at the end when absent), marked with the item's todo:<id> so a second run adds nothing. The item's evidence records it; their_id stays null until REPO has a store.",
+    "file": "TODO.md",
+    "heading": "Reported here by other repos (todo report)"
+  },
   "steps": {
     "_comment": "`todo steps --run` (PLAN-architecture.md §11 S7): each open jacob-step's done_check runs as [shell, '-c', done_check] in the store's folder, stdin closed, and is killed after timeout_s seconds. Exit 0 closes the step (resolution roles.step_resolution); another exit leaves it open; a timeout or a command that cannot start is unchecked (exit 3), never a pass.",
     "shell": "/bin/sh",

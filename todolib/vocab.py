@@ -69,6 +69,11 @@ class Vocab:
         if not self.research_service or ":" in self.research_service:
             raise ValueError("vocab.json: research.service is the research service's id prefix, without ':'")
         self.research_id = re.compile(rs["id"])
+        rf = data["report_fallback"]
+        self.fallback_file = str(rf.get("file") or "")
+        self.fallback_heading = str(rf.get("heading") or "").strip()
+        if not self.fallback_file or "/" in self.fallback_file or not self.fallback_heading or "\n" in self.fallback_heading:
+            raise ValueError("vocab.json: report_fallback names a file in the repo's top folder and a one-line heading")
         st = data["steps"]
         self.step_shell = str(st.get("shell") or "")
         self.step_timeout = st.get("timeout_s")
