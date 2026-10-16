@@ -3,8 +3,9 @@
 Outside this tool an item's id is `todo:<id>` (todo:td-3). Its tags are
 `<namespace>:<value>` in the namespaces vocab.json `tags` declares. Most are
 derived from the item's fields, so they cannot disagree with them: `repo:`,
-`kind:`, `status:`, `todo.work:`, and a `ref:todo:<id>` for its parent, its
-blocked_by ids and its report's counterpart. The rest (`plan:`, `origin:`,
+`kind:`, `status:`, `todo.work:`, a `ref:todo:<id>` for its parent, its
+blocked_by ids and its report's counterpart, and a `ref:research:rs-<n>` for each
+id in its `research` field. The rest (`plan:`, `origin:`,
 `trust:`, a `ref:` to any other record) are set by hand in the `tags` field.
 
 One function, `problem()`, judges a tag, so `add`/`edit`, `find` and `check`
@@ -54,6 +55,9 @@ def derived(item, store_repo=None):
     refs = [item.get("parent")] + list(item.get("blocked_by") or [])
     refs.append((item.get("reported_to") or {}).get("their_id"))
     out += [f"ref:{global_id(r)}" for r in dict.fromkeys(r for r in refs if r)]
+    research = item.get("research")
+    if isinstance(research, list):
+        out += [f"ref:{VOCAB.research_service}:{r}" for r in dict.fromkeys(research) if isinstance(r, str)]
     return out
 
 

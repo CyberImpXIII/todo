@@ -64,6 +64,11 @@ class Vocab:
         for ns, spec in self.namespaces.items():
             if "from" in spec and spec["from"] not in self.fields:
                 raise ValueError(f"vocab.json: tag namespace {ns} derives from {spec['from']!r}, which is no field")
+        rs = data["research"]
+        self.research_service = str(rs.get("service") or "").strip()
+        if not self.research_service or ":" in self.research_service:
+            raise ValueError("vocab.json: research.service is the research service's id prefix, without ':'")
+        self.research_id = re.compile(rs["id"])
         self.import_rules = data["import"]["headings"]
         imp = data["import"]
         self.done_marker = re.compile(imp["done_marker"])

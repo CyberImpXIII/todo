@@ -113,7 +113,7 @@ class Declared(Case):
 class Handled(Case):
     def test_every_kind_status_work_and_field_renders(self):
         a = self.repo("a", "aa")
-        extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"]}
+        extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"]}
         for kind in VOCAB.kinds:
             if kind == VOCAB.role("report_kind"):
                 continue

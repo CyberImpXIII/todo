@@ -100,6 +100,19 @@ def plan_pins_problem(it):
     return None
 
 
+def research_problem(value):
+    """Why an item's `research` is malformed, or None: null, or a non-empty list of the
+    research service's ids (vocab.json `research`). add, edit and check share it."""
+    if value is None:
+        return None
+    if not (isinstance(value, list) and value and all(isinstance(x, str) and VOCAB.research_id.match(x) for x in value)):
+        return (f"research must be a non-empty list of {VOCAB.research_service} ids matching "
+                f"{VOCAB.research_id.pattern} (null when none)")
+    if len(set(value)) != len(value):
+        return "research names an id twice"
+    return None
+
+
 def check_item(it, where, store, out):
     iid = it.get("id", "?")
     fields = set(VOCAB.field_names())
@@ -140,6 +153,9 @@ def check_item(it, where, store, out):
     files = it.get("files")
     if files is not None and not (isinstance(files, list) and all(isinstance(x, str) for x in files)):
         out.append(("FAIL", "schema", iid, "files must be a list of paths"))
+    why = research_problem(it.get("research"))
+    if why:
+        out.append(("FAIL", "schema", iid, why))
     blockers = it.get("blocked_by")
     if blockers is not None and not (isinstance(blockers, list) and blockers
                                      and all(isinstance(x, str) and ID_RE.match(x) for x in blockers)):
@@ -308,6 +324,8 @@ def check_tags(store, ws, out):
     it, and counted, never passed silently."""
     foreign = 0
     for it in list(store.items) + list(store.closed):
+        if isinstance(it.get("research"), list):
+            foreign += len(it["research"])  # its derived ref:research: tags, as unchecked as a stored one
         given = it.get("tags")
         if given is None:
             continue

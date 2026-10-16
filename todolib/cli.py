@@ -104,7 +104,7 @@ def validate(item, where="store", require_waits=True):
     if missing:
         flags = ", ".join("--" + f.replace("_", "-") for f in missing)
         raise TodoError(f"a {item['kind']} that is {item['status']} needs {flags}")
-    why = checks.waits_on_problem(item, require_waits)
+    why = checks.waits_on_problem(item, require_waits) or checks.research_problem(item.get("research"))
     if why:
         raise TodoError(why)
 
@@ -365,7 +365,7 @@ def cmd_add(args):
         item = new_item(title=args.title, kind=args.kind, status=args.status or VOCAB.role("default_status"),
                         evidence=args.evidence, probe=args.probe, parent=args.parent,
                         repo=args.repo or store.repo, work=args.work, size=args.size, files=args.files,
-                        done_when=args.done_when, retire=args.retire, waits_on=args.waits_on, added=today())
+                        research=args.research or None, done_when=args.done_when, retire=args.retire, waits_on=args.waits_on, added=today())
         if item["status"] == VOCAB.closed:
             raise TodoError("add makes open items; close one with todo done")
         if args.reported_to:
@@ -383,7 +383,7 @@ def cmd_add(args):
 
 
 EDITABLE = ["title", "kind", "status", "evidence", "probe", "parent", "blocked_by", "waits_on", "repo", "work", "size",
-            "files", "done_when", "retire", "tags"]
+            "files", "research", "done_when", "retire", "tags"]
 
 
 def cmd_edit(args):
@@ -1304,6 +1304,10 @@ def add_item_fields(p, editing):
     p.add_argument("--size", choices=list(VOCAB.sizes) + ([""] if editing else []),
                    help=f"the estimate; {VOCAB.split_size} is split before it is started (todo split)")
     p.add_argument("--files", nargs="*")
+    p.add_argument("--research", nargs="*", metavar="RS_ID",
+                   help=f"the {VOCAB.research_service} service's question ids this item rests on "
+                        f"(rs-3 or {VOCAB.research_service}:rs-3); required on a research item"
+                        + ("; with no ids, clears them" if editing else ""))
     p.add_argument("--done-when", dest="done_when")
     p.add_argument("--retire")
     p.add_argument("--tags", nargs="*", metavar="TAG",
@@ -1411,6 +1415,10 @@ def normalise_ids(args):
         args.parent = tagging.local_id(args.parent)
     if getattr(args, "blocked_by", None):
         args.blocked_by = [tagging.local_id(b) for b in args.blocked_by]
+    if vars(args).get("research"):
+        # research:rs-3 is rs-3 there; stored bare, as blocked_by stores todo ids
+        head = VOCAB.research_service + ":"
+        args.research = [r[len(head):] if r.startswith(head) else r for r in args.research]
 
 
 def main(argv=None):

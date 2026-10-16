@@ -6,6 +6,7 @@
     "suspicion": {"doc": "an unconfirmed suspicion, with the probe that would settle it", "heading": "Unconfirmed suspicions", "always": true, "requires": ["probe"]},
     "report":    {"doc": "a problem reported to another repo's owner; its counterpart lives in their store", "heading": "Reported to other owners", "always": true, "requires": ["reported_to"]},
     "temp":      {"doc": "an interim rule, with the check that retires it", "heading": "Interim rules", "always": false, "requires": ["retire"]},
+    "research":  {"doc": "a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its rs- ids and never restates the answer", "heading": "Research", "always": false, "requires": ["research"]},
     "note":      {"doc": "anything else worth keeping; the import default", "heading": "Notes", "always": false, "requires": []}
   },
   "statuses": {
@@ -99,6 +100,7 @@
     "work":        {"doc": "one of the works", "label": "work"},
     "size":        {"doc": "one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready", "label": "size", "optional": true},
     "files":       {"doc": "paths the work touches", "label": "files"},
+    "research":    {"doc": "the research service's questions this item rests on, by id (`rs-<n>`, PLAN-services.md §3 S7 R1); required on a research item; each gives the item a `ref:research:rs-<n>` tag; set by `todo add/edit --research`", "label": "research", "optional": true},
     "done_when":   {"doc": "the observable that closes it", "label": "done when"},
     "handoff":     {"doc": "{date, text, commit}: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief`", "label": "handoff", "optional": true},
     "approved":    {"doc": "{by, date, source}: Jacob's go-ahead to start the work (`by` is `approval.by` below), the day he gave it and where (his words, or a pointer to them); set by `todo approve`, or by `todo import` from \"approved: Jacob <date>\" in an item's lead (import.approval), read by `todo dispatchable`", "label": "approved", "optional": true},
@@ -127,6 +129,11 @@
       "todo.work": {"doc": "the item's work", "from": "work"},
       "todo.group": {"doc": "a group the item belongs to, by name: a heading turned into a tag (PLAN-todo-tool.md §10.2 step 4), such as the id of the heading it replaced; lowercase letters, digits, '.', '_' and '-'", "rule": "name"}
     }
+  },
+  "research": {
+    "_comment": "The research service's ids (PLAN-services.md §3 S7 R1: `research ask` records a question as rs-<n>). An item's `research` field holds them bare; outside, they are <service>:<id>. Unchecked (INFO in todo check) until a registry resolves that service's ids: tools/research has no CLI yet.",
+    "service": "research",
+    "id": "^rs-[1-9][0-9]*$"
   },
   "import": {
     "_comment": "Kind and status of an imported block come from its section headings, deepest heading first, first rule that matches (case-insensitive, from a word start: `confirmed` does not match 'Unconfirmed'). A block whose own text starts with the done marker goes to history whatever its heading. `confirmed` → done: a confirmed finding is settled work (PLAN-todo-tool.md §9 step 1, td-22, Jacob 2026-10-09).",
