@@ -29,6 +29,12 @@ SEAL_KEY = "seal"
 SEAL_LEN = 16
 STORE_KEYS = ["format", "repo", "prefix", "next", "render_gate_from", "hand_edits", "items", SEAL_KEY]
 HISTORY_KEYS = ["format", "repo", "items", SEAL_KEY]
+# The store's records that are not items (PLAN-todo-tool.md §10.3b, §10.5): the
+# decision tables `todo decisions` numbered, with the answers read against each
+# (append-only), and each detector's last run. Written on first use, sealed and
+# 0444 like the other two; absent reads as empty.
+RECORDS_FILE = "todo-records.json"
+RECORDS_KEYS = ["format", "repo", "tables", "runs", SEAL_KEY]
 PREFIX_RE = re.compile(r"^[a-z][a-z0-9]{0,7}$")
 ID_RE = re.compile(r"^([a-z][a-z0-9]{0,7})-([0-9]+)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -221,8 +227,10 @@ class Store:
         self.path = self.dir / STORE_FILE
         self.history_path = self.dir / HISTORY_FILE
         self.render_path = self.dir / RENDER_FILE
+        self.records_path = self.dir / RECORDS_FILE
         self.data = None
         self.history = None
+        self.records = None
         self.seals = {}
 
     # -- reading -----------------------------------------------------------
@@ -243,9 +251,19 @@ class Store:
                 raise TodoError(f"{self.history_path} does not parse: {e}")
         else:
             self.history = None
+        self.records = None
+        if self.records_path.is_file():
+            try:
+                self.records = json.loads(self.records_path.read_text())
+            except ValueError as e:
+                raise TodoError(f"{self.records_path} does not parse: {e}")
         self.seals = {STORE_FILE: seal_state(self.data) if isinstance(self.data, dict) else "broken"}
         if self.history is not None:
             self.seals[HISTORY_FILE] = seal_state(self.history) if isinstance(self.history, dict) else "broken"
+        if self.records is not None:
+            # never written before seals: a records file without one was unsealed by hand
+            self.seals[RECORDS_FILE] = (seal_state(self.records) if isinstance(self.records, dict)
+                                        and SEAL_KEY in self.records else "broken")
         for name, state in self.seals.items():
             if state == "legacy" and committed_sealed(self.dir, name):
                 self.seals[name] = "downgraded"
@@ -270,6 +288,20 @@ class Store:
     @property
     def closed(self):
         return (self.history or {}).get("items", [])
+
+    @property
+    def tables(self):
+        return (self.records or {}).get("tables", [])
+
+    @property
+    def runs(self):
+        return (self.records or {}).get("runs", {})
+
+    def ensure_records(self):
+        """The records file's content, made empty on first use; save() writes it."""
+        if self.records is None:
+            self.records = {"format": FORMAT, "repo": self.repo, "tables": [], "runs": {}}
+        return self.records
 
     def find(self, item_id):
         """(item, "store"|"history") or (None, None)."""
@@ -344,6 +376,10 @@ class Store:
         write_atomic(self.history_path, dump(self.history), readonly=True)
         write_atomic(self.path, dump(self.data), readonly=True)
         self.seals = {STORE_FILE: "sealed", HISTORY_FILE: "sealed"}
+        if self.records is not None:
+            self.records = sealed(self.records)
+            write_atomic(self.records_path, dump(self.records), readonly=True)
+            self.seals[RECORDS_FILE] = "sealed"
 
 
 def store_dir_for(cwd, explicit=None):

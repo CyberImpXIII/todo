@@ -57,8 +57,13 @@ def field_value(name, value):
     if name == "plan_pins" and isinstance(value, list):
         return "; ".join(f"{p.get('plan')} as of {p.get('date')} (sha256 {str(p.get('digest'))[:12]})"
                          if isinstance(p, dict) else repr(p) for p in value)
+    if name == "options" and isinstance(value, list):
+        return "; ".join(f"{o.get('name')} = {o.get('text')}" if isinstance(o, dict) else repr(o) for o in value)
+    if name == "jacob_words" and isinstance(value, list):
+        return "; ".join(f"{w.get('date')}, {w.get('table')} row {w.get('row')}: {w.get('text')}"
+                         if isinstance(w, dict) else repr(w) for w in value)
     if isinstance(value, list):
-        return ", ".join(value)
+        return ", ".join(map(str, value))
     return str(value)
 
 

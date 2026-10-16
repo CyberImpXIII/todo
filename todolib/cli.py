@@ -1,6 +1,7 @@
 """The todo CLI: the only way into a store. `todo --help` lists the commands;
 README.md documents each one, and tests/test_docs.py holds the two equal."""
 import argparse
+import contextlib
 import difflib
 import json
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 
 from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
+from . import decisions as decide
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import tags as tagging
@@ -81,11 +83,13 @@ def commit(store):
     write_render(store)
 
 
-def validate(item, where="store", require_waits=True):
+def validate(item, where="store", require_waits=True, require_decision=False):
     """Refuse an item `check` would fail: declared vocabulary, required fields.
     `require_waits` False lets a waiting-jacob item written before waits_on existed
     be changed in other fields without naming one (check lists it); a new item, a
-    status change or a waits_on change always needs it."""
+    status change or a waits_on change always needs it. `require_decision`: a
+    decision must carry decisions.requires (a new one, or one whose kind or decision
+    fields change); an older one is listed by check instead."""
     for f in checks.SINGLE_LINE:
         if isinstance(item.get(f), str) and "\n" in item[f]:
             raise TodoError(f"{f} must be one line")
@@ -109,6 +113,45 @@ def validate(item, where="store", require_waits=True):
     why = checks.waits_on_problem(item, require_waits) or checks.research_problem(item.get("research"))
     if why:
         raise TodoError(why)
+    bad = decide.field_problems(item)
+    if bad:
+        raise TodoError("; ".join(bad))
+    lacking = decide.missing(item) if require_decision and decide.is_decision(item) else []
+    if require_decision and decide.is_decision(item) and item["status"] not in (decide.D["status"], VOCAB.closed):
+        raise TodoError(f"a {item['kind']} is {decide.D['status']} until Jacob answers it: "
+                        f"--status {decide.D['status']} (todo approve, todo done --as, todo answer close it)")
+    if lacking:
+        raise TodoError(f"a {item['kind']} needs {', '.join('--' + f.replace('_', '-') for f in lacking)} "
+                        "(PLAN-todo-tool.md §10.3: what it hinges on, the plan section, the recommended answer)")
+
+
+def resolve_pointer(ws, args, pointer):
+    """Refuse a decision pointer the plans CLI cannot read: the table's FILE §n is
+    what a Decisions table is checked by too, and one that resolves nowhere asks Jacob about nothing."""
+    cli_path, why = plans.resolve_cli(args.plans_cli)
+    if why:
+        raise TodoError(f"--pointer {pointer}: cannot be read ({why})")
+    state, value = plans.show(cli_path, plans_dir(args, ws), decide.pointer_ref(pointer))
+    if state != plans.OK:
+        raise TodoError(f"--pointer {pointer}: {value}")
+
+
+def decision_args(args, item):
+    """The decision fields given as flags, normalised: {field: value} ('' clears)."""
+    out = {}
+    if args.pointer is not None:
+        out["pointer"] = decide.normal_pointer(args.pointer) if args.pointer.strip() else ""
+        if out["pointer"] is None:
+            raise TodoError(f"--pointer {args.pointer!r}: FILE §n, e.g. 'PLAN-x.md §3'")
+    for f in ("hinges_on", "recommend"):
+        if getattr(args, f) is not None:
+            out[f] = getattr(args, f).strip()
+    if args.option is not None:
+        try:
+            out["options"] = [decide.parse_option(o) for o in args.option if o.strip()]
+        except ValueError as e:
+            raise TodoError(str(e))
+    return out
 
 
 def work_dir(ws, store, item):
@@ -331,7 +374,7 @@ def print_item(it, where, store, ws):
             for ln in v.split("\n"):
                 print("  " + ln)
             continue
-        if name in ("handoff", "approved", "dispatched", "plan_pins"):
+        if name in ("handoff", "approved", "dispatched", "plan_pins", "options", "jacob_words"):
             v = field_value(name, v)
         elif isinstance(v, dict):
             v = ", ".join(f"{k}={v[k]}" for k in v)
@@ -364,17 +407,28 @@ def cmd_add(args):
         require_clean(store)
         ws = workspace(args, store)
         resolve_parent(ws, args.parent)
-        item = new_item(title=args.title, kind=args.kind, status=args.status or VOCAB.role("default_status"),
+        decision = args.kind == VOCAB.role("decision_kind")
+        status = args.status or (decide.D["status"] if decision else VOCAB.role("default_status"))
+        if decision and status != decide.D["status"]:
+            raise TodoError(f"a {args.kind} is added {decide.D['status']}: it waits on Jacob's answer "
+                            "(todo approve, todo done --as, todo answer close it)")
+        waits_on = args.waits_on
+        if decision and waits_on is None:
+            waits_on = decide.D["waits_on"]
+        item = new_item(title=args.title, kind=args.kind, status=status,
                         evidence=args.evidence, probe=args.probe, parent=args.parent,
                         repo=args.repo or store.repo, work=args.work, size=args.size, files=args.files,
                         research=args.research or None, done_when=args.done_when, done_check=args.done_check,
-                        retire=args.retire, waits_on=args.waits_on, added=today())
+                        retire=args.retire, waits_on=waits_on, added=today())
+        item.update({f: v or None for f, v in decision_args(args, item).items()})
         if item["status"] == VOCAB.closed:
             raise TodoError("add makes open items; close one with todo done")
         if args.reported_to:
             item["reported_to"] = reported_to_value(ws, store, item, args.reported_to)
         check_reported_kind(item)
-        validate(item)
+        validate(item, require_decision=True)
+        if item.get("pointer"):
+            resolve_pointer(ws, args, item["pointer"])
         item["id"] = store.allocate()
         item["blocked_by"] = resolve_blockers(ws, item["id"], args.blocked_by)
         item["tags"] = resolve_tags(ws, args.tags)
@@ -418,6 +472,7 @@ def cmd_edit(args):
                                   if args.handoff.strip() else "")
         if args.reported_to is not None:
             changes["reported_to"] = reported_to_value(workspace(args, store), store, item, args.reported_to)
+        changes.update(decision_args(args, item))
         if not changes and not args.pin_plan:
             raise TodoError("nothing to change: name at least one field")
         if changes.get("status") == VOCAB.closed:
@@ -431,7 +486,10 @@ def cmd_edit(args):
             # waits_on names what clears a waiting-jacob item; leaving that status
             # ends the wait, so the field goes with it, said aloud below.
             cleared, updated["waits_on"], changes["waits_on"] = updated["waits_on"], None, ""
-        validate(updated, require_waits=bool({"status", "waits_on"} & set(changes)))
+        validate(updated, require_waits=bool({"status", "waits_on"} & set(changes)),
+                 require_decision=bool({"kind", *decide.FIELDS} & set(changes)))
+        if changes.get("pointer"):
+            resolve_pointer(workspace(args, store), args, updated["pointer"])
         check_reported_kind(updated)
         if "parent" in changes:
             resolve_parent(workspace(args, store), updated["parent"])
@@ -500,7 +558,71 @@ def reported_to_value(ws, store, item, value):
     return {"repo": repo, "date": date, "their_id": their or None}
 
 
+DECISION_RESOLUTION_ROLES = ("decision_accepted_resolution", "decision_option_resolution", "decision_rejected_resolution")
+
+
+@contextlib.contextmanager
+def locked_workspace(args, store):
+    """Every scanned store locked (in path order, as todo report does) and reloaded:
+    a command that may write items in several stores (a rejection, an answer) reads
+    and writes them all under one hold. Yields the workspace."""
+    ws = workspace(args, store)
+    with contextlib.ExitStack() as stack:
+        for s in sorted(ws.stores, key=lambda s: str(s.dir)):
+            stack.enter_context(s.lock())
+        for s in ws.stores:
+            s.load()
+        yield ws
+
+
+def reject(ws, item, store, reason, date):
+    """Close a decision as rejected; put every open item blocked by it, in any
+    scanned store, back to waiting on that decision. Returns (closed item, [(dependent
+    id, store)]); writes nothing (the caller commits every store touched)."""
+    closed = decide.rejected(item, date)
+    validate(closed, "history")
+    moved = []
+    for dep, s in decide.dependents(ws, item["id"]):
+        changed = dict(dep, **decide.requeued(dep, item, reason, date))
+        validate(changed)
+        dep.update(changed)
+        moved.append((dep["id"], s))
+    store.history["items"].append(closed)
+    store.items.remove(item)
+    return closed, moved
+
+
+def commit_all(stores):
+    for s in sorted({s.dir: s for s in stores}.values(), key=lambda s: str(s.dir)):
+        commit(s)
+
+
+def cmd_reject(args):
+    """`todo done ID --as rejected --reason R` (PLAN-todo-tool.md §10.3)."""
+    reason = (args.reason or "").strip()
+    if not reason or "\n" in reason:
+        raise TodoError("--reason: one line saying why it was rejected (his words, or a pointer to them)")
+    store = open_store(args)
+    with locked_workspace(args, store) as ws:
+        item = open_item(store, args.id)
+        if not decide.is_decision(item):
+            raise TodoError(f"{args.id} is a {item['kind']}: --as {args.as_} closes a {VOCAB.role('decision_kind')}; "
+                            "say how it closed with --resolution")
+        touched = {store.dir: store} | {s.dir: s for _, s in decide.dependents(ws, item["id"])}
+        for s in touched.values():
+            require_clean(s)
+        _, moved = reject(ws, item, store, reason, today())
+        commit_all(touched.values())
+    print(f"closed {args.id} as {args.as_}, moved to {store.history_path.name}")
+    for dep_id, s in moved:
+        print(f"  {dep_id} ({s.repo}) waits on Jacob again: {s.find(dep_id)[0]['waits_on']}")
+
+
 def cmd_done(args):
+    if args.as_ is not None:
+        return cmd_reject(args)
+    if args.reason is not None:
+        raise TodoError("--reason goes with --as; --resolution says how it closed")
     store = open_store(args)
     with store.lock():
         store.load()
@@ -523,6 +645,10 @@ def cmd_done(args):
         if args.resolution.strip() == VOCAB.role("step_resolution"):
             raise TodoError(f"resolution {args.resolution!r} is set by todo steps --run only, when the step's "
                             "done_check exits 0: run that, or say how this one closed")
+        if args.resolution.strip() in [VOCAB.role(r) for r in DECISION_RESOLUTION_ROLES]:
+            raise TodoError(f"resolution {args.resolution!r} closes a decision on Jacob's answer: todo approve ID "
+                            f"[--option NAME], todo done ID --as {VOCAB.role('decision_rejected_resolution')} "
+                            "--reason R, or todo answer")
         closed = dict(item, status=VOCAB.closed, done=today(), resolution=args.resolution)
         validate(closed, "history")
         store.history["items"].append(closed)
@@ -969,8 +1095,8 @@ def cmd_approve(args):
         require_clean(store)
         item = open_item(store, args.id)
         if args.clear:
-            if args.source is not None or args.date is not None:
-                raise TodoError("--clear takes no --source or --date")
+            if args.source is not None or args.date is not None or args.option is not None:
+                raise TodoError("--clear takes no --source, --date or --option")
             if not item.get("approved"):
                 raise TodoError(f"{args.id} carries no approval to clear")
             if item.get("dispatched"):
@@ -978,6 +1104,8 @@ def cmd_approve(args):
                                 f"clear that first (todo dispatch {args.id} --clear)")
             item["approved"] = None
             msg = f"cleared the approval of {args.id}"
+        elif args.option is not None and not decide.is_decision(item):
+            raise TodoError(f"--option chooses among a {VOCAB.role('decision_kind')}'s options, and {args.id} is a {item['kind']}")
         else:
             source = (args.source or "").strip()
             if not source or "\n" in source:
@@ -987,8 +1115,152 @@ def cmd_approve(args):
                 raise TodoError(f"--date {date!r}: a YYYY-MM-DD no later than today ({today()})")
             item["approved"] = {"by": VOCAB.approval_by, "date": date, "source": source}
             msg = f"approved {args.id}: {field_value('approved', item['approved'])}"
+            if decide.is_decision(item):
+                # A decision's yes is its answer: it closes, and frees what it blocked (§10.3).
+                names = decide.option_names(item)
+                if args.option is not None and args.option not in names:
+                    raise TodoError(f"--option {args.option!r}: {args.id}'s options are {', '.join(names) or 'none'}")
+                # A plain yes to a decision recommending an option is a yes to that option.
+                option = args.option or (item["recommend"] if item.get("recommend") in names else None)
+                closed = decide.accepted(item, today(), item["approved"], option)
+                validate(closed, "history")
+                store.history["items"].append(closed)
+                store.items.remove(item)
+                msg += f"; closed {closed['resolution']}" + (f" ({option})" if option else "")
+                freed = [d["id"] for d, _ in decide.dependents(workspace(args, store), args.id)]
+                if freed:
+                    msg += f"; no longer blocks {', '.join(freed)}"
         commit(store)
     print(msg)
+
+
+def cmd_decisions(args):
+    """The open decisions of every scanned store as a plan's Decisions table,
+    numbered 1..n, the one freeing most items first (PLAN-todo-tool.md §10.3), and
+    recorded in this store as a table `todo answer` reads (§10.3a, §10.3b). The
+    same rows as an earlier table return that table's id; --from dt-N tables only
+    the rows of dt-N still open, recording which rows each supersedes."""
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        require_clean(store)
+        ws = workspace(args, store)
+        complete, incomplete, counts = decide.open_rows(ws)
+        supersedes = []
+        if args.from_:
+            old = decide.find_table(store.tables, args.from_)
+            if old is None:
+                raise TodoError(f"--from {args.from_}: no such table in {store.records_path} "
+                                f"({', '.join(t['id'] for t in store.tables) or 'none recorded'})")
+            by_id = {it["id"]: (it, s) for it, s in complete}
+            kept = [(r, by_id[r["item"]]) for r in old["rows"] if r["item"] in by_id]
+            complete = [found for _, found in kept]
+            supersedes = [{"n": n, "table": old["id"], "row": r["n"]} for n, (r, _) in enumerate(kept, 1)]
+        rows = decide.record_rows(complete)
+        table = next((t for t in store.tables if decide.same_rows(t["rows"], rows)), None) if rows else None
+        new = table is None and bool(rows)
+        if new:
+            table = {"id": decide.next_table_id(store.tables), "date": today(), "rows": rows,
+                     "supersedes": supersedes, "answers": []}
+            store.ensure_records()["tables"].append(table)
+            commit(store)
+    listed = [{"id": tagging.global_id(it["id"]), "repo": s.repo, "missing": why} for it, s, why in incomplete]
+    if args.json:
+        out = {"table": table and table["id"], "date": table and table["date"], "new": new,
+               "rows": [dict(r, id=tagging.global_id(r["item"]), frees=counts.get(r["item"], 0)) for r in rows],
+               "supersedes": table["supersedes"] if table else [], "incomplete": listed,
+               "unreadable": list(ws.errors)}
+        print(json.dumps(out, indent=1, ensure_ascii=False))
+    else:
+        if table:
+            for line in decide.table_lines(table):
+                print(line)
+            if not new:
+                print(f"\n(the same rows as {table['id']} of {table['date']}: answers apply to it)")
+        else:
+            print("(no open decision to table" + (f" from {args.from_}: every row is closed or incomplete)" if args.from_ else
+                                                  ": none is open and complete)"))
+        n = decide.D["max_listed"]
+        if listed:
+            print(f"\n{len(listed)} open decision(s) not tabled, lacking a field: "
+                  + "; ".join(f"{r['id']} ({', '.join(r['missing'])})" for r in listed[:n])
+                  + (f"; +{len(listed) - n} more (--json lists them)" if len(listed) > n else "")
+                  + " -- todo edit ID --pointer --hinges-on --recommend")
+        for e in ws.errors:
+            print(f"UNREADABLE  {e}")
+    if ws.errors:
+        print("todo: UNCHECKED: a store could not be read, so its decisions are missing here", file=sys.stderr)
+        sys.exit(3)
+
+
+def cmd_answer(args):
+    """Jacob's reply to a decisions table (PLAN-todo-tool.md §10.3a): `1) yes 2) no
+    3) b 4) <words>`, read against the table named (`dt-N:` leading the reply, or
+    --table), else the latest. A yes approves and closes its decision, a no rejects
+    it, an option's name chooses it; any other answer is kept as his words, its
+    status unchanged. The reply is refused whole on a row the table does not have,
+    a row named twice, or a row whose decision is already closed: nothing is applied
+    in part. The answer is appended to the table's record, which never changes."""
+    try:
+        named, answers = decide.parse_reply(args.reply)
+    except ValueError as e:
+        raise TodoError(f"answer: {e}")
+    if named and args.table and named != args.table:
+        raise TodoError(f"answer: the reply names {named} and --table names {args.table}: give one")
+    store = open_store(args)
+    date = today()
+    with locked_workspace(args, store) as ws:
+        tid = named or args.table
+        table = decide.find_table(store.tables, tid) if tid else decide.latest_table(store.tables)
+        if table is None:
+            raise TodoError(f"answer: {f'no table {tid}' if tid else 'no table recorded'} in {store.records_path} "
+                            "(todo decisions makes one)")
+        rows = {r["n"]: r for r in table["rows"]}
+        plan, refused = [], []
+        for n, text in answers:
+            r = rows.get(n)
+            if r is None:
+                refused.append(f"row {n}: {table['id']} has rows 1..{len(rows)}")
+                continue
+            it, where, s = ws.find(r["item"])
+            if it is None or where != "store":
+                refused.append(f"row {n}: {r['item']} is " + ("closed already" if it else "in no scanned store"))
+                continue
+            plan.append((n, r, it, s, *decide.verdict(text, it), text))
+        if refused:
+            raise TodoError(f"answer refused, nothing applied ({table['id']}): " + "; ".join(refused))
+        touched = {store.dir: store}
+        for n, r, it, s, v, value, text in plan:
+            touched[s.dir] = s
+            if v == decide.NO:
+                touched.update({d.dir: d for _, d in decide.dependents(ws, it["id"])})
+        for s in touched.values():
+            require_clean(s)
+        done = []
+        for n, r, it, s, v, value, text in plan:
+            where = f"{table['id']} row {n}"
+            if v in (decide.YES, decide.OPTION):
+                appr = {"by": VOCAB.approval_by, "date": date, "source": f"answer {date} ({where})"}
+                closed = decide.accepted(it, date, appr, value)
+                validate(closed, "history")
+                s.history["items"].append(closed)
+                s.items.remove(it)
+                line = f"{closed['resolution']}" + (f" ({value})" if value else "")
+            elif v == decide.NO:
+                _, moved = reject(ws, it, s, f"Jacob answered no, {where}", date)
+                line = VOCAB.role("decision_rejected_resolution") + (
+                    f"; waiting on Jacob again: {', '.join(d for d, _ in moved)}" if moved else "")
+            else:
+                words = (it.get("jacob_words") or []) + [{"date": date, "table": table["id"], "row": n, "text": text}]
+                validate(dict(it, jacob_words=words))
+                it["jacob_words"] = words
+                line = "kept as his words; nothing applied (it stays " + it["status"] + ")"
+            done.append({"n": n, "item": it["id"], "verdict": v, "option": value})
+            print(f"  {n}) {tagging.global_id(it['id'])} ({s.repo}): {line}")
+        table["answers"].append({"date": date, "reply": " ".join(args.reply.split()), "rows": done})
+        store.ensure_records()
+        commit_all(touched.values())
+    print(f"answered {table['id']}: {len(done)} row(s)")
 
 
 def cmd_dispatch(args):
@@ -1379,6 +1651,8 @@ COMMANDS = {
     "blockers": (cmd_blockers, "every open item not dispatchable, grouped by its root blocker, most items freed first; every store"),
     "stale-plans": (cmd_stale_plans, "open items whose plan section changed, is gone, or was never pinned"),
     "steps": (cmd_steps, "Jacob's open steps, numbered; --run closes each whose done_check exits 0"),
+    "decisions": (cmd_decisions, "open decisions as a numbered table for Jacob, most items freed first; recorded as dt-N"),
+    "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -1410,6 +1684,14 @@ def add_item_fields(p, editing):
     p.add_argument("--retire")
     p.add_argument("--tags", nargs="*", metavar="TAG",
                    help="plan:, origin:, trust: and ref: tags (the rest derive from the fields); no tags clears them")
+    dk = VOCAB.role("decision_kind")
+    p.add_argument("--pointer", metavar="'FILE §n'",
+                   help=f"a {dk}'s plan section, which must resolve (plans show)" + ("; \"\" clears it" if editing else ""))
+    p.add_argument("--hinges-on", dest="hinges_on", metavar="TEXT", help=f"one line: what a {dk} hinges on")
+    p.add_argument("--recommend", metavar="ANSWER",
+                   help=f"a {dk}'s recommended answer: {' or '.join(VOCAB.decisions['verdicts'])}, or an option's name")
+    p.add_argument("--option", action="append", metavar="NAME=TEXT",
+                   help=f"one of a {dk}'s options; repeat for each" + ("; replaces them all, --option '' clears" if editing else ""))
     if not editing:
         p.add_argument("--reported-to", dest="reported_to", metavar="REPO",
                        help="a report's owner; writes no other store (todo report does). A counterpart "
@@ -1439,7 +1721,12 @@ def build_parser():
     ps["edit"].add_argument("id")
     add_item_fields(ps["edit"], editing=True)
     ps["done"].add_argument("id")
-    ps["done"].add_argument("--resolution", required=True)
+    how = ps["done"].add_mutually_exclusive_group(required=True)
+    how.add_argument("--resolution")
+    how.add_argument("--as", dest="as_", choices=[VOCAB.role("decision_rejected_resolution")],
+                     help=f"a {VOCAB.role('decision_kind')} Jacob said no to: close it and put every item it "
+                          "blocks back to waiting on him (with --reason)")
+    ps["done"].add_argument("--reason", help="with --as: one line, why (his words, or a pointer to them)")
     ps["report"].add_argument("id")
     ps["report"].add_argument("--to", required=True)
     ps["report"].add_argument("--kind", choices=list(VOCAB.kinds), help="the counterpart's kind (default: the item's)")
@@ -1483,6 +1770,13 @@ def build_parser():
     ps["approve"].add_argument("--source", help="one line: where Jacob approved it (his words, or a pointer to them)")
     ps["approve"].add_argument("--date", help="the day he approved it, YYYY-MM-DD (default today)")
     ps["approve"].add_argument("--clear", action="store_true", help="remove the approval (refused while dispatched)")
+    ps["approve"].add_argument("--option", metavar="NAME",
+                               help=f"a {VOCAB.role('decision_kind')}: the option Jacob chose (it closes on it)")
+    ps["decisions"].add_argument("--from", dest="from_", metavar="TABLE",
+                                 help="table only the rows of this earlier table still open, recording what each supersedes")
+    ps["decisions"].add_argument("--json", action="store_true")
+    ps["answer"].add_argument("reply", help="his reply, e.g. '1) yes 2) no 3) b 4) not yet, ask after the move'")
+    ps["answer"].add_argument("--table", metavar="TABLE", help="the table it answers (default: the latest; or lead the reply with 'dt-N:')")
     ps["dispatch"].add_argument("id")
     ps["dispatch"].add_argument("--note", help="one line, e.g. where the Dispatch line is; never who")
     ps["dispatch"].add_argument("--clear", action="store_true", help="it came back unfinished: list it again")

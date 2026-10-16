@@ -45,9 +45,9 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | usage | what it does |
 |---|---|
 | `todo init --prefix P [--repo NAME]` | start a store: `todo.json`, `todo-history.json`, and `TODO.md` unless one exists (then import it). Ids are `P-1`, `P-2`, ... |
-| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags T ...] [--reported-to REPO] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. A `waiting-jacob` item needs `--waits-on` (below), and only it may carry one. An open report needs `--reported-to REPO`, its owner (no `:THEIR_ID`: a counterpart is paired later by `edit` or `todo report`); it writes no other store. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
-| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags [T ...]] [--handoff NOTE] [--reported-to REPO[:THEIR_ID]] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. Leaving `waiting-jacob` clears `waits_on` and says so (an explicit value with another status is refused), and entering it needs a value; an item written before `waits_on` existed still takes other edits without one. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it. `--reported-to` sets a report's owner and writes no other store (`todo report` does): `THEIR_ID` only when that store holds it with `parent` ID, a counterpart it holds pairs without one, and the date stays while the repo does |
-| `todo done ID --resolution R` | close an item: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes |
+| `todo add TITLE --kind K [--status S] [--evidence E] [--probe P] [--parent ID] [--blocked-by ID ...] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags T ...] [--pointer 'FILE §n'] [--hinges-on H] [--recommend A] [--option NAME=TEXT ...] [--reported-to REPO] [--pin-plan] [--plans-dir D] [--plans-cli P]` | add an open item; a `decision` needs `--pointer` (a plan section the plans CLI reads), `--hinges-on` and `--recommend` (yes, no or an `--option`'s name), is added `waiting-jacob` on `approval`, and no other kind takes those flags (Decisions, below); refused when its kind or status requires a field it lacks, or when a `--blocked-by` id resolves in no scanned store or history or would make a cycle. A `waiting-jacob` item needs `--waits-on` (below), and only it may carry one. An open report needs `--reported-to REPO`, its owner (no `:THEIR_ID`: a counterpart is paired later by `edit` or `todo report`); it writes no other store. `--pin-plan` records each `plan:FILE§n` tag's section as it reads now (Plan pins, below), and refuses the item when one cannot be read |
+| `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags [T ...]] [--pointer 'FILE §n'] [--hinges-on H] [--recommend A] [--option NAME=TEXT ...] [--handoff NOTE] [--reported-to REPO[:THEIR_ID]] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one; `--option` replaces a decision's options, `--option ''` clears them, and a changed pointer is read again); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. Leaving `waiting-jacob` clears `waits_on` and says so (an explicit value with another status is refused), and entering it needs a value; an item written before `waits_on` existed still takes other edits without one. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it. `--reported-to` sets a report's owner and writes no other store (`todo report` does): `THEIR_ID` only when that store holds it with `parent` ID, a counterpart it holds pairs without one, and the date stays while the repo does |
+| `todo done ID [--resolution R] [--as rejected --reason R]` | close an item, with exactly one of `--resolution` and `--as`: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes. `--as rejected` closes a decision Jacob said no to, and puts every open item it blocks, in any scanned store, back to `waiting-jacob` on `decision:<its pointer>` with the reason in its evidence (Decisions, below) |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one; if the scan finds exactly one git repo named REPO, the report is also filed in its hand-written `TODO.md`: one bullet marked `todo:ID` under the heading `report_fallback.heading` (vocab.json), written once however often it is re-run, and recorded in the item's evidence (PLAN-architecture.md §11 S4). That file is left uncommitted in REPO for its owner to commit; two repos of that name, or none, get nothing |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
 | `todo show ID` | one item in full, any repo; a closed id is read from history, and says so |
@@ -64,12 +64,14 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
 | `todo split ID TITLE ... --size SIZE` | one child per title under `parent`, each a checkpoint of its own: SIZE is S or M; it copies the parent's kind, repo, work, files, `blocked_by`, tags and any field its kind requires, and gets its own `done_when` with `todo edit`. The parent becomes L, so `ready` never lists it, and `todo done` on its last open child closes it too |
 | `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
-| `todo approve ID --source S [--date D] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched |
+| `todo approve ID --source S [--date D] [--option NAME] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched. On a decision the approval is its answer: it closes `accepted`, or `option-chosen` on `--option NAME` (a plain yes to a decision recommending an option chooses that one), and what it blocked is free |
 | `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`; an item approved by rule TD-B1 (Approval by rule, below) gets the rule's `approved` too. Refused on an item neither Jacob nor the rule approves, naming the rule's misses, or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
 | `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it; then, under their own heading (`by_rule` in `--json`), the ones approved by rule TD-B1 and not by him. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo blockers [--repo R] [--json]` | every open item, across every scanned store, that is not dispatchable, grouped by its root blocker (Blockers, below): one line per root, most items freed first, with what clears it, the count and the first ids; bounded, and `--json` gives every root and id. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo stale-plans [--repo R] [--plans-dir D] [--plans-cli P] [--json]` | the open items, across every scanned store, whose plan section is not what they were made from (Plan pins, below): `changed`, `section gone`, or `never pinned` (a `plan:` tag with no pin, or one naming no section), each with its `todo:` id, repo, `FILE §n` and the day it last matched. Exit 3 (`UNCHECKED`) when a section could not be read (no plans CLI, an ambiguous section) or a store could not be read: such a section is never counted fresh |
 | `todo steps [--run] [--json]` | this store's open `jacob-step` items, numbered, each with its `done_check` (Jacob's steps, below). `--run` runs every check in the store's folder first, then closes each step whose check exited 0 (resolution `done-checked`); a step whose check exited otherwise stays open with the exit and the start of its output; a check that timed out or could not start is `UNCHECKED` (exit 3) after the rest are closed |
+| `todo decisions [--from TABLE] [--json]` | the open, complete decisions of every scanned store as a `## Decisions` table, `\| # \| decision \| hinges on \| recommend \|`, numbered 1..n, the one freeing most items first; recorded in this store as table `dt-N` (the same rows as an earlier table give its id). `--from dt-N` tables only that table's rows still open, recording which row each supersedes. Incomplete decisions are named under it, never tabled. Exit 3 (`UNCHECKED`) when a store could not be read |
+| `todo answer REPLY [--table TABLE]` | apply Jacob's reply to a decisions table, `"1) yes 2) no 3) b 4) <words>"`, read against the table named (`dt-N:` leading the reply, or `--table`), else the latest: a yes approves, a no rejects, an option's name chooses it; any other answer is kept in `jacob_words`, status unchanged. Refused whole, nothing applied, on a row the table lacks, a row named twice, or a row whose decision is closed |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -104,7 +106,7 @@ the renderer, the importer, the checks and these tables all follow it, and
 | kind | meaning | `TODO.md` section | requires |
 |---|---|---|---|
 | `bug` | a bug of this repo's own, including one you caused and worked around | Own bugs | |
-| `decision` | an open decision, with what it hinges on | Open decisions | |
+| `decision` | an open decision, with what it hinges on; a new one carries `pointer`, `hinges_on` and `recommend` and waits on Jacob's approval (Decisions, below) | Open decisions | |
 | `suspicion` | an unconfirmed suspicion, with the probe that would settle it | Unconfirmed suspicions | `probe` |
 | `report` | a problem reported to another repo's owner; its counterpart lives in their store | Reported to other owners | `reported_to` (set by `todo report`) |
 | `temp` | an interim rule, with the check that retires it | Interim rules | `retire` |
@@ -189,6 +191,9 @@ each have one setter and are refused everywhere else:
 |---|---|
 | `done-deprecated` | an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution: set by `todo import` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that was not imported |
 | `done-checked` | a `jacob-step` closed because its `done_check` exited 0: set by `todo steps --run` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item that is not a `jacob-step` with a `done_check` |
+| `accepted` | a decision Jacob said yes to: set by `todo approve` and `todo answer` only (with `approved`), refused by `todo done --resolution`, and a FAIL (`vocab`) in check on an item that is not a decision or carries no approval |
+| `option-chosen` | a decision closed on the option Jacob chose (`chosen`): set by `todo approve --option` and `todo answer` only, refused by `todo done --resolution`, and a FAIL in check without an approval or with a `chosen` naming none of its options |
+| `rejected` | a decision Jacob said no to: set by `todo done --as rejected --reason R` and `todo answer` only, which put each open item it blocks back to waiting on it; a FAIL in check on an item that is not a decision |
 
 <!-- vocab:fields -->
 | field | meaning |
@@ -203,6 +208,12 @@ each have one setter and are refused everywhere else:
 | `parent` | any item's id, in any scanned repo, open or closed |
 | `blocked_by` | ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history |
 | `waits_on` | what a `waiting-jacob` item waits on: `<value>` or `<value>:<argument>`, a value of the table below; set by `--waits-on` or by `todo import`, on a `waiting-jacob` item only; `todo blockers` groups by it |
+| `pointer` | a decision's plan section, `FILE §n` (stored with the space), read by the plans CLI when set; the table's decision cell starts with it |
+| `hinges_on` | what a decision hinges on, one line: the table's hinges-on cell |
+| `recommend` | the answer recommended to Jacob: yes, no, or one of the decision's options by name |
+| `options` | `[{name, text}]`: a decision's options, a short name (`decisions.option_name`, never an answer word) and one line each; set by `--option NAME=TEXT`, repeated |
+| `chosen` | the option Jacob chose, by name; set only as a decision closes `option-chosen` |
+| `jacob_words` | `[{date, table, row, text}]`: what Jacob answered on a decision's row that was no yes, no or option name, kept and applying nothing; appended by `todo answer` only |
 | `repo` | where the work lives: a repo name, never a person or an agent |
 | `work` | one of the works |
 | `size` | one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready |
@@ -337,6 +348,44 @@ lines under `dispatchable`) are `vocab.json` `blockers`:
 | `item` | the open item at the end of a `blocked_by` chain; an id no store holds, or a cycle |
 | `owner` | a report: its counterpart in the owner's store, by id (or the report not yet written) |
 | `field` | what `todo brief` needs and the item lacks (repo, work, done_when, a size it can be dispatched at), or a `blocked` status naming no `blocked_by` |
+
+## Decisions
+
+A decision is generated and answered, not written up by hand (PLAN-todo-tool.md
+§10.3, §10.3a, §10.3b). A new one carries three fields, `decisions.requires` in
+`vocab.json`: `pointer`, the plan section it comes from (`FILE §n`, read by the
+plans CLI as `--pin-plan` reads one; refused when it cannot be read), `hinges_on`
+and `recommend` (yes, no, or one of its `--option NAME=TEXT` by name). It is added
+`waiting-jacob` on `approval`, and the items it holds name it in `blocked_by`.
+
+`todo decisions` tables every open, complete decision across the scanned stores:
+
+    ## Decisions
+
+    | # | decision | hinges on | recommend |
+    |---|---|---|---|
+    | 1 | PLAN-x.md §3: <title> (`todo:td-9`) | <hinges_on> | yes |
+
+numbered 1..n, the one whose answer frees most open items (counted back
+through `blocked_by`, transitively, open items only) first. The table is recorded once in
+`todo-records.json` as `dt-N`, with its date, its rows (number to item id) and the
+answers it got; asking again with the same rows gives the same id, and
+`--from dt-N` tables only that table's rows still open, recording which old row
+each new row supersedes. A decision lacking a field is named under the table,
+never tabled, and `check` lists it (`INFO`).
+
+Jacob replies `1) yes 2) no 3) b 4) after the move`; `todo answer` reads it
+against the table it names (`dt-N:` first in the reply, or `--table`), else the
+latest. A yes closes the decision `accepted` with his approval, a no closes it
+`rejected` and puts every open item it blocked back to `waiting-jacob` on
+`decision:<its pointer>`, an option's name closes it `option-chosen` with
+`chosen`, and anything else is kept in `jacob_words`, applying nothing. A reply
+naming a row the table lacks, a row twice, or a closed decision is refused whole:
+nothing is applied in part. `todo approve` (with `--option`) and `todo done --as
+rejected --reason R` do the same for one decision outside a table.
+
+`todo-records.json` is sealed like the store and append-only: check fails a table
+or an answer removed or changed since its last commit (`records`).
 
 ## Jacob's steps
 

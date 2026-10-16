@@ -113,11 +113,14 @@ class Declared(Case):
 class Handled(Case):
     def test_every_kind_status_work_and_field_renders(self):
         a = self.repo("a", "aa")
-        extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"], "jacob-step": ["--done-check", "true"]}
-        for kind in VOCAB.kinds:
+        (self.ws / "PLAN-h.md").write_text("# H\n\n## 1. One\n\none\n")  # a decision's pointer resolves in it
+        extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"], "jacob-step": ["--done-check", "true"],
+                 VOCAB.role("decision_kind"): ["--pointer", "PLAN-h.md §1", "--hinges-on", "h", "--recommend", "o1", "--option", "o1=x"]}
+        dk = VOCAB.role("decision_kind")
+        for kind in [k for k in VOCAB.kinds if k != dk] + [dk]:  # the decision last: approving it closes it
             if kind == VOCAB.role("report_kind"):
                 continue
-            self.todo("-C", a, "add", f"a {kind}", "--kind", kind, *extra.get(kind, []))
+            self.todo("-C", a, "--root", self.ws, "add", f"a {kind}", "--kind", kind, *extra.get(kind, []))
         self.todo("-C", a, "report", "aa-1", "--to", "elsewhere")
         works = list(VOCAB.works)
         for i, status in enumerate(VOCAB.open_statuses()):
@@ -129,7 +132,6 @@ class Handled(Case):
         self.todo("-C", a, "edit", "aa-2", "--handoff", "h")
         self.todo("-C", a, "approve", "aa-2", "--source", "s")
         self.todo("-C", a, "dispatch", "aa-2")
-        (self.ws / "PLAN-h.md").write_text("# H\n\n## 1. One\n\none\n")
         self.todo("-C", a, "--root", self.ws, "edit", "aa-2", "--tags", "plan:PLAN-h.md§1", "--pin-plan")
         md = (a / "TODO.md").read_text()
         for kind, spec in VOCAB.kinds.items():
@@ -140,6 +142,11 @@ class Handled(Case):
         for w in works:
             self.assertIn(f"· work: {w}", md)
         self.todo("-C", a, "done", "aa-2", "--resolution", "fixed")
+        # his words (todo answer), then the option chosen: chosen renders in history
+        dt = json.loads(self.todo("-C", a, "--root", self.ws, "decisions", "--json").stdout)
+        self.todo("-C", a, "--root", self.ws, "answer", "1) after the move")
+        md += (a / "TODO.md").read_text()
+        self.todo("-C", a, "--root", self.ws, "approve", dt["rows"][0]["item"], "--source", "s")
         self.todo("-C", a, "render", "--history")
         hist = (a / "TODO-HISTORY.md").read_text()
         self.assertIn(f"· status: {VOCAB.closed}", hist)

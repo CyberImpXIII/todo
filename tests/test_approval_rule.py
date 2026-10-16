@@ -19,7 +19,7 @@ KIND = RULE["kinds"][0]
 SIZE = RULE["sizes"][0]
 WORK = next(w for w in VOCAB.works if w not in RULE["exclude_works"])
 NOT_KIND = next(k for k in VOCAB.kinds if k not in RULE["kinds"] and k != VOCAB.role("report_kind")
-                and not VOCAB.kinds[k]["requires"])
+                and k != VOCAB.role("decision_kind") and not VOCAB.kinds[k]["requires"])
 NOT_SIZE = next(s for s in VOCAB.sizes if s not in RULE["sizes"])
 JACOB = VOCAB.jacob_status
 WAITS = f"{VOCAB.role('approval_waits_on')}"

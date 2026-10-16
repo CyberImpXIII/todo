@@ -118,6 +118,38 @@ class Vocab:
         unnamed = set(self.resolutions) - {v for k, v in self.roles.items() if k.endswith("_resolution")}
         if unnamed:
             raise ValueError(f"vocab.json: resolution(s) {sorted(unnamed)} named by no role: nothing would set or guard them")
+        self.decisions = self._decisions(data["decisions"])
+
+    def _decisions(self, d):
+        """vocab.json `decisions`, every key consumed and checked (todolib/decisions.py reads it)."""
+        d = {k: v for k, v in d.items() if not k.startswith("_")}
+        want = {"requires", "pointer", "option_name", "status", "waits_on", "verdicts", "table_prefix",
+                "max_listed", "generated_recommend"}
+        if set(d) != want:
+            raise ValueError(f"vocab.json: decisions holds {sorted(d)}, not {sorted(want)}")
+        bad = [f for f in d["requires"] if f not in self.fields]
+        if not d["requires"] or bad:
+            raise ValueError(f"vocab.json: decisions.requires names {bad or 'nothing'}, not declared fields")
+        if d["status"] not in self.statuses or d["status"] == self.roles["closed_status"]:
+            raise ValueError(f"vocab.json: decisions.status {d['status']!r} is not an open status")
+        if self.waits_on_problem(d["waits_on"]):
+            raise ValueError(f"vocab.json: decisions.waits_on: {self.waits_on_problem(d['waits_on'])}")
+        out = dict(d, pointer=re.compile(d["pointer"]), option_name=re.compile(d["option_name"]))
+        if {"file", "section"} - set(out["pointer"].groupindex):
+            raise ValueError("vocab.json: decisions.pointer needs (?P<file>...) and (?P<section>...) groups")
+        if set(d["verdicts"]) != {"yes", "no"} or not all(d["verdicts"].values()):
+            raise ValueError("vocab.json: decisions.verdicts names the words of yes and of no, each a non-empty list")
+        words = [w for ws in d["verdicts"].values() for w in ws]
+        if len(words) != len(set(words)) or any(w != w.lower() or out["option_name"].match(w) is None for w in words):
+            raise ValueError("vocab.json: decisions.verdicts words are lowercase, distinct, and shaped like an option "
+                             "name (so an option can never be named like one)")
+        if not re.match(r"^[a-z]{1,8}$", str(d["table_prefix"])):
+            raise ValueError("vocab.json: decisions.table_prefix is 1-8 lowercase letters")
+        if not (isinstance(d["max_listed"], int) and not isinstance(d["max_listed"], bool) and d["max_listed"] > 0):
+            raise ValueError("vocab.json: decisions.max_listed is a positive whole number")
+        if d["generated_recommend"] not in d["verdicts"]:
+            raise ValueError("vocab.json: decisions.generated_recommend is yes or no")
+        return out
 
     def role(self, name):
         return self.roles[name]

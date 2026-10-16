@@ -18,6 +18,8 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                "reseal": "§9: accept a broken seal, recorded in hand_edits",
                "split": "PLAN-small-tasks.md §2.1: an L item into children, each one checkpoint",
                "steps": "PLAN-architecture.md §11 S7: Jacob's steps, closed by their done_check",
+               "decisions": "PLAN-todo-tool.md §10.3a/b: the numbered table Jacob reads, recorded as dt-N",
+               "answer": "PLAN-todo-tool.md §10.3a: his reply to that table, parsed and applied",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 # A command name may hold a hyphen (stale-plans); `[a-z]+` read it as "stale".
 PLAN_COMMAND = re.compile(r"(?:^|\s)todo ([a-z][a-z-]*)")

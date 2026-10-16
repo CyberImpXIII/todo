@@ -4,6 +4,7 @@ import json
 import os
 
 from tests.helpers import WAITS, Case, git_commit
+from todolib import decisions as decide
 from todolib.render import field_value
 from todolib.vocab import VOCAB
 
@@ -26,7 +27,8 @@ class RoundTrip(Case):
         after = self.history(a)["items"][0]
         self.assertEqual(after, dict(before, status=VOCAB.closed, done="2026-10-04", resolution="retired by the check"))
         unset = [f for f in VOCAB.field_names() if before.get(f) in (None, [], "")]
-        self.assertEqual(sorted(unset), ["done", "imported", "reported_to", "resolution"])
+        # a decision's own fields (tests/test_decisions.py round-trips those) and what closing sets
+        self.assertEqual(sorted(unset), sorted(["done", "imported", "reported_to", "resolution", *decide.FIELDS]))
         shown = self.todo("-C", a, "history", "aa-1").stdout
         for f in VOCAB.field_names():
             v = after[f]

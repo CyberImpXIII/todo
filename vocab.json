@@ -2,7 +2,7 @@
   "_comment": "The one vocabulary. The parser, the renderer, the importer, the checks, README.md and the tests all read this file; tests/test_vocab.py fails when the code, the render or the README disagree with it, in either direction. Order is render order.",
   "kinds": {
     "bug":       {"doc": "a bug of this repo's own, including one you caused and worked around", "heading": "Own bugs", "always": true, "requires": []},
-    "decision":  {"doc": "an open decision, with what it hinges on", "heading": "Open decisions", "always": true, "requires": []},
+    "decision":  {"doc": "an open decision, with what it hinges on; a new one carries `decisions.requires` and waits on Jacob's approval (PLAN-todo-tool.md §10.3); `todo decisions` tables the open ones, `todo approve` or `todo answer` closes each", "heading": "Open decisions", "always": true, "requires": []},
     "suspicion": {"doc": "an unconfirmed suspicion, with the probe that would settle it", "heading": "Unconfirmed suspicions", "always": true, "requires": ["probe"]},
     "report":    {"doc": "a problem reported to another repo's owner; its counterpart lives in their store", "heading": "Reported to other owners", "always": true, "requires": ["reported_to"]},
     "temp":      {"doc": "an interim rule, with the check that retires it", "heading": "Interim rules", "always": false, "requires": ["retire"]},
@@ -75,7 +75,10 @@
   "resolutions": {
     "_comment": "Resolution values with a meaning of their own; any other resolution is free text written by `todo done`. Each is named by a role, set only where that role says, and refused everywhere else.",
     "done-deprecated": {"doc": "an imported closed bullet (DONE marker, or a Resolved or Confirmed heading) that carried no resolution; set by `todo import` only, refused by `todo done`, and red in check on an item not imported (Jacob, td-1, 2026-10-04)"},
-    "done-checked": {"doc": "a jacob-step closed because its done_check exited 0; set by `todo steps --run` only, refused by `todo done`, and red in check on an item with no done_check"}
+    "done-checked": {"doc": "a jacob-step closed because its done_check exited 0; set by `todo steps --run` only, refused by `todo done`, and red in check on an item with no done_check"},
+    "accepted": {"doc": "a decision Jacob said yes to; set by `todo approve` and `todo answer` only (with `approved`), refused by `todo done --resolution`, and red in check on an item that is not a decision or carries no approval"},
+    "option-chosen": {"doc": "a decision closed on the option Jacob chose (`chosen`, one of its `options`); set by `todo approve --option` and `todo answer` only, refused by `todo done --resolution`, and red in check without an approval or with a chosen that names no option"},
+    "rejected": {"doc": "a decision Jacob said no to; set by `todo done --as rejected --reason R` and `todo answer` only, which put every open item blocked by it back to waiting on that decision; red in check on an item that is not a decision"}
   },
   "roles": {
     "default_kind": "note",
@@ -86,7 +89,27 @@
     "report_kind": "report",
     "import_resolution": "done-deprecated",
     "step_kind": "jacob-step",
-    "step_resolution": "done-checked"
+    "step_resolution": "done-checked",
+    "decision_kind": "decision",
+    "decision_waits_on": "decision",
+    "decision_accepted_resolution": "accepted",
+    "decision_option_resolution": "option-chosen",
+    "decision_rejected_resolution": "rejected"
+  },
+  "decisions": {
+    "_comment": "Decisions (PLAN-todo-tool.md §10.3, §10.3a, §10.3b): `todo add --kind decision` and `edit` refuse one without every field in `requires`, a `pointer` not matching `pointer` or naming a section the plans CLI cannot read, or a `recommend` not yes, no or one of its `options`; it is added `status` waiting on `waits_on`. check lists an open one lacking them (INFO) and never tables it. `todo decisions` numbers the complete ones 1..n in a table record `<table_prefix>-<n>` (the store's records file); `todo answer` reads a reply against it: a row's whole answer is a word of `verdicts` or an option's name, else it is kept as his words, applying nothing. `max_listed` bounds the incomplete ones named under the table. `generated_recommend` is what `todo sync-plans` recommends on a decision it makes from a plan step.",
+    "requires": ["pointer", "hinges_on", "recommend"],
+    "pointer": "^(?P<file>[A-Za-z0-9_./-]+\\.md) ?§(?P<section>[0-9]+(?:\\.[0-9]+)*)$",
+    "option_name": "^[a-z0-9][a-z0-9_-]{0,23}$",
+    "status": "waiting-jacob",
+    "waits_on": "approval",
+    "verdicts": {
+      "yes": ["yes", "y", "ok", "approve", "approved", "accept", "accepted"],
+      "no": ["no", "n", "reject", "rejected"]
+    },
+    "table_prefix": "dt",
+    "max_listed": 10,
+    "generated_recommend": "yes"
   },
   "report_fallback": {
     "_comment": "`todo report ID --to REPO` when REPO is a git repo the scan finds with no todo store (PLAN-architecture.md §11 S4): one bullet in its hand-written `file`, under the `heading` (an h2, added at the end when absent), marked with the item's todo:<id> so a second run adds nothing. The item's evidence records it; their_id stays null until REPO has a store.",
@@ -110,6 +133,12 @@
     "parent":      {"doc": "any item's id, in any scanned repo, open or closed", "label": "parent"},
     "blocked_by":  {"doc": "ids of the items that must close first, in any scanned repo; `todo ready` leaves the item out until every one is in history", "label": "blocked by", "optional": true},
     "waits_on":    {"doc": "what a waiting-jacob item waits on: `<value>` or `<value>:<argument>`, a value of `waits_on` below; set by `todo add/edit --waits-on` or by `todo import`, and required on a waiting-jacob item (an older one is listed by check); `todo blockers` groups by it, never by prose", "label": "waits on", "optional": true},
+    "pointer":     {"doc": "a decision's plan section, `FILE §n` (decisions.pointer), read by the plans CLI when set; the table's decision cell starts with it", "label": "pointer", "optional": true},
+    "hinges_on":   {"doc": "what a decision hinges on, one line; the table's hinges-on cell", "label": "hinges on", "optional": true},
+    "recommend":   {"doc": "the answer recommended to Jacob: yes, no, or one of the decision's options by name", "label": "recommend", "optional": true},
+    "options":     {"doc": "[{name, text}]: a decision's options, each a short name (decisions.option_name) and one line; set by `--option NAME=TEXT`, repeated", "label": "options", "optional": true},
+    "chosen":      {"doc": "the option Jacob chose, by name; set when a decision closes option-chosen", "label": "chosen", "optional": true},
+    "jacob_words": {"doc": "[{date, table, row, text}]: what Jacob answered on a decision's row that was no yes, no or option: kept, applying nothing; appended by `todo answer` only", "label": "his words", "optional": true},
     "repo":        {"doc": "where the work lives: a repo name, never an agent", "label": "repo"},
     "work":        {"doc": "one of the works", "label": "work"},
     "size":        {"doc": "one of the sizes, the estimate `todo ready` and tools/usage read; null until someone sizes it, and an unsized item is never ready", "label": "size", "optional": true},

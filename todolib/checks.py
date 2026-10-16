@@ -9,13 +9,16 @@ import re
 import subprocess
 
 from . import approval, deps, plans, tags
+from . import decisions as decide
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
-from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_KEYS, HISTORY_FILE,
-                    RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
+from .store import (DATE_RE, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
+                    HISTORY_FILE, RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
 from .vocab import VOCAB
 
-GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports", "workspace", "render", "history"]
-SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolution", "parent", "repo"]
+GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports",
+         "workspace", "render", "history", "records"]
+SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolution", "parent", "repo",
+               "pointer", "hinges_on", "recommend", "chosen"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
 # so a closed item without one is red wherever it came from (PLAN §5).
@@ -200,6 +203,18 @@ def check_item(it, where, store, out):
     if it.get("resolution") == stepped and (_empty(it.get("done_check")) or kind != VOCAB.role("step_kind")):
         out.append(("FAIL", "vocab", iid, f"resolution {stepped!r} is set by todo steps --run only, on a "
                                           f"{VOCAB.role('step_kind')} whose done_check passed, and this item has none"))
+    for why in decide.field_problems(it):
+        out.append(("FAIL", "schema", iid, why))
+    if where == "history":
+        for why in decide.resolution_problems(it):
+            out.append(("FAIL", "vocab", iid, why))
+    else:
+        # One written before the decision fields (no pointer) is listed by check_waiting instead.
+        if decide.is_decision(it) and it.get("pointer") is not None and status != decide.D["status"]:
+            out.append(("FAIL", "vocab", iid, f"a {kind} is {decide.D['status']} until Jacob answers it, and this one "
+                                              f"is {status}: todo approve, todo done --as or todo answer closes it"))
+        if it.get("chosen") is not None:
+            out.append(("FAIL", "schema", iid, "chosen is set on an open item: it is set as the item closes"))
 
 
 def waits_on_problem(item, require=True):
@@ -229,6 +244,84 @@ def check_waiting(store, out):
         out.append(("INFO", "required", "-", f"{len(bare)} {VOCAB.jacob_status} item(s) name no waits_on, so "
                                              f"`todo blockers` cannot group them: {shown} -- todo edit ID --waits-on "
                                              f"({VOCAB.waits_on_forms()})"))
+    lacking = [f"{it['id']} ({', '.join(decide.missing(it))})" for it in store.items
+               if decide.is_decision(it) and decide.missing(it)]
+    if lacking:
+        n = decide.D["max_listed"]
+        out.append(("INFO", "required", "-", f"{len(lacking)} open {VOCAB.role('decision_kind')}(s) lack what "
+                                             f"`todo decisions` tables them by: {'; '.join(lacking[:n])}"
+                                             + (f" (+{len(lacking) - n})" if len(lacking) > n else "")
+                                             + " -- todo edit ID --pointer --hinges-on --recommend"))
+
+
+def committed_records(store):
+    """The records file as git's HEAD holds it: (data or None, why not read)."""
+    top = git_toplevel(store.dir)
+    if not top:
+        return None, "not a git repo"
+    rel = store.records_path.resolve().relative_to(top.resolve())
+    shown = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=top, capture_output=True, text=True)
+    if shown.returncode != 0:
+        return None, "not committed"
+    try:
+        return json.loads(shown.stdout), None
+    except ValueError:
+        return None, "does not parse at HEAD"
+
+
+def table_problem(t):
+    """Why a decisions table record is not what `todo decisions` writes, or None."""
+    if not (isinstance(t, dict) and set(t) == {"id", "date", "rows", "supersedes", "answers"}):
+        return "is not {id, date, rows, supersedes, answers}"
+    if decide.table_number(t["id"]) is None or not (isinstance(t["date"], str) and DATE_RE.match(t["date"])):
+        return f"id {t['id']!r} or date {t['date']!r} is malformed ({decide.D['table_prefix']}-N, YYYY-MM-DD)"
+    rows = t["rows"]
+    if not (isinstance(rows, list) and rows and all(
+            isinstance(r, dict) and set(r) == {"n", "item", "repo", "status", "cells"} and isinstance(r["cells"], list)
+            and len(r["cells"]) == 3 and ID_RE.match(str(r["item"])) for r in rows)):
+        return "rows must be a non-empty list of {n, item, repo, status, cells (3)}"
+    if [r["n"] for r in rows] != list(range(1, len(rows) + 1)):
+        return "rows are not numbered 1..n"
+    if not isinstance(t["supersedes"], list) or not isinstance(t["answers"], list):
+        return "supersedes and answers must be lists"
+    return None
+
+
+def check_records(store, out):
+    """The decision tables (PLAN-todo-tool.md §10.3b): the keys, each table's shape,
+    and append-only against git's HEAD -- a table committed keeps its id, date, rows
+    and supersedes, and its answers only grow."""
+    if store.records is None:
+        out.append(("INFO", "records", "-", f"no {RECORDS_FILE}: no table recorded yet"))
+        return
+    data = store.records
+    if set(data) != set(RECORDS_KEYS) or data.get("repo") != store.repo:
+        out.append(("FAIL", "records", "-", f"{RECORDS_FILE} must hold exactly {RECORDS_KEYS}, repo {store.repo}"))
+        return
+    tables = data["tables"] if isinstance(data["tables"], list) else []
+    ids = []
+    for t in tables:
+        why = table_problem(t)
+        if why:
+            out.append(("FAIL", "records", str(t.get("id", "?") if isinstance(t, dict) else "?"), "table " + why))
+        elif t["id"] in ids:
+            out.append(("FAIL", "records", t["id"], "two tables share this id"))
+        else:
+            ids.append(t["id"])
+    head, why = committed_records(store)
+    if head is None:
+        out.append(("INFO", "records", "-", f"{RECORDS_FILE} {why}: the append-only audit against HEAD is skipped"))
+        return
+    now = {t.get("id"): t for t in tables if isinstance(t, dict)}
+    for old in head.get("tables") or []:
+        tid = old.get("id")
+        cur = now.get(tid)
+        if cur is None:
+            out.append(("FAIL", "records", str(tid), "was committed and is gone: a table record is never removed"))
+        elif any(cur.get(k) != old.get(k) for k in ("date", "rows", "supersedes")):
+            out.append(("FAIL", "records", str(tid), "changed since HEAD: a table record never changes"))
+        elif (cur.get("answers") or [])[:len(old.get("answers") or [])] != (old.get("answers") or []):
+            out.append(("FAIL", "records", str(tid), "an answer committed at HEAD changed or is gone: answers are appended only"))
 
 
 def check_ids(store, out):
@@ -539,6 +632,7 @@ def check_store(store, ws):
     check_workspace(store, ws, out)
     check_render(store, out)
     check_history(store, out)
+    check_records(store, out)
     return out
 
 

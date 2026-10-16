@@ -11,7 +11,7 @@ import unittest
 
 from tests.helpers import ROOT, Case, git_commit
 from todolib.cli import COMMANDS
-from todolib.store import FORMAT, HISTORY_FILE, LEGACY_FORMAT, SEAL_KEY, STORE_FILE, content_seal
+from todolib.store import FORMAT, HISTORY_FILE, LEGACY_FORMAT, RECORDS_FILE, SEAL_KEY, STORE_FILE, content_seal
 from todolib.vocab import VOCAB
 
 NOTE = VOCAB.role("default_kind")
@@ -132,7 +132,7 @@ class Declared(unittest.TestCase):
         self.cli = json.loads((ROOT / "cli.json").read_text())
 
     def test_the_store_is_the_files_the_cli_writes(self):
-        self.assertEqual(self.cli["store"], [STORE_FILE, HISTORY_FILE])
+        self.assertEqual(self.cli["store"], [STORE_FILE, HISTORY_FILE, RECORDS_FILE])
         self.assertEqual(self.cli["cli"], "todo")
 
     def test_the_verbs_are_the_commands_and_help_lists_each(self):
