@@ -10,6 +10,7 @@ import subprocess
 
 from . import approval, deps, plans, tags
 from . import decisions as decide
+from . import syncplans
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
                     HISTORY_FILE, RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
@@ -205,6 +206,9 @@ def check_item(it, where, store, out):
                                           f"{VOCAB.role('step_kind')} whose done_check passed, and this item has none"))
     for why in decide.field_problems(it):
         out.append(("FAIL", "schema", iid, why))
+    if it.get("plan_step") is not None:  # a step without one fails `required` above
+        for why in syncplans.plan_step_problems(it):
+            out.append(("FAIL", "schema", iid, why + " (todo sync-plans sets it)"))
     if where == "history":
         for why in decide.resolution_problems(it):
             out.append(("FAIL", "vocab", iid, why))

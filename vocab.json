@@ -8,6 +8,7 @@
     "temp":      {"doc": "an interim rule, with the check that retires it", "heading": "Interim rules", "always": false, "requires": ["retire"]},
     "jacob-step": {"doc": "a step only Jacob takes, with the command that shows it taken (PLAN-architecture.md §11 S7); never ready or dispatchable; `todo steps` numbers them and `todo steps --run` closes each whose done_check exits 0", "heading": "Jacob's steps", "always": false, "requires": ["done_check"]},
     "research":  {"doc": "a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its rs- ids and never restates the answer", "heading": "Research", "always": false, "requires": ["research"]},
+    "plan-step": {"doc": "a step of a plan, made and kept in step by `todo sync-plans` from the plan's own text (PLAN-services.md §3 G6, which calls the kind `step`: named plan-step here, as `todo steps` and jacob-step already use the word); its plan_step names the step, and `todo add` never makes one", "heading": "Plan steps", "always": false, "requires": ["plan_step"]},
     "note":      {"doc": "anything else worth keeping; the import default", "heading": "Notes", "always": false, "requires": []}
   },
   "statuses": {
@@ -90,6 +91,7 @@
     "import_resolution": "done-deprecated",
     "step_kind": "jacob-step",
     "step_resolution": "done-checked",
+    "plan_step_kind": "plan-step",
     "decision_kind": "decision",
     "decision_waits_on": "decision",
     "decision_accepted_resolution": "accepted",
@@ -99,7 +101,7 @@
   "decisions": {
     "_comment": "Decisions (PLAN-todo-tool.md §10.3, §10.3a, §10.3b): `todo add --kind decision` and `edit` refuse one without every field in `requires`, a `pointer` not matching `pointer` or naming a section the plans CLI cannot read, or a `recommend` not yes, no or one of its `options`; it is added `status` waiting on `waits_on`. check lists an open one lacking them (INFO) and never tables it. `todo decisions` numbers the complete ones 1..n in a table record `<table_prefix>-<n>` (the store's records file); `todo answer` reads a reply against it: a row's whole answer is a word of `verdicts` or an option's name, else it is kept as his words, applying nothing. `max_listed` bounds the incomplete ones named under the table. `generated_recommend` is what `todo sync-plans` recommends on a decision it makes from a plan step.",
     "requires": ["pointer", "hinges_on", "recommend"],
-    "pointer": "^(?P<file>[A-Za-z0-9_./-]+\\.md) ?§(?P<section>[0-9]+(?:\\.[0-9]+)*)$",
+    "pointer": "^(?P<file>[A-Za-z0-9_./-]+\\.md) ?§(?P<section>[0-9]+[a-z]?(?:\\.[0-9]+[a-z]?)*)$",
     "option_name": "^[a-z0-9][a-z0-9_-]{0,23}$",
     "status": "waiting-jacob",
     "waits_on": "approval",
@@ -120,6 +122,13 @@
     "_comment": "`todo steps --run` (PLAN-architecture.md §11 S7): each open jacob-step's done_check runs as [shell, '-c', done_check] in the store's folder, stdin closed, and is killed after timeout_s seconds. Exit 0 closes the step (resolution roles.step_resolution); another exit leaves it open; a timeout or a command that cannot start is unchecked (exit 3), never a pass.",
     "shell": "/bin/sh",
     "timeout_s": 30
+  },
+  "sync_plans": {
+    "_comment": "`todo sync-plans` (PLAN-services.md §3 G6, §4 step 6.3): what a plan step's `track:` tag (as `setup plans steps --json` reads it) makes the sync do. create: an item of kind roles.plan_step_kind in each owner repo's store; decide: that item, waiting on the decision at the track's FILE §n, and one decision for that section if no store holds one; list: no item, the step is listed for a person to place (a hand-written file the sync never writes); skip: nothing (the step's state lives elsewhere: an item named by id, superseded, done). `untracked` is what a step with no track tag gets. A title is the step's bold lead or first sentence, cut at title_max characters; the output names at most max_listed steps per kind of change (--json gives all).",
+    "track": {"needs-yes": "decide", "TODO.md": "list", "todo": "skip", "superseded-by": "skip", "done": "skip"},
+    "untracked": "create",
+    "title_max": 100,
+    "max_listed": 20
   },
   "fields": {
     "_comment": "Every item carries every field, unset ones null; an `optional` field was added after items existed, so an item written before it may lack the key (read as null). History is append-only, so its old entries never gain the key; new items always carry it.",
@@ -152,6 +161,7 @@
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
     "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:, todo.group:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
     "plan_pins":   {"doc": "[{plan, digest, date}]: for each plan:PLAN-<name>.md§<n> tag, the sha256 of that section's text (read by `setup plans show`) and the day it was read; set by `todo add/edit --pin-plan` only, read by `todo stale-plans`, which lists the item once its section changes or is gone", "label": "plan pins", "optional": true},
+    "plan_step":   {"doc": "{file, section, step, hash, text}: the plan step a `step` item was made from, as `setup plans steps --json` read it (hash is that tool's sha256 of the step's text); set and kept by `todo sync-plans` only, which matches a step by hash first, then by section and number", "label": "plan step", "optional": true},
     "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},
     "done":        {"doc": "date closed, YYYY-MM-DD; null while open (or when an imported DONE bullet carried no date)", "label": "done"},
     "resolution":  {"doc": "how it closed; null while open; done-deprecated for an imported closed bullet", "label": "resolution"},

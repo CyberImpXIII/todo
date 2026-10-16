@@ -113,12 +113,15 @@ class Declared(Case):
 class Handled(Case):
     def test_every_kind_status_work_and_field_renders(self):
         a = self.repo("a", "aa")
-        (self.ws / "PLAN-h.md").write_text("# H\n\n## 1. One\n\none\n")  # a decision's pointer resolves in it
+        # a decision's pointer resolves in it; todo sync-plans makes the one plan step item of its §2
+        (self.ws / "PLAN-h.md").write_text("# H\n\n## 1. One\n\none\n\n## 2. Steps\n\n1. `a`: do the thing.\n")
+        self.todo("-C", a, "--root", self.ws, "add", "reported", "--kind", VOCAB.role("default_kind"))  # aa-1, reported below
+        self.todo("-C", a, "--root", self.ws, "sync-plans", "PLAN-h.md")
         extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"], "jacob-step": ["--done-check", "true"],
                  VOCAB.role("decision_kind"): ["--pointer", "PLAN-h.md §1", "--hinges-on", "h", "--recommend", "o1", "--option", "o1=x"]}
         dk = VOCAB.role("decision_kind")
         for kind in [k for k in VOCAB.kinds if k != dk] + [dk]:  # the decision last: approving it closes it
-            if kind == VOCAB.role("report_kind"):
+            if kind in (VOCAB.role("report_kind"), VOCAB.role("plan_step_kind")):
                 continue
             self.todo("-C", a, "--root", self.ws, "add", f"a {kind}", "--kind", kind, *extra.get(kind, []))
         self.todo("-C", a, "report", "aa-1", "--to", "elsewhere")

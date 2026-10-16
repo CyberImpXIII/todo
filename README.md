@@ -49,7 +49,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo edit ID [--title T] [--kind K] [--status S] [--evidence E] [--append-evidence E] [--probe P] [--parent ID] [--blocked-by [ID ...]] [--waits-on W] [--repo R] [--work W] [--size S] [--files F ...] [--research RS_ID ...] [--done-when D] [--done-check C] [--retire C] [--tags [T ...]] [--pointer 'FILE §n'] [--hinges-on H] [--recommend A] [--option NAME=TEXT ...] [--handoff NOTE] [--reported-to REPO[:THEIR_ID]] [--pin-plan] [--plans-dir D] [--plans-cli P]` | change fields of an open item (`""` clears one; `--option` replaces a decision's options, `--option ''` clears them, and a changed pointer is read again); never closes it, never touches history. `--blocked-by` with no ids clears the list; ids are checked as for `add`. Leaving `waiting-jacob` clears `waits_on` and says so (an explicit value with another status is refused), and entering it needs a value; an item written before `waits_on` existed still takes other edits without one. `--tags` with no tags clears them; tags are checked as `check` does (below). `--append-evidence` adds a line after the evidence inside the store's lock, so no caller reads, changes and rewrites it (not with `--evidence`). `--handoff` records, at a checkpoint, one line (done; next; how to verify) with today's date and the work repo's `HEAD` (below). `--pin-plan` pins (again) every `plan:FILE§n` section as it reads today; a tag taken off with `--tags` takes its pin with it. `--reported-to` sets a report's owner and writes no other store (`todo report` does): `THEIR_ID` only when that store holds it with `parent` ID, a counterpart it holds pairs without one, and the date stays while the repo does |
 | `todo done ID [--resolution R] [--as rejected --reason R]` | close an item, with exactly one of `--resolution` and `--as`: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes. `--as rejected` closes a decision Jacob said no to, and puts every open item it blocks, in any scanned store, back to `waiting-jacob` on `decision:<its pointer>` with the reason in its evidence (Decisions, below) |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one; if the scan finds exactly one git repo named REPO, the report is also filed in its hand-written `TODO.md`: one bullet marked `todo:ID` under the heading `report_fallback.heading` (vocab.json), written once however often it is re-run, and recorded in the item's evidence (PLAN-architecture.md §11 S4). That file is left uncommitted in REPO for its owner to commit; two repos of that name, or none, get nothing |
-| `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest |
+| `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked] [--cites C]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest. `--cites "FILE §n"` keeps, across every scanned store, the items citing that plan section or one inside it (§3 holds §3.1): by a `plan:` tag, a `plan-step`'s `plan_step`, or a decision's `pointer`; `--cites FILE` any section of it |
 | `todo show ID` | one item in full, any repo; a closed id is read from history, and says so |
 | `todo render [--all] [--history] [--force]` | write `TODO.md` from the store. Refused over a hand edit unless `--force`, which keeps the diff in `todo.json` `hand_edits`. `--history` writes `TODO-HISTORY.md` instead: read-only, gitignored, never checked |
 | `todo tree [ID]` | items and their children across repos, closed ones marked |
@@ -72,6 +72,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo steps [--run] [--json]` | this store's open `jacob-step` items, numbered, each with its `done_check` (Jacob's steps, below). `--run` runs every check in the store's folder first, then closes each step whose check exited 0 (resolution `done-checked`); a step whose check exited otherwise stays open with the exit and the start of its output; a check that timed out or could not start is `UNCHECKED` (exit 3) after the rest are closed |
 | `todo decisions [--from TABLE] [--json]` | the open, complete decisions of every scanned store as a `## Decisions` table, `\| # \| decision \| hinges on \| recommend \|`, numbered 1..n, the one freeing most items first; recorded in this store as table `dt-N` (the same rows as an earlier table give its id). `--from dt-N` tables only that table's rows still open, recording which row each supersedes. Incomplete decisions are named under it, never tabled. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo answer REPLY [--table TABLE]` | apply Jacob's reply to a decisions table, `"1) yes 2) no 3) b 4) <words>"`, read against the table named (`dt-N:` leading the reply, or `--table`), else the latest: a yes approves, a no rejects, an option's name chooses it; any other answer is kept in `jacob_words`, status unchanged. Refused whole, nothing applied, on a row the table lacks, a row named twice, or a row whose decision is closed |
+| `todo sync-plans [FILE ...] [--dry-run] [--json] [--plans-dir D] [--plans-cli P]` | make and keep the `plan-step` items of each plan's steps (Plan steps, below): `new`, `new-decision`, `updated`, `renumbered`, `stale`, `flagged` (dispatched, so unchanged), `gone`, `listed` (a step it gives no item). No FILE reads every `PLAN-*.md` in the plans folder and also judges the items of a plan file no longer there. `--dry-run` writes nothing. Each kind of change names at most `sync_plans.max_listed` steps; `--json` gives `{dry_run, plans, steps, actions, notices, counts}`, every action. Fails open: no plans CLI, an unreadable plan or store, a hand-edited `TODO.md` is a `NOTICE` line on stderr, exit 0 |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -112,6 +113,7 @@ the renderer, the importer, the checks and these tables all follow it, and
 | `temp` | an interim rule, with the check that retires it | Interim rules | `retire` |
 | `jacob-step` | a step only Jacob takes, with the command that shows it taken (PLAN-architecture.md §11 S7); never ready or dispatchable; `todo steps` numbers them and `todo steps --run` closes each whose `done_check` exits 0 | Jacob's steps | `done_check` |
 | `research` | a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its `rs-` ids and never restates the answer | Research | `research` |
+| `plan-step` | a step of a plan, made and kept by `todo sync-plans` from the plan's own text (PLAN-services.md §3 G6, which calls it `step`; `plan-step` here, as `todo steps` and `jacob-step` already use the word); `todo add` never makes one, and `edit --kind` never turns an item into one or one into another kind | Plan steps | `plan_step` (set by `todo sync-plans`) |
 | `note` | anything else worth keeping; the import default | Notes | |
 
 <!-- vocab:statuses -->
@@ -227,6 +229,7 @@ each have one setter and are refused everywhere else:
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:`, `ref:` and `todo.group:` (below); the rest are derived from the fields and never stored |
 | `plan_pins` | `[{plan, digest, date}]`: for each `plan:FILE§n` tag, the sha256 of that section's text and the day it was read; set by `--pin-plan` only, read by `todo stale-plans` |
+| `plan_step` | `{file, section, step, hash, text}`: the plan step a `plan-step` item was made from, as `setup plans steps --json` read it; set and kept by `todo sync-plans` only (Plan steps, below) |
 | `added` | date added |
 | `done` | date closed; null while open |
 | `resolution` | how it closed; null while open |
@@ -364,7 +367,12 @@ and `recommend` (yes, no, or one of its `--option NAME=TEXT` by name). It is add
 
     | # | decision | hinges on | recommend |
     |---|---|---|---|
-    | 1 | PLAN-x.md §3: <title> (`todo:td-9`) | <hinges_on> | yes |
+    | 1 | PLAN-x.md §3: <title> | <hinges_on> | yes |
+
+(a line above the table names its id and how to answer; `--json` gives each row's
+item id). The workspace's own parser of a `## Decisions` section reads it with no
+problem (checked once by hand, 2026-10-15; no test holds that seam here, because
+that parser lives in the delegation layer, which this repo never reads)
 
 numbered 1..n, the one whose answer frees most open items (counted back
 through `blocked_by`, transitively, open items only) first. The table is recorded once in
@@ -432,6 +440,42 @@ files are read from the scan root, or `--plans-dir`. A section that tool cannot
 answer for (it is missing, the number is ambiguous, its output is in a form this
 tool does not know) is `UNCHECKED`, exit 3, never fresh and never gone
 (tests/test_plan_pins.py runs the real tool, so the seam itself is tested).
+
+## Plan steps
+
+Plans generate their items (PLAN-services.md §3 G6, §4 step 6.3). `todo sync-plans`
+reads each plan's steps through `setup plans steps FILE --json`, the one parser of
+the step grammar (never parsed here), and compares them with the `plan-step` items
+made before, in every scanned store:
+
+- **A new step** gets an item in the store of each repo it names as owner: titled
+  from its bold lead or first sentence, tagged `plan:FILE§n` and pinned (Plan pins,
+  above), `plan_step` holding the step. It is `open` with `approved` set when the
+  plan records `approved: Jacob DATE` on the step or a step above it (the source
+  names where), else `waiting-jacob` on `approval`; a step tracked `needs-yes FILE
+  §n` waits on `decision:FILE §n` instead, and the sync makes that decision once, in
+  the store it runs from, unless a store already holds one with that pointer.
+- **A step is matched by its text hash first**, then by section and number, so an
+  inserted step re-points nothing: a moved step's item is `renumbered`. A **changed**
+  step's item takes the new title, step, tag and pin, gets an evidence line with the
+  old text, and is listed `stale` with both: its judgement fields (`done_when`,
+  size, files) are its owner's to redo. Only a status the sync set (waiting on
+  approval or a decision) is moved by it.
+- **An item already dispatched is never changed**: it is listed `flagged` with what
+  would change. A closed item is never touched, and its step gets no new item.
+- **A removed step's item is listed `gone`**, never closed: a person says whether
+  the work is still wanted.
+- **A step it gives no item is `listed`** with why: tracked in a hand-written
+  `TODO.md`, naming no owner repo, naming one no scanned store has, or tracked
+  `needs-yes` at a section no decision pointer takes. A step tracked `todo:`,
+  `superseded-by` or `done` gets nothing (`vocab.json` `sync_plans.track`).
+- It sets no `blocked_by`, and it fails open: a plan it cannot read is one notice
+  and its items are judged neither changed nor gone; a store whose `TODO.md` was
+  edited by hand keeps all its changes back, said in a notice.
+
+`todo list --cites "FILE §n"` finds what cites a section, across every store.
+tests/test_syncplans.py runs the real setup tool on fixture plans, one passing and
+one failing case per kind of change.
 
 ## The store files
 

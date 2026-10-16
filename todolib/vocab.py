@@ -119,6 +119,25 @@ class Vocab:
         if unnamed:
             raise ValueError(f"vocab.json: resolution(s) {sorted(unnamed)} named by no role: nothing would set or guard them")
         self.decisions = self._decisions(data["decisions"])
+        self.sync_plans = self._sync_plans(data["sync_plans"])
+
+    SYNC_ACTIONS = ("create", "decide", "list", "skip")
+
+    def _sync_plans(self, d):
+        """vocab.json `sync_plans`, every key consumed and checked (todolib/syncplans.py reads it)."""
+        d = {k: v for k, v in d.items() if not k.startswith("_")}
+        want = {"track", "untracked", "title_max", "max_listed"}
+        if set(d) != want:
+            raise ValueError(f"vocab.json: sync_plans holds {sorted(d)}, not {sorted(want)}")
+        if not (isinstance(d["track"], dict) and d["track"]):
+            raise ValueError("vocab.json: sync_plans.track maps each track kind to an action")
+        bad = {k: v for k, v in [*d["track"].items(), ("(untracked)", d["untracked"])] if v not in self.SYNC_ACTIONS}
+        if bad:
+            raise ValueError(f"vocab.json: sync_plans actions {bad} are not among {', '.join(self.SYNC_ACTIONS)}")
+        for k in ("title_max", "max_listed"):
+            if not (isinstance(d[k], int) and not isinstance(d[k], bool) and d[k] > 0):
+                raise ValueError(f"vocab.json: sync_plans.{k} is a positive whole number")
+        return d
 
     def _decisions(self, d):
         """vocab.json `decisions`, every key consumed and checked (todolib/decisions.py reads it)."""

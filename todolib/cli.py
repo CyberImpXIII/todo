@@ -13,6 +13,7 @@ from . import blockers as rootlib
 from . import decisions as decide
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
+from . import syncplans
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -407,6 +408,8 @@ def cmd_add(args):
         require_clean(store)
         ws = workspace(args, store)
         resolve_parent(ws, args.parent)
+        if args.kind == syncplans.kind():
+            raise TodoError(f"a {args.kind} item is made by todo sync-plans from its plan's text, never by hand")
         decision = args.kind == VOCAB.role("decision_kind")
         status = args.status or (decide.D["status"] if decision else VOCAB.role("default_status"))
         if decision and status != decide.D["status"]:
@@ -454,6 +457,9 @@ def cmd_edit(args):
         if item is None:
             raise TodoError(f"{args.id} is not in {store.path}")
         changes = {f: getattr(args, f) for f in EDITABLE if getattr(args, f) is not None}
+        if "kind" in changes and (changes["kind"] == syncplans.kind()) != syncplans.is_step_item(item):
+            raise TodoError(f"--kind: a {syncplans.kind()} item is made and kept by todo sync-plans from its plan; "
+                            "no other kind becomes one or is made from one")
         if args.append_evidence is not None:
             # Appended here, under the store's lock, so a caller never reads,
             # changes and rewrites the evidence itself and drops an edit made
@@ -706,11 +712,15 @@ def cmd_split(args):
         # the dispatched mark, since each piece is handed out on its own. It carries the
         # plan pins with the plan tags: a piece of the whole was made from the same section.
         copied = ("kind", "repo", "work", "files", "blocked_by", "tags", "plan_pins", "approved", *VOCAB.required(parent))
+        if syncplans.is_step_item(parent):
+            # the plan step stays one item, the sync's own; its pieces are plain items under it
+            copied = ("repo", "work", "files", "blocked_by", "tags", "plan_pins", "approved")
         made = []
         for title in args.titles:
             child = new_item(**{f: parent.get(f) for f in copied}, title=title, status=VOCAB.role("default_status"),
                              parent=args.id, size=args.size, added=today(),
                              evidence=f"split from {args.id}: {parent['title']}")
+            child["kind"] = child["kind"] or VOCAB.role("default_kind")
             validate(child)
             child["id"] = store.allocate()
             store.items.append(child)
@@ -741,6 +751,9 @@ def cmd_report(args):
         item, where = store.find(args.id)
         if where != "store":
             raise TodoError(f"{args.id} is not an open item in {store.path}")
+        if syncplans.is_step_item(item) or args.kind == syncplans.kind():
+            raise TodoError(f"a {syncplans.kind()} item stays one (todo sync-plans keeps it) and none is made by "
+                            f"hand: report a new item with --parent {args.id} instead")
         rt = item.get("reported_to")
         if rt and (rt.get("repo") != args.to or rt.get("their_id")):
             raise TodoError(f"{args.id} is already reported to {rt['repo']}" + (f" as {rt['their_id']}" if rt.get("their_id") else ""))
@@ -819,10 +832,17 @@ def cmd_list(args):
         raise TodoError("closed items are in history: todo history")
     ws = workspace(args, store)
     known_repo(ws, args.repo)
-    scope = ws.stores if (args.all or args.repo) else [store]
+    cited = None
+    if args.cites is not None:
+        cited = syncplans.citation(args.cites)
+        if cited is None:
+            raise TodoError(f"--cites {args.cites!r}: FILE §n or FILE, e.g. 'PLAN-x.md §3'")
+    scope = ws.stores if (args.all or args.repo or cited) else [store]
     n = 0
     for s in scope:
         for it in s.items:
+            if cited and not syncplans.cites(it, *cited):
+                continue
             if args.kind and it.get("kind") != args.kind:
                 continue
             if args.status and it.get("status") != args.status:
@@ -1523,6 +1543,120 @@ def cmd_stale_plans(args):
         sys.exit(3)
 
 
+def sync_plans_plan(args, store, ws, cli_path, date):
+    """(actions, notices, plans read, steps read) of one sync: writes nothing."""
+    where = plans_dir(args, ws)
+    if args.files:
+        files = [Path(f) if Path(f).is_file() or not (where / f).is_file() else where / f for f in args.files]
+    else:
+        files = sorted(where.glob("PLAN-*.md"))
+    steps_by_file, notices = {}, []
+    for p in files:
+        steps, why = syncplans.read_steps(cli_path, p)
+        if why:
+            notices.append(why + "; its items are left as they are")
+        else:
+            steps_by_file[p.name] = steps
+    judged = set(steps_by_file)
+    if not args.files:
+        # A full run also judges the items of a plan file no longer there (all gone).
+        judged |= {it["plan_step"]["file"] for s in ws.stores for it in s.items
+                   if syncplans.is_step_item(it) and not syncplans.plan_step_problems(it)
+                   and not (where / it["plan_step"]["file"]).is_file()}
+    answers = {}  # one plans-show per section, however many steps it holds
+
+    def pin(ref):
+        if ref not in answers:
+            answers[ref] = plans.show(cli_path, where, ref)
+        return answers[ref]
+
+    actions, more = syncplans.plan(ws, store, steps_by_file, judged, pin, date)
+    return actions, notices + more, len(steps_by_file), sum(map(len, steps_by_file.values()))
+
+
+def sync_plans_apply(actions, notices):
+    """Write the actions that change a store, all-or-nothing per store: a store
+    whose TODO.md is hand-edited (or history missing) keeps its changes back, said
+    in a notice; an item the store would refuse is one notice, never a guess.
+    Returns the actions written."""
+    writes = [a for a in actions if a["store"] is not None and a["action"] in syncplans.WRITES]
+    blocked = set()
+    for s in {a["store"].dir: a["store"] for a in writes}.values():
+        try:
+            require_clean(s)
+        except TodoError as e:
+            blocked.add(s.dir)
+            notices.append(f"{s.repo}: nothing written there ({e})")
+    done = []
+    for a in writes:
+        s = a["store"]
+        if s.dir in blocked:
+            continue
+        it, changes = a["item"], a["changes"]
+        try:
+            if a["action"] in (syncplans.NEW, syncplans.DECISION):
+                validate(it, require_decision=a["action"] == syncplans.DECISION)
+                it["id"] = s.allocate()
+                s.items.append(it)
+            else:
+                updated = dict(it, **changes)
+                validate(updated, require_waits=bool({"status", "waits_on"} & set(changes)))
+                it.update(updated)
+        except TodoError as e:
+            notices.append(f"{a['plan'] or a['detail']}: not written ({e})")
+            continue
+        done.append(a)
+    commit_all({a["store"] for a in done})
+    return done
+
+
+def cmd_sync_plans(args):
+    """Plans generate their items (PLAN-services.md §3 G6, §4 step 6.3): see
+    todolib/syncplans.py. Fails open: whatever stops it is one NOTICE line on
+    stderr and exit 0, never a stopped turn."""
+    date = today()
+    try:
+        store = open_store(args)
+        cli_path, why = plans.resolve_cli(args.plans_cli)
+        if why:
+            raise TodoError(why)
+        if args.dry_run:
+            ws = workspace(args, store)
+            actions, notices, n_plans, n_steps = sync_plans_plan(args, store, ws, cli_path, date)
+        else:
+            with locked_workspace(args, store) as ws:
+                actions, notices, n_plans, n_steps = sync_plans_plan(args, store, ws, cli_path, date)
+                written = {id(a) for a in sync_plans_apply(actions, notices)}
+                actions = [a for a in actions if a["store"] is None or a["action"] not in syncplans.WRITES
+                           or id(a) in written]
+    except (TodoError, OSError) as e:
+        print(f"todo sync-plans: NOTICE: {e}; nothing synced", file=sys.stderr)
+        return
+    notices += [f"a store could not be read: {e}" for e in ws.errors]
+    rows = [{"action": a["action"], "id": a["item"] and a["item"].get("id") and tagging.global_id(a["item"]["id"]),
+             "repo": a["store"].repo if a["store"] else None, "plan": a["plan"],
+             "title": a["item"]["title"] if a["item"] else None, "detail": a["detail"], "quiet": a["quiet"]}
+            for a in actions]
+    counts = {k: sum(r["action"] == k for r in rows) for k in syncplans.ORDER}
+    if args.json:
+        print(json.dumps({"dry_run": args.dry_run, "plans": n_plans, "steps": n_steps, "actions": rows,
+                          "notices": notices, "counts": counts}, indent=1, ensure_ascii=False))
+    else:
+        cap = syncplans.spec()["max_listed"]
+        for kind in syncplans.ORDER:
+            shown = [r for r in rows if r["action"] == kind and not r["quiet"]]
+            for r in shown[:cap]:
+                head = f"{r['id'] or '(new)'} ({r['repo']})" if r["repo"] else "-"
+                print(f"{kind:<12} {head} {r['plan'] or ''}: " + (f"{r['title']} -- " if r["title"] else "") + r["detail"])
+            if len(shown) > cap:
+                print(f"{kind:<12} +{len(shown) - cap} more (--json lists them)")
+        said = ", ".join(f"{k} {n}" for k, n in counts.items() if n) or "nothing to do"
+        print(f"sync-plans: {n_plans} plan(s), {n_steps} step(s): {said}"
+              + (" (dry run: nothing written)" if args.dry_run else ""))
+    for n in notices:
+        print(f"todo sync-plans: NOTICE: {n}", file=sys.stderr)
+
+
 def handoff_line(it, where):
     """The brief's resume point (PLAN-small-tasks.md §4.3): the last handoff and
     the commit it was written at, with that commit's subject read from the work
@@ -1653,6 +1787,7 @@ COMMANDS = {
     "steps": (cmd_steps, "Jacob's open steps, numbered; --run closes each whose done_check exits 0"),
     "decisions": (cmd_decisions, "open decisions as a numbered table for Jacob, most items freed first; recorded as dt-N"),
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
+    "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -1738,6 +1873,9 @@ def build_parser():
     split = ps["list"].add_mutually_exclusive_group()
     split.add_argument("--ready", action="store_true", help="only items whose blocked_by ids are all closed (or none)")
     split.add_argument("--blocked", action="store_true", help="only items with a blocked_by id still open")
+    ps["list"].add_argument("--cites", metavar="'FILE §n'",
+                            help="only items citing that plan section or one inside it (a plan: tag, a step's "
+                                 "plan_step, a decision's pointer), in every scanned store; FILE alone cites any")
     ps["show"].add_argument("id")
     ps["render"].add_argument("--all", action="store_true")
     ps["render"].add_argument("--history", action="store_true")
@@ -1789,7 +1927,12 @@ def build_parser():
     ps["steps"].add_argument("--run", action="store_true",
                              help="run each step's done_check here; close the steps whose check exits 0")
     ps["steps"].add_argument("--json", action="store_true")
-    for name in ("add", "edit", "stale-plans", "import"):
+    ps["sync-plans"].add_argument("files", nargs="*", metavar="FILE",
+                                  help="the plans to read (default: every PLAN-*.md in --plans-dir, which also "
+                                       "judges the items of a plan file no longer there)")
+    ps["sync-plans"].add_argument("--dry-run", dest="dry_run", action="store_true", help="say what it would do; write nothing")
+    ps["sync-plans"].add_argument("--json", action="store_true", help="every action, uncapped")
+    for name in ("add", "edit", "stale-plans", "import", "sync-plans"):
         ps[name].add_argument("--plans-dir", dest="plans_dir", metavar="DIR",
                               help="where the PLAN-*.md files are (default: the scan root)")
         ps[name].add_argument("--plans-cli", dest="plans_cli", metavar="PATH",

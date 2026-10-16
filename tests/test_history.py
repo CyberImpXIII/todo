@@ -27,8 +27,9 @@ class RoundTrip(Case):
         after = self.history(a)["items"][0]
         self.assertEqual(after, dict(before, status=VOCAB.closed, done="2026-10-04", resolution="retired by the check"))
         unset = [f for f in VOCAB.field_names() if before.get(f) in (None, [], "")]
-        # a decision's own fields (tests/test_decisions.py round-trips those) and what closing sets
-        self.assertEqual(sorted(unset), sorted(["done", "imported", "reported_to", "resolution", *decide.FIELDS]))
+        # a decision's own fields (tests/test_decisions.py round-trips those), a plan step's
+        # (tests/test_syncplans.py) and what closing sets
+        self.assertEqual(sorted(unset), sorted(["done", "imported", "reported_to", "resolution", "plan_step", *decide.FIELDS]))
         shown = self.todo("-C", a, "history", "aa-1").stdout
         for f in VOCAB.field_names():
             v = after[f]

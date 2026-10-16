@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (17 open, 30 closed in todo-history.json; seal 171aede7383b): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (19 open, 30 closed in todo-history.json; seal 80e196d96344): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -9,6 +9,16 @@
   · size: S
   · done when: todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it
   · added: 2026-10-13
+
+- **td-48 · `todo repos` skips .claude (hidden dir) -- input: tools/todo/todo repos -- expected: hx listed. A...**
+  reported to todo in dispatch toolu_01LWiD7eKj8CV3V6FQsyVKxE by the delegation layer's owner, filed from its dispatch ledger (names of that layer taken out: this repo names none, devtools/audit.py): `todo repos` skips .claude (hidden dir) -- input: tools/todo/todo repos -- expected: hx listed. Also no `todo detect` (needed by PLAN-todo-tool §10.5). 2026-10-16 todo: by design today: a hidden folder is never scanned (PLAN-todo-tool.md §8 decision 4: todo never reads the delegation layer), so listing it needs Jacob to change that decision.
+  · parent: tl-219
+  · added: 2026-10-15
+
+- **td-49 · `add --kind decision` now needs --pointer/--hinges-on/--recommend, and cli.json now has `sync-pla...**
+  reported to todo in dispatch toolu_01LWiD7eKj8CV3V6FQsyVKxE by the delegation layer's owner, filed from its dispatch ledger (names of that layer taken out: this repo names none, devtools/audit.py): `add --kind decision` now needs --pointer/--hinges-on/--recommend, and cli.json now has `sync-plans`, both uncommitted -- input: todo add "Which source" --kind decision --work code -- expected: when it commits, tell that owner so its test-offload and todo-verbs.json follow.
+  · parent: tl-220
+  · added: 2026-10-15
 
 ## Open decisions
 
