@@ -375,7 +375,7 @@
      "file": "todolib/checks.py", "old": "        if state == \"legacy\":", "new": "        if False:",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Legacy"]},
     {"id": "cli-json-verb-drift", "gate": "cli.json's verbs are the CLI's commands",
-     "file": "cli.json", "old": "\"stale-plans\", \"help\"]", "new": "\"stale-plans\"]",
+     "file": "cli.json", "old": "\"steps\", \"help\"]", "new": "\"steps\"]",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Declared"]},
     {"id": "ready-takes-a-large-item", "gate": "todo ready lists only the sizes one checkpoint holds",
      "file": "todolib/blockers.py", "old": "    if it[\"size\"] not in VOCAB.ready_sizes:", "new": "    if False:",

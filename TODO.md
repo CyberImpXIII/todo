@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (14 open, 29 closed in todo-history.json; seal ad59bedf032a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (18 open, 29 closed in todo-history.json; seal 304a74bac49f): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -9,6 +9,11 @@
   · size: S
   · done when: todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it
   · added: 2026-10-13
+
+- **td-47 · an import makes a closed report with no reported_to, which `todo check` then fails and history ne...**
+  reported by setup to todo in dispatch toolu_01GrRJXCgNtyh79o9fmKSoFs (setup: resume fanout and Q7, kb docs), filed from the dispatch ledger by the delegation layer's report filer (its path is not named here: devtools/audit.py fails on it): an import makes a closed report with no reported_to, which `todo check` then fails and history never lets be edited -- input: a "- DONE 2026-10-04: ..." bullet under "## Reported to other owners" (tools/setup su-72) -- expected: it imports as a note, as open blocks do
+  · parent: tl-214
+  · added: 2026-10-15
 
 ## Open decisions
 
@@ -32,6 +37,11 @@
   · done when: the checks gate's stores-exported is ok for this repo: either cli.json lists todo.json and todo-history.json under not_exported with why, or todo export and todo verify --json exist per tools/checks schema/verify.schema.json
   · added: 2026-10-09
 
+- **td-44 · report fallback leaves a foreign TODO.md uncommitted, in tension with S2**
+  e0f6e71: todo report --to a storeless repo appends a bullet to that repo's TODO.md and does not commit it (another owner's tree). PLAN-architecture.md §11 S2 reads a foreign uncommitted file as someone mid-task. Options: commit it there in the same run (S2's renderer rule), or leave it for the owner (now). Also unguarded: a read-modify-write race with the owner editing that TODO.md at the same moment.
+  · tags: plan:PLAN-architecture.md§11
+  · added: 2026-10-15
+
 ## Unconfirmed suspicions
 
 - **td-33 · todo ready still lists an item marked dispatched**
@@ -41,6 +51,16 @@
   · size: S
   · done when: todo ready flags an approved, dispatched item as dispatched (flag, not hide); a test shows the mark changes ready's output
   · added: 2026-10-09
+
+- **td-45 · research ids are unchecked until tools/research has a CLI**
+  8cb53f9: check counts research ids as unchecked foreign refs (INFO). Nothing proves an rs- id exists.
+  · probe: once tools/research has a 'get rs-N' verb: todo check resolves each research id and fails a dangling one
+  · added: 2026-10-15
+
+- **td-46 · jacob-step done_check runs whatever the store holds**
+  fa05045: todo steps --run executes each done_check under /bin/sh; anyone who can commit todo.json can run a command on the runner's machine. README says to read checks with todo steps first; nothing enforces it.
+  · probe: decide whether todo steps --run needs an allow-list or a confirmation for a done_check added since the last run
+  · added: 2026-10-15
 
 ## Reported to other owners
 
@@ -70,7 +90,7 @@
 
 - **td-9 · devtools/mutate.py duplicates the setup repo's mutant runner**
   Copied from tools/setup/devtools/mutate.py on 2026-10-04 and extended with an edits list (a gate guarded in two places needs both broken). Two copies will drift. Candidate for a shared component that setup installs.
-  · reported to: setup on 2026-10-04 (no counterpart yet)
+  · reported to: setup on 2026-10-04 as su-74
   · work: tooling
   · files: devtools/mutate.py
   · done when: one copy, installed by setup, with the edits list
@@ -88,7 +108,7 @@
 - **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
   ./dev.sh check, 2026-10-09 (commit after 77bce39): checks gate FAIL hooks-installed: extra-stores.sh (the installed hooks' lib folder), .claude/hooks/store-guard.sh and .claude/hooks/test-store-guard.sh 'drift; not covered by user scope (no shared hook of that name there)', .claude/hooks/test-no-inline-blobs.sh 'drift; not covered by user scope (not registered there)'. Last touched by 93532a8 (re-render of the shared hook copies from tools/hooks). Not this tool's files and not changed by td-22/td-27; reported to the hooks tool's owner through the dispatch report. Also live: ./dev.sh hooks FAIL 'store-guard.sh is not registered in .claude/settings.json' (td-2's remainder; the uncommitted settings.json now registers the other seven). 2026-10-12: the lib file's path is named without its folder here, because that folder in this store tripped the direction audit (audit, no-roster and two test_dev tests red).
   2026-10-15: of setup's Q6 render, test-no-inline-blobs.sh and lib/extra-stores.sh agree with source (hooks copies: ok) and are committed (c5f1886); store-guard.sh and test-store-guard.sh drift from hooks bdd932f and stay uncommitted. Also drift/missing at tools/todo: lib/ledger.sh, prefer-recipes.sh and its test, lib/write-targets.sh (drift); bin/commit.sh, git-funnel.sh and its test (missing). Needs a re-render by setup.
-  · reported to: setup on 2026-10-15 (no counterpart yet)
+  · reported to: setup on 2026-10-15 as su-75
   · work: labour
   · size: S
   · done when: tools/hooks' hooks copies shows no drift or missing row at tools/todo, and the checks gate's hooks-installed passes
