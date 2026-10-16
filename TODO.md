@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (15 open, 28 closed in todo-history.json; seal 5b783b36d83a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (14 open, 29 closed in todo-history.json; seal 864a967b31dc): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -31,13 +31,6 @@
   · size: S
   · done when: the checks gate's stores-exported is ok for this repo: either cli.json lists todo.json and todo-history.json under not_exported with why, or todo export and todo verify --json exist per tools/checks schema/verify.schema.json
   · added: 2026-10-09
-
-- **td-38 · Approval by rule (TD-B1) is open: only todo approve and an imported 'approved: Jacob <date>' lead set approved**
-  PLAN-todo-tool.md §10.2 steps 1-3 and 6 are built (blockers, waits_on, dispatchable roots, import rules, 4801f3b). §10.3 was out of scope for this job and not started; TD-B1 decides whether a rule (a plan section, a kind) may count as approval. Until then nothing else does (README Fields, approved).
-  · status: waiting-jacob
-  · waits on: decision:PLAN-todo-tool.md §10.3
-  · work: decision
-  · added: 2026-10-13
 
 ## Unconfirmed suspicions
 

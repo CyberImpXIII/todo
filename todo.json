@@ -300,33 +300,6 @@
       "imported": null
     },
     {
-      "id": "td-38",
-      "title": "Approval by rule (TD-B1) is open: only todo approve and an imported 'approved: Jacob <date>' lead set approved",
-      "kind": "decision",
-      "status": "waiting-jacob",
-      "evidence": "PLAN-todo-tool.md §10.2 steps 1-3 and 6 are built (blockers, waits_on, dispatchable roots, import rules, 4801f3b). §10.3 was out of scope for this job and not started; TD-B1 decides whether a rule (a plan section, a kind) may count as approval. Until then nothing else does (README Fields, approved).",
-      "probe": null,
-      "reported_to": null,
-      "parent": null,
-      "blocked_by": null,
-      "waits_on": "decision:PLAN-todo-tool.md §10.3",
-      "repo": "todo",
-      "work": "decision",
-      "size": null,
-      "files": null,
-      "done_when": null,
-      "handoff": null,
-      "approved": null,
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "added": "2026-10-13",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-41",
       "title": "todo check has no --json; the checks repo's todo-valid gate reads its text output",
       "kind": "bug",
@@ -427,5 +400,5 @@
       "imported": null
     }
   ],
-  "seal": "a32c92e5757628e9"
+  "seal": "e5af9a5f5aea6b72"
 }
