@@ -38,7 +38,18 @@
   },
   "approval": {
     "_comment": "Who may approve work for dispatch (the `approved` field's `by`): Jacob alone. `todo approve` writes this value and nothing else; check fails an `approved` whose `by` differs.",
-    "by": "jacob"
+    "by": "jacob",
+    "rule": {
+      "_comment": "Approval by rule (PLAN-todo-tool.md §10.1 cause 1, TD-B1, approved by Jacob 2026-10-12): an open item (roles.default_status) counts as approved, with no `todo approve`, when its kind is one of `kinds`, its repo is its store's own, its size is one of `sizes`, every field in `needs` is set, its work is not one of `exclude_works`, and none of its `files` matches a glob in `exclude_files` (fnmatch: `*` crosses `/`). Read by todolib/approval.py alone. Judged afresh at every read; stored only by `todo dispatch` while the item is dispatched, as {by, date: `approved`, source: `source`}, so the source tells it from Jacob's own yes. The rule sees settings, a new remote or an outward act only through work and files.",
+      "id": "TD-B1",
+      "approved": "2026-10-12",
+      "source": "rule TD-B1 (PLAN-todo-tool.md §10.1, approved by Jacob 2026-10-12)",
+      "kinds": ["bug", "suspicion", "temp"],
+      "sizes": ["S", "M"],
+      "needs": ["work", "done_when"],
+      "exclude_works": ["outreach", "decision", "labour"],
+      "exclude_files": [".claude/settings*.json", "*/.claude/settings*.json", ".git/config", "*/.git/config"]
+    }
   },
   "waits_on": {
     "_comment": "What a waiting-jacob item (roles.jacob_status) waits on (PLAN-todo-tool.md §10.2 step 2): the field is `<value>`, or `<value>:<argument>` for a value whose `argument` is a regex the argument must match (null: it takes none). `clears` is the one pointer `todo blockers` prints for the group ({arg} is the argument). `todo add`, `edit` and `import` refuse a waiting-jacob item without one; check lists an older one that lacks it, and fails none.",

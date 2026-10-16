@@ -59,8 +59,8 @@ without one stays an error rather than borrowing another store's answer.
 | `todo split ID TITLE ... --size SIZE` | one child per title under `parent`, each a checkpoint of its own: SIZE is S or M; it copies the parent's kind, repo, work, files, `blocked_by`, tags and any field its kind requires, and gets its own `done_when` with `todo edit`. The parent becomes L, so `ready` never lists it, and `todo done` on its last open child closes it too |
 | `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
 | `todo approve ID --source S [--date D] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched |
-| `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`. Refused on an unapproved item or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
-| `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
+| `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`; an item approved by rule TD-B1 (Approval by rule, below) gets the rule's `approved` too. Refused on an item neither Jacob nor the rule approves, naming the rule's misses, or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
+| `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it; then, under their own heading (`by_rule` in `--json`), the ones approved by rule TD-B1 and not by him. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo blockers [--repo R] [--json]` | every open item, across every scanned store, that is not dispatchable, grouped by its root blocker (Blockers, below): one line per root, most items freed first, with what clears it, the count and the first ids; bounded, and `--json` gives every root and id. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo stale-plans [--repo R] [--plans-dir D] [--plans-cli P] [--json]` | the open items, across every scanned store, whose plan section is not what they were made from (Plan pins, below): `changed`, `section gone`, or `never pinned` (a `plan:` tag with no pin, or one naming no section), each with its `todo:` id, repo, `FILE §n` and the day it last matched. Exit 3 (`UNCHECKED`) when a section could not be read (no plans CLI, an ambiguous section) or a store could not be read: such a section is never counted fresh |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
@@ -199,7 +199,7 @@ each have one setter and are refused everywhere else:
 | `files` | paths the work touches |
 | `done_when` | the observable that closes it |
 | `handoff` | `{date, text, commit}`: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief` |
-| `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve`, or by `todo import` from "approved: Jacob <date>" in an item's lead, read by `todo dispatchable` |
+| `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve`, or by `todo import` from "approved: Jacob <date>" in an item's lead, read by `todo dispatchable`. While an item is dispatched it may hold rule TD-B1's approval instead (its `source` the rule's), written by `todo dispatch` only |
 | `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:` and `ref:` (below); the rest are derived from the fields and never stored |
@@ -247,8 +247,9 @@ tool records itself, each with one setter:
 - **`approved`**, by `todo approve ID --source "..."`: Jacob's go-ahead, with the
   day and where he gave it (or by `todo import`, from his dated "approved: Jacob
   YYYY-MM-DD" already written in an item's lead; Import, below). Nothing else counts
-  as approval: not the kind, not a plan section, not an `origin:jacob` tag. `todo dispatch` refuses an item without
-  it, and `check` fails an `approved` of another shape or approver, or a
+  as approval but the one rule he approved (Approval by rule, below): not a plan
+  section, not an `origin:jacob` tag. `todo dispatch` refuses an item neither
+  approves, and `check` fails an `approved` of another shape or approver, or a
   `dispatched` mark on an item with none.
 - **`dispatched`**, by `todo dispatch ID`: the item was handed to someone, so it is
   in flight and left out. "In flight" is this mark alone: todo reads no roster and
@@ -268,6 +269,32 @@ the workspace root and scans from there (tests/test_dispatch.py).
 
 Items in a hand-kept `TODO.md` are not in any store, so this command cannot see
 them until that file is imported (`todo import`).
+
+### Approval by rule (TD-B1)
+
+Jacob approved one rule in place of a yes per item (PLAN-todo-tool.md §10.1 cause 1,
+2026-10-12). Its conditions are `vocab.json` `approval.rule`, read by
+`todolib/approval.py` alone: an open item with no approval of its own counts as
+approved when its kind is one of `kinds` (bug, suspicion, temp), its size one of
+`sizes` (S, M), its `repo` is its store's own, it has every field in `needs`
+(work, done_when), its status is `open`, its work is none of `exclude_works`
+(outreach, decision, labour) and none of its `files` matches `exclude_files`
+(settings files, `.git/config`). Jacob's own `approved` always wins.
+
+- `todo dispatchable` lists rule-approved items under their own heading,
+  "approved by rule TD-B1, not by Jacob", and `--json` under `by_rule` (never in
+  `dispatchable`); held and dispatched entries carry `by_rule` true or false.
+- `todo dispatch` stores the rule's approval (its `source` is the rule's) while
+  the item is dispatched, and says so; `dispatch --clear` removes it. On an item
+  the rule does not cover, it refuses and names each miss.
+- The rule is judged afresh at every other read, so an item edited out of its
+  reach loses it. `todo check` fails a stored rule approval on an open item that
+  is not dispatched: only `todo dispatch` writes one.
+- `todo show` prints the rule approval, or why the rule does not cover the item;
+  `todo blockers` roots a ready item at `jacob` only when the rule does not cover it.
+- What the rule cannot see: a push to a new remote, or an irreversible or
+  outward act, except through `work` and `files`. An item naming neither is
+  judged by its kind, size and repo (tests/test_approval_rule.py).
 
 ## Blockers
 

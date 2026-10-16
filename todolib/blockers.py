@@ -6,7 +6,8 @@ One root per item, found in this order, because each later one cannot free an it
 an earlier one holds: a report waits on its owner; an item blocked by another waits
 on the end of that chain; a waiting-jacob item waits on Jacob (its waits_on); an
 item lacking what `todo brief` needs waits on its store's owner to triage it; an
-item ready but for approval waits on Jacob's yes. The kinds of root, their
+item ready but for approval waits on Jacob's yes, unless rule TD-B1 approves it
+(todolib/approval.py). The kinds of root, their
 tie-break order and the output bounds are vocab.json `blockers`.
 
 `todo dispatchable` judges the same items (cli.dispatch_view): tests/test_blockers.py
@@ -14,7 +15,7 @@ holds every open item to exactly one of the two.
 """
 import os
 
-from . import checks, deps
+from . import approval, checks, deps
 from .store import never_scanned
 from .vocab import VOCAB
 
@@ -123,9 +124,10 @@ def field_reasons(ws, it):
     return why
 
 
-def root_kind(ws, it):
+def root_kind(ws, it, store_repo):
     """Which kind of root holds this open item, or None when nothing does (it is
-    dispatchable, dispatched, or a split item whose children carry the work)."""
+    dispatchable, dispatched, or a split item whose children carry the work).
+    store_repo: the repo of the store holding it, which approval by rule reads."""
     if it.get("dispatched"):
         return None
     if is_split(ws, it):
@@ -138,7 +140,7 @@ def root_kind(ws, it):
         return "jacob"
     if field_reasons(ws, it):
         return "field"
-    if not checks.approved_ok(it.get("approved")):
+    if not checks.approved_ok(approval.effective(it, store_repo)[0]):
         return "jacob"
     return None
 
@@ -151,7 +153,7 @@ def view(ws, repo=None):
         for it in s.items:
             if repo and it.get("repo") != repo:
                 continue
-            kind = root_kind(ws, it)
+            kind = root_kind(ws, it, s.repo)
             if kind is None:
                 continue
             key, what, clears, their = ROOTS[kind](ws, s, it)

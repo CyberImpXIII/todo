@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 
-from . import deps, plans, tags
+from . import approval, deps, plans, tags
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, SEAL_KEY, SEAL_STATES, STORE_KEYS, HISTORY_FILE,
                     RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
@@ -161,6 +161,10 @@ def check_item(it, where, store, out):
         if it.get("approved") is None:
             out.append(("FAIL", "schema", iid, "dispatched without approved: todo dispatch refuses an unapproved "
                                                "item, so this was written around the CLI"))
+    elif where == "store" and approval.is_rule(it.get("approved")):
+        out.append(("FAIL", "schema", iid, f"a rule {VOCAB.approval_rule['id']} approval stored on an item not "
+                                           "dispatched: only todo dispatch stores one, and dispatch --clear removes it; "
+                                           "the rule is judged afresh at every read (todo approve --clear it)"))
     waits_why = waits_on_problem(it, require=False)
     if waits_why:
         out.append(("FAIL", "vocab", iid, waits_why))

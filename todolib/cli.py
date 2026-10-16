@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import checks, deps, importer, plans
+from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import tags as tagging
@@ -938,18 +938,26 @@ def cmd_dispatch(args):
                 raise TodoError(f"{args.id} is not dispatched")
             item["dispatched"] = None
             msg = f"cleared the dispatch of {args.id}: todo dispatchable lists it again when it is ready"
+            if approval.is_rule(item.get("approved")):
+                item["approved"] = None  # judged afresh from here on (todolib/approval.py)
+                msg += f"; its rule {VOCAB.approval_rule['id']} approval is judged afresh"
         else:
-            if not item.get("approved"):
-                raise TodoError(f"{args.id} carries no approval: only Jacob's approved work is dispatched "
-                                f"(todo approve {args.id} --source ...)")
             if item.get("dispatched"):
                 raise TodoError(f"{args.id} was dispatched {item['dispatched'].get('date')} already "
                                 f"(todo dispatch {args.id} --clear when it came back unfinished)")
+            appr, by_rule = approval.effective(item, store.repo)
+            if appr is None:
+                raise TodoError(f"{args.id} carries no approval, and rule {VOCAB.approval_rule['id']} does not cover it "
+                                f"({'; '.join(approval.rule_misses(item, store.repo))}): only approved work is "
+                                f"dispatched (todo approve {args.id} --source ...)")
             note = args.note.strip() if args.note else None
             if note and "\n" in note:
                 raise TodoError("--note must be one line")
             item["dispatched"] = {"date": today(), "text": note or None}
             msg = f"dispatched {args.id} ({today()})"
+            if by_rule:
+                item["approved"] = appr
+                msg += f", approved by rule {VOCAB.approval_rule['id']}, not by Jacob"
             why = not_ready_reasons(workspace(args, store), item)
             if why:
                 msg += f"; note: todo brief calls it NOT READY ({'; '.join(why)})"
@@ -962,14 +970,16 @@ def dispatch_view(ws, repo=None):
     approved, not dispatched, and ready as `todo brief` judges it. Every approved
     open item is accounted for: listed, held (with why), or dispatched; the open
     items with no approval are counted, never silently dropped."""
-    view = {"dispatchable": [], "held": [], "dispatched": [], "unapproved": 0, "unreadable": list(ws.errors)}
+    view = {"dispatchable": [], "by_rule": [], "held": [], "dispatched": [], "unapproved": 0,
+            "unreadable": list(ws.errors)}
     for s in ws.stores:
         for it in s.items:
             if repo and it.get("repo") != repo:
                 continue
             if it.get("kind") == VOCAB.role("report_kind"):
                 continue  # its work lives in the owner's store, under the counterpart's id
-            appr = it.get("approved")
+            # Jacob's own yes, or rule TD-B1's (todolib/approval.py), never mistaken for his.
+            appr, by_rule = approval.effective(it, s.repo)
             if appr is None:
                 view["unapproved"] += 1
                 continue
@@ -977,21 +987,21 @@ def dispatch_view(ws, repo=None):
             if it.get("dispatched"):
                 d = it["dispatched"]
                 view["dispatched"].append({"id": gid, "date": d.get("date") if isinstance(d, dict) else None,
-                                           "text": d.get("text") if isinstance(d, dict) else None})
+                                           "text": d.get("text") if isinstance(d, dict) else None, "by_rule": by_rule})
                 continue
             if not checks.approved_ok(appr):
-                view["held"].append({"id": gid, "why": ["approved is malformed (todo check names it)"]})
+                view["held"].append({"id": gid, "why": ["approved is malformed (todo check names it)"], "by_rule": by_rule})
                 continue
             if is_split(ws, it):
                 continue  # split: its children carry the approval and the work
             why = not_ready_reasons(ws, it)
             if why:
-                view["held"].append({"id": gid, "why": why})
+                view["held"].append({"id": gid, "why": why, "by_rule": by_rule})
                 continue
-            view["dispatchable"].append({"id": gid, "repo": it["repo"], "work": it["work"], "size": it["size"],
-                                         "title": it["title"], "approved": appr, "store": str(s.dir),
-                                         "brief": f"todo brief {gid}",
-                                         "mark": f"todo -C {s.dir} dispatch {it['id']}"})
+            view["by_rule" if by_rule else "dispatchable"].append(
+                {"id": gid, "repo": it["repo"], "work": it["work"], "size": it["size"],
+                 "title": it["title"], "approved": appr, "store": str(s.dir),
+                 "brief": f"todo brief {gid}", "mark": f"todo -C {s.dir} dispatch {it['id']}"})
     return view
 
 
@@ -1001,11 +1011,18 @@ def cmd_dispatchable(args):
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
     else:
-        for r in view["dispatchable"]:
+        def row(r, approved):
             print(f"{r['id']:<11} repo {r['repo']:<16} work {r['work']:<9} size {r['size']}  "
-                  f"approved {r['approved']['date']}  {r['title'][:TITLE_WIDTH]}")
+                  f"{approved}  {r['title'][:TITLE_WIDTH]}")
             print(f"{'':<11} brief: {r['brief']}   mark it handed out: {r['mark']}")
-        if not view["dispatchable"]:
+        for r in view["dispatchable"]:
+            row(r, f"approved {r['approved']['date']}")
+        if view["by_rule"]:
+            rule = VOCAB.approval_rule
+            print(f"approved by rule {rule['id']}, not by Jacob ({len(view['by_rule'])}): {rule['source']}")
+            for r in view["by_rule"]:
+                row(r, f"rule {rule['id']}")
+        if not view["dispatchable"] and not view["by_rule"]:
             # PLAN-todo-tool.md §10.2 step 3: what holds the rest, not a bare count.
             n = VOCAB.blocker_bounds["dispatchable_lines"]
             roots = rootlib.view(ws, args.repo)
@@ -1016,11 +1033,13 @@ def cmd_dispatchable(args):
         if view["held"]:
             print(f"approved, held back ({len(view['held'])}):")
             for h in view["held"]:
-                print(f"  {h['id']:<11} {'; '.join(h['why'])}")
+                rule = f" (rule {VOCAB.approval_rule['id']})" if h["by_rule"] else ""
+                print(f"  {h['id']:<11} {'; '.join(h['why'])}{rule}")
         if view["dispatched"]:
             print(f"approved, already dispatched ({len(view['dispatched'])}): "
-                  + ", ".join(f"{d['id']} ({d['date']})" for d in view["dispatched"]))
-        if view['dispatchable']:
+                  + ", ".join(f"{d['id']} ({d['date']}{', rule ' + VOCAB.approval_rule['id'] if d['by_rule'] else ''})"
+                              for d in view["dispatched"]))
+        if view['dispatchable'] or view['by_rule']:
             print(f"({view['unapproved']} open item(s) carry no approval)")
         for e in view["unreadable"]:
             print(f"UNREADABLE  {e}")
@@ -1157,8 +1176,11 @@ def cmd_brief(args):
     blockers = deps.open_blockers(ws, it)
     if it.get("blocked_by"):
         print(f"Blocked by: {', '.join(it['blocked_by'])}" + (f" (still open: {', '.join(blockers)})" if blockers else " (all closed)"))
-    print("Approved: " + (field_value("approved", it["approved"]) if it.get("approved") else
-                          f"no (todo approve {it['id']} --source ...)"))
+    appr, by_rule = approval.effective(it, s.repo)
+    print("Approved: " + (f"by rule {VOCAB.approval_rule['id']}, not by Jacob: {appr['source']}" if by_rule else
+                          field_value("approved", appr) if appr else
+                          f"no (todo approve {it['id']} --source ...; rule {VOCAB.approval_rule['id']}: "
+                          f"{'; '.join(approval.rule_misses(it, s.repo))})"))
     if it.get("dispatched"):
         print(f"Dispatched: {field_value('dispatched', it['dispatched'])}")
     print(handoff_line(it, work_dir(ws, s, it)))

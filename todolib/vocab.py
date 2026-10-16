@@ -32,6 +32,20 @@ class Vocab:
         self.approval_by = str(data["approval"].get("by") or "").strip()
         if not self.approval_by:
             raise ValueError("vocab.json: approval.by is empty; `todo approve` records who approved")
+        rule = {k: v for k, v in data["approval"]["rule"].items() if not k.startswith("_")}
+        for key, pool in (("kinds", self.kinds), ("sizes", self.ready_sizes), ("needs", self.fields),
+                          ("exclude_works", self.works)):
+            bad = [v for v in rule[key] if v not in pool]
+            if not rule[key] or bad:
+                raise ValueError(f"vocab.json: approval.rule.{key} {rule[key]!r} names {bad or 'nothing'}, not declared (one of {', '.join(pool)})")
+        for key in ("id", "source"):
+            if not str(rule.get(key) or "").strip():
+                raise ValueError(f"vocab.json: approval.rule.{key} is empty")
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(rule.get("approved"))):
+            raise ValueError("vocab.json: approval.rule.approved is the day Jacob approved the rule, YYYY-MM-DD")
+        if not (isinstance(rule.get("exclude_files"), list) and rule["exclude_files"]):
+            raise ValueError("vocab.json: approval.rule.exclude_files is a non-empty list of globs")
+        self.approval_rule = rule
         self.waits_on = {k: v for k, v in data["waits_on"].items() if not k.startswith("_")}
         self.waits_on_arg = {}
         for name, spec in self.waits_on.items():
