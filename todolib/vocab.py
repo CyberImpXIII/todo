@@ -120,8 +120,69 @@ class Vocab:
             raise ValueError(f"vocab.json: resolution(s) {sorted(unnamed)} named by no role: nothing would set or guard them")
         self.decisions = self._decisions(data["decisions"])
         self.sync_plans = self._sync_plans(data["sync_plans"])
+        # A kind a command makes and keeps (`made_by`): add, edit and report refuse it by hand.
+        self.made_by = {k: v["made_by"] for k, v in self.kinds.items() if "made_by" in v}
+        bad = [k for k, v in self.made_by.items() if not (isinstance(v, str) and v.strip())]
+        if bad:
+            raise ValueError(f"vocab.json: kinds {bad}: made_by names the command that makes the kind")
+        self.detector_kinds = [k for k, v in self.kinds.items() if "detector" in v["requires"]]
+        if self.roles["stall_kind"] not in self.detector_kinds or self.roles["lag_kind"] not in self.detector_kinds:
+            raise ValueError("vocab.json: roles.stall_kind and roles.lag_kind name kinds that require `detector`")
+        self.detectors = self._detectors(data["detectors"])
 
     SYNC_ACTIONS = ("create", "decide", "list", "skip")
+    DETECTOR_KEYS = ("id", "doc", "command", "kind", "waits_on", "cadence_hours")
+    DETECTOR_SLOTS = ("{todo}", "{store}", "{root}")
+    DETECTOR_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
+
+    @staticmethod
+    def _positive(v, number=False):
+        ok = isinstance(v, (int, float) if number else int) and not isinstance(v, bool)
+        return ok and v > 0
+
+    def _detectors(self, d):
+        """vocab.json `detectors`, every key consumed and checked (todolib/detect.py reads it)."""
+        d = {k: v for k, v in d.items() if not k.startswith("_")}
+        want = {"cap", "timeout_s", "digest_lines", "evidence_max", "stale_factor", "failed_id", "list"}
+        if set(d) != want:
+            raise ValueError(f"vocab.json: detectors holds {sorted(d)}, not {sorted(want)}")
+        for k in ("cap", "timeout_s", "digest_lines", "evidence_max", "stale_factor"):
+            if not self._positive(d[k]):
+                raise ValueError(f"vocab.json: detectors.{k} is a positive whole number")
+        if not self.DETECTOR_ID.match(str(d["failed_id"])):
+            raise ValueError("vocab.json: detectors.failed_id is an id (a letter, then letters, digits, _ . -)")
+        why = self.detector_list_problem(d["list"], d["failed_id"])
+        if why:
+            raise ValueError(f"vocab.json: detectors.list: {why}")
+        return d
+
+    def detector_list_problem(self, lst, failed_id):
+        """Why a list of detectors is not one todo detect can run, or None."""
+        if not isinstance(lst, list):
+            return "is not a list"
+        seen = set()
+        for n, det in enumerate(lst, 1):
+            if not (isinstance(det, dict) and set(det) == set(self.DETECTOR_KEYS)):
+                return f"detector {n} must hold exactly {', '.join(self.DETECTOR_KEYS)}"
+            did = det["id"]
+            if not (isinstance(did, str) and self.DETECTOR_ID.match(did)) or did == failed_id or did in seen:
+                return (f"detector {n}: id {did!r} is not an id, is the reserved {failed_id!r}, or is used twice")
+            seen.add(did)
+            cmd = det["command"]
+            if not (isinstance(cmd, list) and cmd and all(isinstance(a, str) and a for a in cmd)):
+                return f"{did}: command is a non-empty list of arguments"
+            slots = {s for a in cmd for s in re.findall(r"\{[^}]*\}", a)} - set(self.DETECTOR_SLOTS)
+            if slots:
+                return f"{did}: command names {sorted(slots)}; it may name only {', '.join(self.DETECTOR_SLOTS)}"
+            if det["kind"] not in self.detector_kinds:
+                return f"{did}: kind {det['kind']!r} is not one of {', '.join(self.detector_kinds)}"
+            if det["waits_on"] is not None and self.waits_on_problem(det["waits_on"]):
+                return f"{did}: {self.waits_on_problem(det['waits_on'])}"
+            if not self._positive(det["cadence_hours"], number=True):
+                return f"{did}: cadence_hours is a positive number"
+            if not (isinstance(det["doc"], str) and det["doc"].strip()):
+                return f"{did}: doc says what it finds"
+        return None
 
     def _sync_plans(self, d):
         """vocab.json `sync_plans`, every key consumed and checked (todolib/syncplans.py reads it)."""

@@ -10,14 +10,14 @@ import subprocess
 
 from . import approval, deps, plans, tags
 from . import decisions as decide
-from . import syncplans
+from . import detect, syncplans
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DATE_RE, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
-                    HISTORY_FILE, RENDER_FILE, git_toplevel, id_number, never_scanned, seal_state, today)
+                    HISTORY_FILE, RENDER_FILE, TodoError, git_toplevel, id_number, never_scanned, seal_state, today)
 from .vocab import VOCAB
 
 GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports",
-         "workspace", "render", "history", "records"]
+         "workspace", "render", "history", "records", "detectors"]
 SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolution", "parent", "repo",
                "pointer", "hinges_on", "recommend", "chosen"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
@@ -206,6 +206,12 @@ def check_item(it, where, store, out):
                                           f"{VOCAB.role('step_kind')} whose done_check passed, and this item has none"))
     for why in decide.field_problems(it):
         out.append(("FAIL", "schema", iid, why))
+    for why in detect.field_problems(it):
+        out.append(("FAIL", "schema", iid, why + " (todo detect sets it)"))
+    detected = VOCAB.role("detector_resolution")
+    if it.get("resolution") == detected and (not detect.is_detector_item(it) or it.get("detector") is None):
+        out.append(("FAIL", "vocab", iid, f"resolution {detected!r} is set by todo detect only, on an item whose "
+                                          "detector no longer reports it, and this item has no detector"))
     if it.get("plan_step") is not None:  # a step without one fails `required` above
         for why in syncplans.plan_step_problems(it):
             out.append(("FAIL", "schema", iid, why + " (todo sync-plans sets it)"))
@@ -326,6 +332,36 @@ def check_records(store, out):
             out.append(("FAIL", "records", str(tid), "changed since HEAD: a table record never changes"))
         elif (cur.get("answers") or [])[:len(old.get("answers") or [])] != (old.get("answers") or []):
             out.append(("FAIL", "records", str(tid), "an answer committed at HEAD changed or is gone: answers are appended only"))
+
+
+def check_detectors(store, out):
+    """The detectors' runs and items (PLAN-todo-tool.md §10.5): each recorded run is
+    well formed; a detector not run within stale_factor times its cadence, in a
+    store whose records hold any run, is a FAIL (one present, silent and not running
+    is the worst state there is); and no two open items of this store hold one key."""
+    runs = store.runs
+    if not isinstance(runs, dict):
+        out.append(("FAIL", "detectors", "-", f"{RECORDS_FILE} runs is not an object of detector id -> last run"))
+        return
+    for did, rec in sorted(runs.items()):
+        why = detect.run_problem(rec)
+        if why:
+            out.append(("FAIL", "detectors", str(did), "last run " + why + " (todo detect records it)"))
+    try:
+        registered, _ = detect.registered()
+        at = detect.now()
+    except TodoError as e:
+        out.append(("FAIL", "detectors", "-", str(e)))
+        return
+    for did, why in detect.silent(runs, registered, at):
+        out.append(("FAIL", "detectors", did, why + f": run todo detect --id {did}, or find why it stopped"))
+    keys = {}
+    for it in store.items:
+        if detect.is_detector_item(it) and not detect.field_problems(it) and it.get("detector") is not None:
+            k = detect.key_of(it)
+            if k in keys:
+                out.append(("FAIL", "detectors", it["id"], f"holds {k}, as {keys[k]} does: one item per finding"))
+            keys.setdefault(k, it["id"])
 
 
 def check_ids(store, out):
@@ -637,6 +673,7 @@ def check_store(store, ws):
     check_render(store, out)
     check_history(store, out)
     check_records(store, out)
+    check_detectors(store, out)
     return out
 
 

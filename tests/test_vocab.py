@@ -117,11 +117,18 @@ class Handled(Case):
         (self.ws / "PLAN-h.md").write_text("# H\n\n## 1. One\n\none\n\n## 2. Steps\n\n1. `a`: do the thing.\n")
         self.todo("-C", a, "--root", self.ws, "add", "reported", "--kind", VOCAB.role("default_kind"))  # aa-1, reported below
         self.todo("-C", a, "--root", self.ws, "sync-plans", "PLAN-h.md")
+        # todo detect files the kinds that hold a detector: one fixture detector each (tests/test_detect.py)
+        (self.tmp / "found.json").write_text(json.dumps([{"repo": "a", "subject": "s", "count": 1, "evidence": "e",
+                                                          "clears_with": "c"}]))
+        dets = [{"id": f"F{n}", "doc": "d", "command": ["cat", str(self.tmp / "found.json")], "kind": k,
+                 "waits_on": None, "cadence_hours": 1} for n, k in enumerate(VOCAB.detector_kinds)]
+        (self.tmp / "dets.json").write_text(json.dumps(dets))
+        self.todo("-C", a, "--root", self.ws, "detect", env={"TODO_DETECTORS": str(self.tmp / "dets.json")})
         extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"], "jacob-step": ["--done-check", "true"],
                  VOCAB.role("decision_kind"): ["--pointer", "PLAN-h.md §1", "--hinges-on", "h", "--recommend", "o1", "--option", "o1=x"]}
         dk = VOCAB.role("decision_kind")
         for kind in [k for k in VOCAB.kinds if k != dk] + [dk]:  # the decision last: approving it closes it
-            if kind in (VOCAB.role("report_kind"), VOCAB.role("plan_step_kind")):
+            if kind == VOCAB.role("report_kind") or kind in VOCAB.made_by:
                 continue
             self.todo("-C", a, "--root", self.ws, "add", f"a {kind}", "--kind", kind, *extra.get(kind, []))
         self.todo("-C", a, "report", "aa-1", "--to", "elsewhere")

@@ -11,6 +11,7 @@ from pathlib import Path
 from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
 from . import decisions as decide
+from . import detect, repostatus
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import syncplans
@@ -114,7 +115,7 @@ def validate(item, where="store", require_waits=True, require_decision=False):
     why = checks.waits_on_problem(item, require_waits) or checks.research_problem(item.get("research"))
     if why:
         raise TodoError(why)
-    bad = decide.field_problems(item)
+    bad = decide.field_problems(item) + detect.field_problems(item)
     if bad:
         raise TodoError("; ".join(bad))
     lacking = decide.missing(item) if require_decision and decide.is_decision(item) else []
@@ -408,8 +409,8 @@ def cmd_add(args):
         require_clean(store)
         ws = workspace(args, store)
         resolve_parent(ws, args.parent)
-        if args.kind == syncplans.kind():
-            raise TodoError(f"a {args.kind} item is made by todo sync-plans from its plan's text, never by hand")
+        if VOCAB.made_by.get(args.kind):
+            raise TodoError(f"a {args.kind} item is made by {VOCAB.made_by[args.kind]}, never by hand")
         decision = args.kind == VOCAB.role("decision_kind")
         status = args.status or (decide.D["status"] if decision else VOCAB.role("default_status"))
         if decision and status != decide.D["status"]:
@@ -457,8 +458,10 @@ def cmd_edit(args):
         if item is None:
             raise TodoError(f"{args.id} is not in {store.path}")
         changes = {f: getattr(args, f) for f in EDITABLE if getattr(args, f) is not None}
-        if "kind" in changes and (changes["kind"] == syncplans.kind()) != syncplans.is_step_item(item):
-            raise TodoError(f"--kind: a {syncplans.kind()} item is made and kept by todo sync-plans from its plan; "
+        by = VOCAB.made_by.get(changes.get("kind")) or VOCAB.made_by.get(item["kind"])
+        if "kind" in changes and changes["kind"] != item["kind"] and by:
+            raise TodoError(f"--kind: a {changes['kind'] if VOCAB.made_by.get(changes['kind']) else item['kind']} "
+                            f"item is made and kept by {by}; "
                             "no other kind becomes one or is made from one")
         if args.append_evidence is not None:
             # Appended here, under the store's lock, so a caller never reads,
@@ -630,6 +633,17 @@ def cmd_done(args):
     if args.reason is not None:
         raise TodoError("--reason goes with --as; --resolution says how it closed")
     store = open_store(args)
+    if args.resolution.strip() == VOCAB.role("detector_resolution"):
+        raise TodoError(f"resolution {args.resolution!r} is set by todo detect only, when the detector no longer "
+                        "reports the finding: say how this one closed")
+    peek, _ = store.find(args.id)
+    if peek is not None and detect.is_detector_item(peek) and peek.get("detector") is not None:
+        # Its detector runs first, outside the lock (its command may itself call todo):
+        # a stall closes by hand only once the cause is gone (PLAN-todo-tool.md §10.5).
+        detectors, _ = detect.registered()
+        held, why = detect.still_reported(peek, store.dir, scan_root(store.dir, args.root), detectors)
+        if held:
+            raise TodoError(f"{args.id} stays open: {why}")
     with store.lock():
         store.load()
         require_clean(store)
@@ -712,8 +726,8 @@ def cmd_split(args):
         # the dispatched mark, since each piece is handed out on its own. It carries the
         # plan pins with the plan tags: a piece of the whole was made from the same section.
         copied = ("kind", "repo", "work", "files", "blocked_by", "tags", "plan_pins", "approved", *VOCAB.required(parent))
-        if syncplans.is_step_item(parent):
-            # the plan step stays one item, the sync's own; its pieces are plain items under it
+        if VOCAB.made_by.get(parent.get("kind")):
+            # a plan step or a stall stays one item, its command's own; its pieces are plain items under it
             copied = ("repo", "work", "files", "blocked_by", "tags", "plan_pins", "approved")
         made = []
         for title in args.titles:
@@ -751,8 +765,9 @@ def cmd_report(args):
         item, where = store.find(args.id)
         if where != "store":
             raise TodoError(f"{args.id} is not an open item in {store.path}")
-        if syncplans.is_step_item(item) or args.kind == syncplans.kind():
-            raise TodoError(f"a {syncplans.kind()} item stays one (todo sync-plans keeps it) and none is made by "
+        by = VOCAB.made_by.get(item["kind"]) or VOCAB.made_by.get(args.kind)
+        if by:
+            raise TodoError(f"a {item['kind'] if VOCAB.made_by.get(item['kind']) else args.kind} item stays one ({by} keeps it) and none is made by "
                             f"hand: report a new item with --parent {args.id} instead")
         rt = item.get("reported_to")
         if rt and (rt.get("repo") != args.to or rt.get("their_id")):
@@ -1024,6 +1039,19 @@ def print_import_notes(plan):
 
 
 def cmd_repos(args):
+    if args.json and not args.status:
+        raise TodoError("--json goes with --status")
+    if args.status:
+        # every git repo, with a store or not: it needs no store of its own
+        d = store_dir_for(Path.cwd(), args.C)
+        root = scan_root(d, args.root)
+        rows = repostatus.status(root)
+        if args.json:
+            print(json.dumps({"root": str(root), "repos": rows}, indent=1, ensure_ascii=False))
+        else:
+            print(f"scan root: {root}")
+            print("\n".join(repostatus.lines(rows)) or "  (no git repo found)")
+        return
     store = open_store(args)
     ws = workspace(args, store)
     print(f"scan root: {ws.root}")
@@ -1474,36 +1502,48 @@ def stale_plans_view(ws, args):
     return view
 
 
+def close_passed(store, passed):
+    """Under the store's lock, close each open step whose done_check exited 0 when
+    run (passed: id -> the done_check that ran), with resolution
+    roles.step_resolution, provided it is still open with that same done_check: one
+    changed while its check ran is judged next run. Returns the ids closed; raises
+    TodoError when the store refuses a write (its TODO.md hand-edited)."""
+    closed = []
+    with store.lock():
+        store.load()
+        require_clean(store)
+        for it in list(store.items):
+            check = passed.get(it["id"])
+            if check is None or not stepping.is_step(it) or it.get("done_check") != check:
+                continue
+            done = dict(it, status=VOCAB.closed, done=today(), resolution=VOCAB.role("step_resolution"))
+            validate(done, "history")
+            store.history["items"].append(done)
+            store.items.remove(it)
+            closed.append(it["id"])
+        if closed:
+            commit(store)
+    return closed
+
+
 def cmd_steps(args):
     """Jacob's open steps in this store, numbered (PLAN-architecture.md §11 S7). With
     --run, each done_check runs first, outside the lock (a check may itself call
-    todo); then, under the lock, each step whose check exited 0 closes with
-    resolution roles.step_resolution, provided it is still open with the same
-    done_check. A check that could not be judged is UNCHECKED (exit 3) once all the
-    rest are reported and closed."""
+    todo); then close_passed closes each step whose check exited 0. A check that
+    could not be judged is UNCHECKED (exit 3) once all the rest are reported and
+    closed. --findings is the S7 detector's command instead (steps_findings)."""
     store = open_store(args)
+    if args.findings:
+        return steps_findings(args, store)
     rows = [{"n": n, "id": it["id"], "title": it["title"], "done_check": it.get("done_check"),
              "verdict": None, "detail": None} for n, it in enumerate(stepping.open_steps(store), 1)]
     closed = []
     if args.run:
         for r in rows:
             r["verdict"], r["detail"] = stepping.run_check(r["done_check"], store.dir)
-        passed = {r["id"]: r for r in rows if r["verdict"] == stepping.DONE}
+        passed = {r["id"]: r["done_check"] for r in rows if r["verdict"] == stepping.DONE}
         if passed:
-            with store.lock():
-                store.load()
-                require_clean(store)
-                for it in list(store.items):
-                    r = passed.get(it["id"])
-                    if r is None or not stepping.is_step(it) or it.get("done_check") != r["done_check"]:
-                        continue  # changed while its check ran: judged next run
-                    done = dict(it, status=VOCAB.closed, done=today(), resolution=VOCAB.role("step_resolution"))
-                    validate(done, "history")
-                    store.history["items"].append(done)
-                    store.items.remove(it)
-                    closed.append(it["id"])
-                if closed:
-                    commit(store)
+            closed = close_passed(store, passed)
     unjudged = [r for r in rows if args.run and r["verdict"] is None]
     if args.json:
         print(json.dumps({"steps": rows, "closed": closed}, indent=2))
@@ -1518,6 +1558,38 @@ def cmd_steps(args):
     if unjudged:
         raise Unchecked(f"{len(unjudged)} step(s) could not be judged: "
                         + "; ".join(f"{r['id']} {r['detail']}" for r in unjudged))
+
+
+def steps_findings(args, store):
+    """`todo steps --findings [--run]`, the S7 detector's command (PLAN-todo-tool.md
+    §10.5): every open step in every scanned store whose done_check exits 0 is a
+    finding in the detector form, one per step. With --run each such step is closed
+    first (close_passed, store by store), so only one that could not be closed is
+    reported, with why. A check not taken, or one that could not be judged, is no
+    finding: `todo steps --run` names those. Prints the JSON list, nothing else."""
+    found = []
+    for s in sorted(workspace(args, store).stores, key=lambda s: s.repo):
+        passed = {}
+        for it in stepping.open_steps(s):
+            verdict, _ = stepping.run_check(it.get("done_check"), s.dir)
+            if verdict == stepping.DONE:
+                passed[it["id"]] = it
+        if not passed:
+            continue
+        closed, why = [], None
+        if args.run:
+            try:
+                closed = close_passed(s, {k: it.get("done_check") for k, it in passed.items()})
+            except TodoError as e:
+                why = str(e)
+        for sid, it in passed.items():
+            if sid in closed:
+                continue
+            found.append({"repo": s.repo, "subject": f"{sid} is taken: its done_check passes", "count": 1,
+                          "evidence": f"{it['title']}: `{it.get('done_check')}` exits 0"
+                                      + (f"; not closed: {why}" if why else ""),
+                          "clears_with": f"todo steps --run, in {s.repo}"})
+    print(json.dumps(found, indent=1, ensure_ascii=False))
 
 
 def cmd_stale_plans(args):
@@ -1657,6 +1729,92 @@ def cmd_sync_plans(args):
         print(f"todo sync-plans: NOTICE: {n}", file=sys.stderr)
 
 
+def detect_apply(actions, notices, date, here):
+    """Write detect's actions, all-or-nothing per store as sync_plans_apply does: a
+    store whose TODO.md is hand-edited keeps its changes back, said in a notice; an
+    item the store would refuse is one notice, never a guess. A new item for such a
+    store is filed here instead (it names its repo): the finding may be that very
+    store's state. Returns those written."""
+    blocked = set()
+    for s in {a["store"].dir: a["store"] for a in actions}.values():
+        try:
+            require_clean(s)
+        except TodoError as e:
+            blocked.add(s.dir)
+            notices.append(f"{s.repo}: nothing written there ({e})" + ("" if s.dir == here.dir else
+                           "; a new finding for it is filed here"))
+    done = []
+    for a in actions:
+        s, it = a["store"], a["item"]
+        if s.dir in blocked and a["action"] == detect.NEW and here.dir not in blocked:
+            s = a["store"] = here
+        if s.dir in blocked:
+            continue
+        try:
+            if a["action"] == detect.NEW:
+                validate(it)
+                it["id"] = s.allocate()
+                s.items.append(it)
+            elif a["action"] == detect.SEEN:
+                updated = dict(it, **a["changes"])
+                validate(updated, require_waits=False)
+                it.update(updated)
+            else:
+                closed = dict(it, status=VOCAB.closed, done=date, resolution=VOCAB.role("detector_resolution"))
+                validate(closed, "history")
+                s.history["items"].append(closed)
+                s.items.remove(it)
+        except TodoError as e:
+            notices.append(f"{a['detector']} {a['detail']}: not written ({e})")
+            continue
+        done.append(a)
+    return done
+
+
+def cmd_detect(args):
+    """`todo detect [--id D] [--json]` (PLAN-todo-tool.md §10.5): run each detector,
+    outside any lock, then reconcile its findings with the items under the lock of
+    every scanned store (todolib/detect.py), and record each run in this store's
+    records. Exit 1 when a detector failed (filed as a stall, its items unjudged)."""
+    store = open_store(args)
+    detectors, source = detect.registered()
+    if source:
+        print(f"todo detect: NOTICE: detectors read from {source} ({detect.LIST_ENV}), not vocab.json", file=sys.stderr)
+    if args.id:
+        detectors = [d for d in detectors if d["id"] == args.id]
+        if not detectors:
+            raise TodoError(f"--id {args.id}: no such detector; registered: "
+                            + (", ".join(d["id"] for d in detect.registered()[0]) or "none"))
+    root = scan_root(store.dir, args.root)
+    at, date = detect.now(), today()
+    results = [(det, *detect.run(det, store.dir, root, at)) for det in detectors]
+    with locked_workspace(args, store) as ws:
+        require_clean(store)  # the runs are recorded here, whatever else is written
+        actions, notices = detect.plan(ws, store, results, date)
+        done = detect_apply(actions, notices, date, store)
+        runs = store.ensure_records().setdefault("runs", {})
+        for det, _, rec in results:
+            runs[det["id"]] = rec
+        commit_all([store, *(a["store"] for a in done)])
+    notices += [f"a store could not be read: {e}" for e in ws.errors]
+    rows = [{"action": a["action"], "id": tagging.global_id(a["item"]["id"]), "repo": a["store"].repo,
+             "detector": a["detector"], "title": a["item"]["title"], "detail": a["detail"]} for a in done]
+    failed = [(det["id"], rec["why"]) for det, _, rec in results if not rec["ok"]]
+    if args.json:
+        print(json.dumps({"runs": {det["id"]: rec for det, _, rec in results}, "actions": rows, "notices": notices},
+                         indent=1, ensure_ascii=False))
+    else:
+        for r in sorted(rows, key=lambda r: detect.ORDER.index(r["action"])):
+            print(f"{r['action']:<8} {r['id']} ({r['repo']}) {r['title']}")
+        counts = ", ".join(f"{k} {n}" for k in detect.ORDER if (n := sum(r["action"] == k for r in rows))) or "no change"
+        print(f"detect: {len(results)} detector(s) run, {len(failed)} failed: {counts}")
+    for n in notices:
+        print(f"todo detect: NOTICE: {n}", file=sys.stderr)
+    if failed:
+        raise TodoError("; ".join(f"detector {d} failed: {why}" for d, why in failed)
+                        + " (filed as a stall; its items stay as they were)")
+
+
 def handoff_line(it, where):
     """The brief's resume point (PLAN-small-tasks.md §4.3): the last handoff and
     the commit it was written at, with that commit's subject read from the work
@@ -1770,7 +1928,7 @@ COMMANDS = {
     "tree": (cmd_tree, "items and their children, across repos"),
     "check": (cmd_check, "every gate over this store"),
     "import": (cmd_import, "a hand-written or hand-edited TODO.md into items"),
-    "repos": (cmd_repos, "every store the scan finds"),
+    "repos": (cmd_repos, "every store the scan finds; --status: every git repo, its open items, last commit, uncommitted files"),
     "ready": (cmd_ready, "open items with repo, work and done_when set: dispatchable"),
     "brief": (cmd_brief, "an item as a dispatch brief"),
     "history": (cmd_history, "closed items, newest first"),
@@ -1788,6 +1946,7 @@ COMMANDS = {
     "decisions": (cmd_decisions, "open decisions as a numbered table for Jacob, most items freed first; recorded as dt-N"),
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
+    "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -1927,6 +2086,14 @@ def build_parser():
     ps["steps"].add_argument("--run", action="store_true",
                              help="run each step's done_check here; close the steps whose check exits 0")
     ps["steps"].add_argument("--json", action="store_true")
+    ps["steps"].add_argument("--findings", action="store_true",
+                             help="the S7 detector: every scanned store's steps whose done_check passes, as detector "
+                                  "findings (JSON); with --run, closes them first and reports only those it could not")
+    ps["detect"].add_argument("--id", metavar="D", help="run this detector alone (its items alone are judged)")
+    ps["detect"].add_argument("--json", action="store_true")
+    ps["repos"].add_argument("--status", action="store_true",
+                             help="every git repo under the root, with a store or not: open items, last commit, uncommitted files")
+    ps["repos"].add_argument("--json", action="store_true", help="with --status")
     ps["sync-plans"].add_argument("files", nargs="*", metavar="FILE",
                                   help="the plans to read (default: every PLAN-*.md in --plans-dir, which also "
                                        "judges the items of a plan file no longer there)")

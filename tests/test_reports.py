@@ -185,8 +185,8 @@ class AddReportedTo(Case):
         call it must parse that flag, or the refusal asks for the impossible."""
         from todolib.cli import build_parser
         ps = build_parser()._subparsers._group_actions[0].choices
-        # a plan step is made by todo sync-plans alone: add and edit refuse its kind (tests/test_syncplans.py)
-        kinds = [spec for k, spec in VOCAB.kinds.items() if k != VOCAB.role("plan_step_kind")]
+        # a kind a command makes (made_by: a plan step, a stall, a lag) add and edit refuse (tests/test_syncplans.py, tests/test_detect.py)
+        kinds = [spec for k, spec in VOCAB.kinds.items() if k not in VOCAB.made_by]
         need = {f for spec in (*kinds, *(VOCAB.statuses[s] for s in VOCAB.open_statuses()))
                 for f in spec.get("requires", [])}  # add and edit make open items only
         self.assertTrue(need)

@@ -21,6 +21,7 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                "decisions": "PLAN-todo-tool.md §10.3a/b: the numbered table Jacob reads, recorded as dt-N",
                "answer": "PLAN-todo-tool.md §10.3a: his reply to that table, parsed and applied",
                "sync-plans": "PLAN-services.md §3 G6, §4 step 6.3: plans generate their items",
+               "detect": "PLAN-todo-tool.md §10.5: detectors file and close stall and lag items",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 # A command name may hold a hyphen (stale-plans); `[a-z]+` read it as "stale".
 PLAN_COMMAND = re.compile(r"(?:^|\s)todo ([a-z][a-z-]*)")

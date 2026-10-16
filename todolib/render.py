@@ -59,6 +59,9 @@ def field_value(name, value):
                          if isinstance(p, dict) else repr(p) for p in value)
     if name == "plan_step" and isinstance(value, dict):
         return f"{value.get('file')} §{value.get('section')} step {value.get('step')}, hash {str(value.get('hash'))[:12]}"
+    if name == "detector" and isinstance(value, dict):
+        return (f"{value.get('id')} on {value.get('subject')}, count {value.get('count')}, last seen {value.get('seen')}; "
+                f"clears with: {value.get('clears_with')}")
     if name == "options" and isinstance(value, list):
         return "; ".join(f"{o.get('name')} = {o.get('text')}" if isinstance(o, dict) else repr(o) for o in value)
     if name == "jacob_words" and isinstance(value, list):

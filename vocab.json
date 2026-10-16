@@ -8,7 +8,9 @@
     "temp":      {"doc": "an interim rule, with the check that retires it", "heading": "Interim rules", "always": false, "requires": ["retire"]},
     "jacob-step": {"doc": "a step only Jacob takes, with the command that shows it taken (PLAN-architecture.md §11 S7); never ready or dispatchable; `todo steps` numbers them and `todo steps --run` closes each whose done_check exits 0", "heading": "Jacob's steps", "always": false, "requires": ["done_check"]},
     "research":  {"doc": "a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its rs- ids and never restates the answer", "heading": "Research", "always": false, "requires": ["research"]},
-    "plan-step": {"doc": "a step of a plan, made and kept in step by `todo sync-plans` from the plan's own text (PLAN-services.md §3 G6, which calls the kind `step`: named plan-step here, as `todo steps` and jacob-step already use the word); its plan_step names the step, and `todo add` never makes one", "heading": "Plan steps", "always": false, "requires": ["plan_step"]},
+    "stall":     {"doc": "something stuck that nobody has to find (PLAN-todo-tool.md §10.5): filed, updated and closed by `todo detect` from a detector's finding, one per repo and cause; `todo done` refuses while the detector still reports it", "heading": "Stalls", "always": false, "requires": ["detector"], "made_by": "todo detect"},
+    "lag":       {"doc": "a practice a repo has not caught up with yet (PLAN-todo-tool.md §10.5, PLAN-architecture.md §10): filed and closed by `todo detect` like a stall", "heading": "Lags", "always": false, "requires": ["detector"], "made_by": "todo detect"},
+    "plan-step": {"doc": "a step of a plan, made and kept in step by `todo sync-plans` from the plan's own text (PLAN-services.md §3 G6, which calls the kind `step`: named plan-step here, as `todo steps` and jacob-step already use the word); its plan_step names the step, and `todo add` never makes one", "heading": "Plan steps", "always": false, "requires": ["plan_step"], "made_by": "todo sync-plans"},
     "note":      {"doc": "anything else worth keeping; the import default", "heading": "Notes", "always": false, "requires": []}
   },
   "statuses": {
@@ -79,7 +81,8 @@
     "done-checked": {"doc": "a jacob-step closed because its done_check exited 0; set by `todo steps --run` only, refused by `todo done`, and red in check on an item with no done_check"},
     "accepted": {"doc": "a decision Jacob said yes to; set by `todo approve` and `todo answer` only (with `approved`), refused by `todo done --resolution`, and red in check on an item that is not a decision or carries no approval"},
     "option-chosen": {"doc": "a decision closed on the option Jacob chose (`chosen`, one of its `options`); set by `todo approve --option` and `todo answer` only, refused by `todo done --resolution`, and red in check without an approval or with a chosen that names no option"},
-    "rejected": {"doc": "a decision Jacob said no to; set by `todo done --as rejected --reason R` and `todo answer` only, which put every open item blocked by it back to waiting on that decision; red in check on an item that is not a decision"}
+    "rejected": {"doc": "a decision Jacob said no to; set by `todo done --as rejected --reason R` and `todo answer` only, which put every open item blocked by it back to waiting on that decision; red in check on an item that is not a decision"},
+    "done-detected": {"doc": "a stall or lag closed because its detector no longer reports the finding; set by `todo detect` only, refused by `todo done`, and red in check on an item with no detector"}
   },
   "roles": {
     "default_kind": "note",
@@ -96,7 +99,10 @@
     "decision_waits_on": "decision",
     "decision_accepted_resolution": "accepted",
     "decision_option_resolution": "option-chosen",
-    "decision_rejected_resolution": "rejected"
+    "decision_rejected_resolution": "rejected",
+    "stall_kind": "stall",
+    "lag_kind": "lag",
+    "detector_resolution": "done-detected"
   },
   "decisions": {
     "_comment": "Decisions (PLAN-todo-tool.md §10.3, §10.3a, §10.3b): `todo add --kind decision` and `edit` refuse one without every field in `requires`, a `pointer` not matching `pointer` or naming a section the plans CLI cannot read, or a `recommend` not yes, no or one of its `options`; it is added `status` waiting on `waits_on`. check lists an open one lacking them (INFO) and never tables it. `todo decisions` numbers the complete ones 1..n in a table record `<table_prefix>-<n>` (the store's records file); `todo answer` reads a reply against it: a row's whole answer is a word of `verdicts` or an option's name, else it is kept as his words, applying nothing. `max_listed` bounds the incomplete ones named under the table. `generated_recommend` is what `todo sync-plans` recommends on a decision it makes from a plan step.",
@@ -130,6 +136,18 @@
     "title_max": 100,
     "max_listed": 20
   },
+  "detectors": {
+    "_comment": "`todo detect` (PLAN-todo-tool.md §10.5, approved by Jacob 2026-10-12): each detector in `list` is a command (argv; {todo} is this tool's own `todo`, {store} the folder of the store detect runs from, {root} the scan root) printing a JSON list of findings, one per repo and cause, each {repo, subject, count, evidence, clears_with}. Each finding is one item of the detector's `kind`, keyed detector:<id>:<repo>:<subject>, waiting on `waits_on` when it needs Jacob (null: open). A run printing more than `cap` findings, exiting non-zero, or printing anything else is a failed run: it judges none of its items and files one roles.stall_kind item under the reserved id `failed_id` (subject `detector <id> failed`), with the last `digest_lines` lines of its stderr; that item closes on the detector's next good run. A command gets `timeout_s` seconds; evidence is cut at `evidence_max` characters. Each run is recorded in the store's records (`runs`); todo check fails a detector not run within `stale_factor` times its `cadence_hours` in a store that has run any. S2-S5, and S1/S6 as lag detectors, join `list` when their owners' commands exist.",
+    "cap": 50,
+    "timeout_s": 120,
+    "digest_lines": 5,
+    "evidence_max": 2000,
+    "stale_factor": 2,
+    "failed_id": "detect",
+    "list": [
+      {"id": "S7", "doc": "a jacob-step whose done_check now passes (PLAN-architecture.md §11 S7): `todo steps --run --findings` closes every such step in the scanned stores and reports only one it could not close (its store hand-edited), which `todo steps --run` there clears", "command": ["{todo}", "-C", "{store}", "--root", "{root}", "steps", "--run", "--findings"], "kind": "stall", "waits_on": null, "cadence_hours": 1}
+    ]
+  },
   "fields": {
     "_comment": "Every item carries every field, unset ones null; an `optional` field was added after items existed, so an item written before it may lack the key (read as null). History is append-only, so its old entries never gain the key; new items always carry it.",
     "id":         {"doc": "repo prefix + counter, stable, never reused (todo:td-3 points at it)", "label": null},
@@ -161,7 +179,8 @@
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
     "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:, todo.group:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
     "plan_pins":   {"doc": "[{plan, digest, date}]: for each plan:PLAN-<name>.md§<n> tag, the sha256 of that section's text (read by `setup plans show`) and the day it was read; set by `todo add/edit --pin-plan` only, read by `todo stale-plans`, which lists the item once its section changes or is gone", "label": "plan pins", "optional": true},
-    "plan_step":   {"doc": "{file, section, step, hash, text}: the plan step a `step` item was made from, as `setup plans steps --json` read it (hash is that tool's sha256 of the step's text); set and kept by `todo sync-plans` only, which matches a step by hash first, then by section and number", "label": "plan step", "optional": true},
+    "detector":    {"doc": "{id, subject, count, clears_with, seen}: the finding a stall or lag item stands for, keyed `detector:<id>:<repo>:<subject>` with the item's repo; set, updated and cleared by `todo detect` only (PLAN-todo-tool.md §10.5); seen is the last day a run reported it", "label": "detector", "optional": true},
+    "plan_step":   {"doc": "{file, section, step, hash, text}: the plan step a plan-step item was made from, as `setup plans steps --json` read it (hash is that tool's sha256 of the step's text); set and kept by `todo sync-plans` only, which matches a step by hash first, then by section and number", "label": "plan step", "optional": true},
     "added":       {"doc": "date added, YYYY-MM-DD", "label": "added"},
     "done":        {"doc": "date closed, YYYY-MM-DD; null while open (or when an imported DONE bullet carried no date)", "label": "done"},
     "resolution":  {"doc": "how it closed; null while open; done-deprecated for an imported closed bullet", "label": "resolution"},

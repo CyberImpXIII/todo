@@ -19,8 +19,8 @@ class Required(Case):
                 if field == "reported_to":
                     continue  # set by `todo report`, never by a flag: covered below
                 r = self.todo("-C", self.a, "add", "x", "--kind", kind, ok=False)
-                if kind == VOCAB.role("plan_step_kind"):
-                    self.assertIn("todo sync-plans", r.stderr)  # made by the sync alone, no flag sets it
+                if kind in VOCAB.made_by:
+                    self.assertIn(VOCAB.made_by[kind], r.stderr)  # made by its command alone, no flag sets it
                     continue
                 self.assertIn("--" + field.replace("_", "-"), r.stderr, kind)
         self.assertEqual(self.store(self.a)["items"], [])

@@ -7,6 +7,8 @@
   {"name": "test.approval_rule", "run": "python3 -m unittest tests.test_approval_rule", "files": ["tests/test_approval_rule.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.report_fallback", "run": "python3 -m unittest tests.test_report_fallback", "files": ["tests/test_report_fallback.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.decisions", "run": "python3 -m unittest tests.test_decisions", "files": ["tests/test_decisions.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.detect", "run": "python3 -m unittest tests.test_detect", "files": ["tests/test_detect.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.repostatus", "run": "python3 -m unittest tests.test_repostatus", "files": ["tests/test_repostatus.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.syncplans", "run": "python3 -m unittest tests.test_syncplans", "files": ["tests/test_syncplans.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.steps", "run": "python3 -m unittest tests.test_steps", "files": ["tests/test_steps.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.research_kind", "run": "python3 -m unittest tests.test_research_kind", "files": ["tests/test_research_kind.py"], "except": ["tests/", "TODO.md"]},

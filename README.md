@@ -55,7 +55,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo tree [ID]` | items and their children across repos, closed ones marked |
 | `todo check [--all]` | every gate below over this store (`--all`: every scanned store); exit 1 on a FAIL |
 | `todo import FILE [--dry-run] [--waits-on VALUE] [--plans-dir D] [--plans-cli P]` | a hand-written or hand-edited `TODO.md` into items (below). It prints the blocks it read as no item and what a rule could not read; `--waits-on` is the `waits_on` of each `waiting-jacob` item whose text names none, and without it a real import with such an item writes nothing. `--plans-dir`/`--plans-cli` read a `PLAN` pointer as `--pin-plan` does |
-| `todo repos` | every store the scan finds, with its counts |
+| `todo repos [--status] [--json]` | every store the scan finds, with its counts. `--status`: every git repo under the root, with a store or not, sorted by path: its open items (null with no store), last commit (short sha, date, subject; null with none), uncommitted files (a count and the first ten), and `whose`, always null (who left them is the stamp ledger's to say, which todo never reads); `--json` gives `{root, repos}`. Needs no store of its own |
 | `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed: ready to hand to whoever does that work. An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it) |
 | `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, the iterate rule and the stop rule (below). With no `done_when` it writes no brief at all: exit 1, nothing on stdout, and a message naming the item and the field. Exit 1 also when it is not ready otherwise (a field missing, a status other than open, a `blocked_by` id still open, or its size), the brief printed and marked NOT READY |
 | `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
@@ -69,10 +69,11 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it; then, under their own heading (`by_rule` in `--json`), the ones approved by rule TD-B1 and not by him. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo blockers [--repo R] [--json]` | every open item, across every scanned store, that is not dispatchable, grouped by its root blocker (Blockers, below): one line per root, most items freed first, with what clears it, the count and the first ids; bounded, and `--json` gives every root and id. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo stale-plans [--repo R] [--plans-dir D] [--plans-cli P] [--json]` | the open items, across every scanned store, whose plan section is not what they were made from (Plan pins, below): `changed`, `section gone`, or `never pinned` (a `plan:` tag with no pin, or one naming no section), each with its `todo:` id, repo, `FILE §n` and the day it last matched. Exit 3 (`UNCHECKED`) when a section could not be read (no plans CLI, an ambiguous section) or a store could not be read: such a section is never counted fresh |
-| `todo steps [--run] [--json]` | this store's open `jacob-step` items, numbered, each with its `done_check` (Jacob's steps, below). `--run` runs every check in the store's folder first, then closes each step whose check exited 0 (resolution `done-checked`); a step whose check exited otherwise stays open with the exit and the start of its output; a check that timed out or could not start is `UNCHECKED` (exit 3) after the rest are closed |
+| `todo steps [--run] [--findings] [--json]` | this store's open `jacob-step` items, numbered, each with its `done_check` (Jacob's steps, below). `--run` runs every check in the store's folder first, then closes each step whose check exited 0 (resolution `done-checked`); a step whose check exited otherwise stays open with the exit and the start of its output; a check that timed out or could not start is `UNCHECKED` (exit 3) after the rest are closed. `--findings` is the S7 detector's command (Detectors, below): every scanned store's open steps whose `done_check` exits 0, as a JSON list of findings; with `--run` it closes them first, store by store, and lists only one it could not close (its `TODO.md` hand-edited) |
 | `todo decisions [--from TABLE] [--json]` | the open, complete decisions of every scanned store as a `## Decisions` table, `\| # \| decision \| hinges on \| recommend \|`, numbered 1..n, the one freeing most items first; recorded in this store as table `dt-N` (the same rows as an earlier table give its id). `--from dt-N` tables only that table's rows still open, recording which row each supersedes. Incomplete decisions are named under it, never tabled. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo answer REPLY [--table TABLE]` | apply Jacob's reply to a decisions table, `"1) yes 2) no 3) b 4) <words>"`, read against the table named (`dt-N:` leading the reply, or `--table`), else the latest: a yes approves, a no rejects, an option's name chooses it; any other answer is kept in `jacob_words`, status unchanged. Refused whole, nothing applied, on a row the table lacks, a row named twice, or a row whose decision is closed |
 | `todo sync-plans [FILE ...] [--dry-run] [--json] [--plans-dir D] [--plans-cli P]` | make and keep the `plan-step` items of each plan's steps (Plan steps, below): `new`, `new-decision`, `updated`, `renumbered`, `stale`, `flagged` (dispatched, so unchanged), `gone`, `listed` (a step it gives no item). No FILE reads every `PLAN-*.md` in the plans folder and also judges the items of a plan file no longer there. `--dry-run` writes nothing. Each kind of change names at most `sync_plans.max_listed` steps; `--json` gives `{dry_run, plans, steps, actions, notices, counts}`, every action. Fails open: no plans CLI, an unreadable plan or store, a hand-edited `TODO.md` is a `NOTICE` line on stderr, exit 0 |
+| `todo detect [--id D] [--json]` | run the detectors (Detectors, below), each outside any lock, then file, update and close their `stall` and `lag` items under the lock of every scanned store, and record each run in this store's `todo-records.json`: `new`, `seen` (count, evidence or last-seen changed), `cleared` (closed `done-detected`). `--id D` runs one detector and judges its items alone. `--json` gives `{runs, actions, notices}`. Exit 1 when a detector failed (filed as a stall, its items unjudged) |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -113,6 +114,8 @@ the renderer, the importer, the checks and these tables all follow it, and
 | `temp` | an interim rule, with the check that retires it | Interim rules | `retire` |
 | `jacob-step` | a step only Jacob takes, with the command that shows it taken (PLAN-architecture.md §11 S7); never ready or dispatchable; `todo steps` numbers them and `todo steps --run` closes each whose `done_check` exits 0 | Jacob's steps | `done_check` |
 | `research` | a question of fact the research service holds (PLAN-services.md §3 S7): the item points at its `rs-` ids and never restates the answer | Research | `research` |
+| `stall` | something stuck that nobody has to find (PLAN-todo-tool.md §10.5): filed, updated and closed by `todo detect` from a detector's finding, one per repo and cause; `todo add` never makes one, `edit --kind` never changes one, and `todo done` refuses while its detector still reports it (Detectors, below) | Stalls | `detector` (set by `todo detect`) |
+| `lag` | a practice a repo has not caught up with yet (PLAN-todo-tool.md §10.5, PLAN-architecture.md §10): filed and closed by `todo detect` like a stall | Lags | `detector` (set by `todo detect`) |
 | `plan-step` | a step of a plan, made and kept by `todo sync-plans` from the plan's own text (PLAN-services.md §3 G6, which calls it `step`; `plan-step` here, as `todo steps` and `jacob-step` already use the word); `todo add` never makes one, and `edit --kind` never turns an item into one or one into another kind | Plan steps | `plan_step` (set by `todo sync-plans`) |
 | `note` | anything else worth keeping; the import default | Notes | |
 
@@ -196,6 +199,7 @@ each have one setter and are refused everywhere else:
 | `accepted` | a decision Jacob said yes to: set by `todo approve` and `todo answer` only (with `approved`), refused by `todo done --resolution`, and a FAIL (`vocab`) in check on an item that is not a decision or carries no approval |
 | `option-chosen` | a decision closed on the option Jacob chose (`chosen`): set by `todo approve --option` and `todo answer` only, refused by `todo done --resolution`, and a FAIL in check without an approval or with a `chosen` naming none of its options |
 | `rejected` | a decision Jacob said no to: set by `todo done --as rejected --reason R` and `todo answer` only, which put each open item it blocks back to waiting on it; a FAIL in check on an item that is not a decision |
+| `done-detected` | a `stall` or `lag` closed because its detector no longer reports the finding: set by `todo detect` only, refused by `todo done`, and a FAIL (`vocab`) in check on an item with no `detector` |
 
 <!-- vocab:fields -->
 | field | meaning |
@@ -229,6 +233,7 @@ each have one setter and are refused everywhere else:
 | `retire` | the check that retires an interim rule |
 | `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:`, `ref:` and `todo.group:` (below); the rest are derived from the fields and never stored |
 | `plan_pins` | `[{plan, digest, date}]`: for each `plan:FILE§n` tag, the sha256 of that section's text and the day it was read; set by `--pin-plan` only, read by `todo stale-plans` |
+| `detector` | `{id, subject, count, clears_with, seen}`: the finding a `stall` or `lag` item stands for, keyed `detector:<id>:<repo>:<subject>` with the item's `repo`; set, updated and cleared by `todo detect` only; `seen` is the last day a run reported it (Detectors, below) |
 | `plan_step` | `{file, section, step, hash, text}`: the plan step a `plan-step` item was made from, as `setup plans steps --json` read it; set and kept by `todo sync-plans` only (Plan steps, below) |
 | `added` | date added |
 | `done` | date closed; null while open |
@@ -477,6 +482,50 @@ made before, in every scanned store:
 tests/test_syncplans.py runs the real setup tool on fixture plans, one passing and
 one failing case per kind of change.
 
+## Detectors
+
+A stall becomes an item without anyone finding it (PLAN-todo-tool.md §10.5,
+approved by Jacob 2026-10-12). A detector is data: `vocab.json` `detectors.list`,
+each `{id, doc, command, kind, waits_on, cadence_hours}`. The command is an argv
+whose `{todo}` is this tool's `todo`, `{store}` the folder of the store detect runs
+from and `{root}` the scan root; it prints a JSON list of findings, one per repo and
+cause, each `{repo, subject, count, evidence, clears_with}`. todo reads no roster:
+findings name repos.
+
+- **`todo detect` reconciles, and is idempotent.** Each finding is one item of the
+  detector's `kind`, keyed `detector:<id>:<repo>:<subject>`: a new one is filed in
+  the store of its repo when the scan finds it (else here, naming the repo), titled
+  `<id>: <subject>` with ` (count)` above one, `open`, or `waiting-jacob` on the
+  detector's `waits_on`. One seen again updates its count, evidence and `seen`,
+  never a second item. One gone closes its item `done-detected`.
+- **Rolled up, never flooded.** More than `detectors.cap` findings is a failed run.
+- **A failed run judges nothing.** A command that exits non-zero, times out
+  (`timeout_s`), cannot start or prints anything but a findings list files one
+  `stall` under the reserved id `failed_id` (`detect`), subject `detector D failed`,
+  with the last `digest_lines` lines of its stderr; D's next good run from the same
+  store closes it. `todo detect` exits 1.
+- **A detector that does not run is a finding.** Each run is recorded in the store's
+  `todo-records.json` `runs`, `{at, exit, ok, findings, why}`, `at` in UTC
+  (`TODO_NOW`, else midnight of `TODO_TODAY`, else the clock); `todo check` fails a
+  detector not run within `stale_factor` times its `cadence_hours`, in a store where
+  any detector has run (the stores that host detect).
+- **`todo done` on a stall or lag runs its detector first**, outside the lock: it
+  refuses, naming the detector and what clears it, while the finding is reported or
+  the detector cannot run; it closes once the finding is gone or the detector is no
+  longer registered.
+- **`TODO_DETECTORS=FILE`** replaces the list with the one in FILE, checked the same
+  way, and says so on stderr every time: for fixtures and trial runs.
+
+Registered now: S7 (`todo steps --run --findings`: a `jacob-step` whose
+`done_check` passes is closed, and only one that could not be closed is a stall).
+S2-S5 join when their commands exist, and S1/S6 as `lag` detectors from a
+practices list; nothing here runs `todo detect` on a schedule yet. The
+`vocab.json` section is checked both ways on load (todolib/vocab.py), and
+tests/test_detect.py holds the plan's gates: a planted cause files one item and a
+second run none, removing it closes the item, `done` refuses while it is reported,
+a failing command files the failed item, a stale run is reported, and `blockers`
+ranks a stall with its dependents.
+
 ## The store files
 
 `todo.json` and `todo-history.json` are written by this CLI alone, and three
@@ -645,6 +694,8 @@ gate that stopped running shows as a missing line:
 | workspace | two stores share a prefix or a repo name |
 | render | `TODO.md` is not the render of `todo.json`: missing, stale (an unedited render of another store or format), hand-edited or hand-written |
 | history | the file is missing or malformed, or an entry was removed or changed since a commit |
+| records | `todo-records.json` is malformed, or a decision table committed was removed or changed, or an answer to it changed |
+| detectors | a detector's recorded run is malformed; a registered detector has not run within `stale_factor` times its cadence (or never) in a store where any detector has run; two open items hold one detector key |
 
 ## Development
 
