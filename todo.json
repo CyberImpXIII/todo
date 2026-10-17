@@ -252,33 +252,6 @@
       "imported": null
     },
     {
-      "id": "td-41",
-      "title": "todo check has no --json; the checks repo's todo-valid gate reads its text output",
-      "kind": "bug",
-      "status": "open",
-      "evidence": "tools/checks/TODO.md lines 65-66 and 539 (2026-10-04) ask for it; ./todo check --help on 2026-10-13 lists no --json. Seen while importing that TODO.md on a temp copy for PLAN-todo-tool.md §10.2's motivating case.",
-      "probe": null,
-      "reported_to": null,
-      "parent": null,
-      "blocked_by": null,
-      "waits_on": null,
-      "repo": "todo",
-      "work": "code",
-      "size": "S",
-      "files": null,
-      "done_when": "todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it",
-      "handoff": null,
-      "approved": null,
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "added": "2026-10-13",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-42",
       "title": "S3 (verbs on tools/checks for now, PLAN-services.md §3 X4) serves no shared tag vocabulary for todolib to read",
       "kind": "report",
@@ -809,5 +782,5 @@
       "imported": null
     }
   ],
-  "seal": "3d76a2cc12e6f3e9"
+  "seal": "b844e840573c4628"
 }

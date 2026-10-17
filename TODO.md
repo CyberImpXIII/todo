@@ -1,14 +1,7 @@
-<!-- rendered by todo from todo.json (25 open, 32 closed in todo-history.json; seal f5ea562a8307): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (24 open, 33 closed in todo-history.json; seal 2f02e61647f0): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
-
-- **td-41 · todo check has no --json; the checks repo's todo-valid gate reads its text output**
-  tools/checks/TODO.md lines 65-66 and 539 (2026-10-04) ask for it; ./todo check --help on 2026-10-13 lists no --json. Seen while importing that TODO.md on a temp copy for PLAN-todo-tool.md §10.2's motivating case.
-  · work: code
-  · size: S
-  · done when: todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it
-  · added: 2026-10-13
 
 - **td-48 · `todo repos` skips .claude (hidden dir) -- input: tools/todo/todo repos -- expected: hx listed. A...**
   reported to todo in dispatch toolu_01LWiD7eKj8CV3V6FQsyVKxE by the delegation layer's owner, filed from its dispatch ledger (names of that layer taken out: this repo names none, devtools/audit.py): `todo repos` skips .claude (hidden dir) -- input: tools/todo/todo repos -- expected: hx listed. Also no `todo detect` (needed by PLAN-todo-tool §10.5). 2026-10-16 todo: by design today: a hidden folder is never scanned (PLAN-todo-tool.md §8 decision 4: todo never reads the delegation layer), so listing it needs Jacob to change that decision.

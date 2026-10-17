@@ -948,14 +948,24 @@ def cmd_tree(args):
 
 
 def cmd_check(args):
+    """Every gate over this store (--all: every scanned one). --json prints one
+    document, {ok, failed, warnings, stores: [checks.summary per store]}, with the
+    same exit code as the text: 1 on any FAIL."""
     store = open_store(args)
     ws = workspace(args, store)
     targets = ws.stores if args.all else [store]
-    code = 0
+    code, docs = 0, []
     for s in targets:
-        lines, c = checks.report(s, checks.check_store(s, ws))
-        print("\n".join(lines))
+        findings = checks.check_store(s, ws)
+        lines, c = checks.report(s, findings)
+        if args.json:
+            docs.append(checks.summary(s, findings))
+        else:
+            print("\n".join(lines))
         code = max(code, c)
+    if args.json:
+        print(json.dumps({"ok": code == 0, "failed": sum(d["failed"] for d in docs),
+                          "warnings": sum(d["warnings"] for d in docs), "stores": docs}, indent=2))
     sys.exit(code)
 
 
@@ -2045,6 +2055,7 @@ def build_parser():
     ps["render"].add_argument("--force", action="store_true")
     ps["tree"].add_argument("id", nargs="?")
     ps["check"].add_argument("--all", action="store_true")
+    ps["check"].add_argument("--json", action="store_true", help="one document: {ok, failed, warnings, stores}")
     ps["import"].add_argument("file")
     ps["import"].add_argument("--dry-run", action="store_true")
     ps["import"].add_argument("--waits-on", dest="waits_on", metavar="VALUE",

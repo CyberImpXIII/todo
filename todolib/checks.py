@@ -678,6 +678,19 @@ def check_store(store, ws):
     return out
 
 
+def summary(store, findings):
+    """`todo check --json` for one store: what report() prints, as data. Every gate
+    is named with its worst level, so a gate that found nothing reads ok, never absent."""
+    gates = {}
+    for gate in GATES:
+        levels = {f[0] for f in findings if f[1] == gate}
+        gates[gate] = "FAIL" if "FAIL" in levels else ("WARN" if "WARN" in levels else "ok")
+    failed = sum(f[0] == "FAIL" for f in findings)
+    return {"repo": store.repo, "dir": str(store.dir), "open_items": len(store.items), "closed_items": len(store.closed),
+            "ok": failed == 0, "failed": failed, "warnings": sum(f[0] == "WARN" for f in findings), "gates": gates,
+            "findings": [{"level": lv, "gate": g, "where": w, "message": m} for lv, g, w, m in findings]}
+
+
 def report(store, findings):
     """Lines to print, and the exit code."""
     lines = []

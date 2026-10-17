@@ -764,7 +764,34 @@
       "done": "2026-10-17",
       "resolution": "fixed: todo ready flags a dispatched item [dispatched DATE] before its title, never hides it (tests/test_dispatch.py, mutant ready-hides-dispatch)",
       "imported": null
+    },
+    {
+      "id": "td-41",
+      "title": "todo check has no --json; the checks repo's todo-valid gate reads its text output",
+      "kind": "bug",
+      "status": "done",
+      "evidence": "tools/checks/TODO.md lines 65-66 and 539 (2026-10-04) ask for it; ./todo check --help on 2026-10-13 lists no --json. Seen while importing that TODO.md on a temp copy for PLAN-todo-tool.md §10.2's motivating case.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "waits_on": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "S",
+      "files": null,
+      "done_when": "todo check --json prints {ok, failed, warnings} and a test shows a failing item changes it",
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "added": "2026-10-13",
+      "done": "2026-10-17",
+      "resolution": "fixed: todo check --json prints {ok, failed, warnings, stores} with every gate's level and each finding; same exit code (tests/test_checkjson.py, 3 mutants)",
+      "imported": null
     }
   ],
-  "seal": "3f67547b4322a42e"
+  "seal": "3b24e7fd220846b9"
 }
