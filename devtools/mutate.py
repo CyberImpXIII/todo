@@ -26,8 +26,10 @@ afterwards: the shared hooks' own tests find their sibling repos by walking up,
 so a copy in the system temp folder would fail for its location, not for the
 mutant. Nothing else in the working tree is touched.
 
-Adapted from tools/setup/devtools/mutate.py (the `edits` list is the addition);
-TODO.md records the duplicate as a shared-component candidate.
+One source, many copies: the setup tool's `mutate` component renders this file,
+as its HEAD holds it, into each repo that keeps a devtools/mutants.json, and
+reports a copy whose meaning differs as drift. Change it at the source, never in
+a copy.
 """
 import json
 import os
@@ -43,6 +45,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 IGNORE = shutil.ignore_patterns(".git", ".mutants", "__pycache__", "*.pyc")
 WORK = ROOT / ".mutants"
+VERSION = "2.0.0"
 USAGE = "usage: devtools/mutate.py [mutants.json] [--only ID] [--work DIR]"
 # The commands running now, so SIGTERM can stop them; STOP refuses new ones after it.
 PROCS, LOCK, STOP = set(), threading.Lock(), threading.Event()
@@ -103,7 +106,7 @@ def mutant(m, tmp: Path):
         if n != 1:
             return m["id"], "STALE", f"{e['file']}: the string to replace occurs {n} times, not once"
         mode = f.stat().st_mode
-        f.chmod(mode | 0o200)  # TODO.md is rendered read-only
+        f.chmod(mode | 0o200)  # a rendered file may be read-only
         f.write_text(text.replace(e["old"], e["new"]))
         f.chmod(mode)
     code, tail = run(m["run"], d)
