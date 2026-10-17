@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (25 open, 30 closed in todo-history.json; seal 166ccfd1ac8d): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (26 open, 31 closed in todo-history.json; seal eb20c1ae63af): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -19,6 +19,16 @@
   reported to todo in dispatch toolu_01LWiD7eKj8CV3V6FQsyVKxE by the delegation layer's owner, filed from its dispatch ledger (names of that layer taken out: this repo names none, devtools/audit.py): `add --kind decision` now needs --pointer/--hinges-on/--recommend, and cli.json now has `sync-plans`, both uncommitted -- input: todo add "Which source" --kind decision --work code -- expected: when it commits, tell that owner so its test-offload and todo-verbs.json follow.
   · parent: tl-220
   · added: 2026-10-15
+
+- **td-56 · `todo -C S edit ID --append-evidence=X --status=open` on a waiting-jacob item that has waits_on e...**
+  reported from tools/wizard to tools/todo in dispatch toolu_01N3MUz4nghChG9gh9gg4dPG, filed from the dispatch ledger by the delegation layer's report filer: `todo -C S edit ID --append-evidence=X --status=open` on a waiting-jacob item that has waits_on exits 1 ("clear it with --waits-on ''") -- input: a scratch store, `add --status waiting-jacob --waits-on wizard:x Pick`, then that edit -- expected: leaving waiting-jacob clears waits_on.
+  · parent: tl-244
+  · added: 2026-10-16
+
+- **td-57 · importing a "Reported to other owners" section gives report items with no `reported_to`, which fa...**
+  reported from tools/checks to tools/todo in dispatch toolu_01UsoP3YSofAzhSbJhhJbU2p, filed from the dispatch ledger by the delegation layer's report filer: importing a "Reported to other owners" section gives report items with no `reported_to`, which fail `todo check` -- input: `todo -C tools/checks init --prefix ck; todo -C tools/checks import TODO.md; todo -C tools/checks check` -- expected: an import that passes its own check, e.g. the owner read from the start of the bullet, or `edit --reported-to` without writing into the owner's store. Suspi...
+  · parent: tl-250
+  · added: 2026-10-16
 
 ## Open decisions
 
@@ -165,15 +175,6 @@
   · added: 2026-10-16
 
 ## Notes
-
-- **td-23 · Outside git the history append-only audit is skipped and history still prints ok**
-  check_history adds an INFO 'not a git repo: the append-only audit ... is skipped here' and the gate prints ok. The top-level store (PLAN §9 step 1) is never in git, so its history would never be audited. The store seal (PLAN §9 'The gap his question found', queued next) is the candidate guard; until then it is visible only as INFO.
-  2026-10-15: the seal (PLAN-todo-tool.md §9) closed most of this: a hand edit of a sealed file fails todo check in or out of git. Left: outside git a file set back to format 1 with its seal removed is only a WARN (tests/test_seal.py Legacy), since nothing remembers it was sealed; in git, its last commit being sealed makes it a FAIL (test_removing_the_seal_is_not_a_way_around_it). The top-level store is outside git.
-  · work: code
-  · size: M
-  · files: todolib/checks.py
-  · done when: outside git, a store file whose seal was removed and whose format was set back to 1 fails todo check (not a WARN); a test plants it
-  · added: 2026-10-09
 
 - **td-50 · Step items are kind plan-step, where PLAN-services.md step 6.3 says `step`**
   c400088/f444257: `step` read as any step; plan-step names where it comes from (sync-plans). Jacob to confirm or ask for a rename (vocab.json kinds, one place).

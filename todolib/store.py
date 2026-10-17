@@ -195,7 +195,8 @@ SEAL_STATES = {
     "sealed": "its seal matches its content: last written by the CLI",
     "broken": "its seal does not match its content: changed since the CLI last wrote it (a hand edit)",
     "missing": f"format {FORMAT} with no seal: a hand edit removed it",
-    "downgraded": f"format {LEGACY_FORMAT} with no seal, but its last git commit was sealed: a hand edit removed the seal",
+    "downgraded": (f"format {LEGACY_FORMAT} with no seal, but its last git commit was sealed, or a store file beside it "
+                   "was written since seals (every CLI write seals them all): a hand edit removed the seal"),
     "legacy": f"format {LEGACY_FORMAT}, written before seals: the next CLI write seals it; until then a hand edit here cannot be told",
 }
 
@@ -264,8 +265,13 @@ class Store:
             # never written before seals: a records file without one was unsealed by hand
             self.seals[RECORDS_FILE] = (seal_state(self.records) if isinstance(self.records, dict)
                                         and SEAL_KEY in self.records else "broken")
+        # Every CLI write seals every store file, so a format-1 file is one written
+        # before seals only while every file beside it is format 1 too (a records file
+        # is never format 1): outside git that is the only memory there is. Both
+        # files set back together, with no records file, still cannot be told.
+        since_seals = any(state != "legacy" for state in self.seals.values())
         for name, state in self.seals.items():
-            if state == "legacy" and committed_sealed(self.dir, name):
+            if state == "legacy" and (since_seals or committed_sealed(self.dir, name)):
                 self.seals[name] = "downgraded"
         return self
 

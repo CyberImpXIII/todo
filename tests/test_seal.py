@@ -104,6 +104,9 @@ class Sealed(Case):
         self.assertFails(self.a, "seal", "its last git commit was sealed")
         r = self.todo("-C", self.a, "add", "three", "--kind", NOTE, ok=False)
         self.assertIn("changed around the CLI", r.stderr)
+        # both set back together: no sealed file beside them, so git's memory alone tells
+        self.hand_edit(HISTORY_FILE, lambda d: (d.pop(SEAL_KEY), d.update(format=LEGACY_FORMAT)))
+        self.assertFails(self.a, "seal", f"{HISTORY_FILE}: format {LEGACY_FORMAT} with no seal, but")
 
 
 class Legacy(Case):
@@ -121,6 +124,22 @@ class Legacy(Case):
         out = self.check(a).stdout
         self.assertFalse([ln for ln in out.splitlines() if "seal" in ln.split()[:2] and ln.split()[0] != "ok"], out)
         self.assertEqual(self.store(a)["format"], FORMAT)
+
+    def test_outside_git_one_file_set_back_beside_a_sealed_one_fails(self):
+        """td-23: every CLI write seals both files, so a format-1 file beside a sealed
+        one was set back by hand, in git or out of it. Both set back together is the
+        case above: nothing outside git remembers, and it stays a WARN."""
+        for name in FILES:
+            with self.subTest(name):
+                a = self.repo(f"a{len(name)}", "aa", git_init=False)
+                self.todo("-C", a, "add", "one", "--kind", NOTE)
+                data = json.loads((a / name).read_text())
+                data.pop(SEAL_KEY)
+                data["format"] = LEGACY_FORMAT
+                self.write_json(a / name, data, seal=False)
+                self.assertFails(a, "seal", f"{name}: format {LEGACY_FORMAT} with no seal, but")
+                r = self.todo("-C", a, "add", "two", "--kind", NOTE, ok=False)
+                self.assertIn("changed around the CLI", r.stderr)
 
 
 class Declared(unittest.TestCase):

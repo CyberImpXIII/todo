@@ -641,8 +641,9 @@ def check_seal(store, out):
     """Both store files carry a seal over their content that the CLI rewrites on
     every write (PLAN-todo-tool.md §9, the gap his question found): a file changed
     around the CLI fails here, however well-formed. A file written before seals
-    is a WARN until the next CLI write seals it, unless git's last commit of it was
-    sealed (store.load calls that "downgraded"): then the seal was removed by hand."""
+    is a WARN until the next CLI write seals it, unless git's last commit of it, or
+    a store file beside it, was sealed (store.load calls that "downgraded"): then
+    the seal was removed by hand."""
     for name, state in store.seals.items():
         if state == "sealed":
             continue

@@ -716,7 +716,29 @@
       "done": "2026-10-15",
       "resolution": "fixed",
       "imported": null
+    },
+    {
+      "id": "td-23",
+      "title": "Outside git the history append-only audit is skipped and history still prints ok",
+      "kind": "note",
+      "status": "done",
+      "evidence": "check_history adds an INFO 'not a git repo: the append-only audit ... is skipped here' and the gate prints ok. The top-level store (PLAN §9 step 1) is never in git, so its history would never be audited. The store seal (PLAN §9 'The gap his question found', queued next) is the candidate guard; until then it is visible only as INFO.\n2026-10-15: the seal (PLAN-todo-tool.md §9) closed most of this: a hand edit of a sealed file fails todo check in or out of git. Left: outside git a file set back to format 1 with its seal removed is only a WARN (tests/test_seal.py Legacy), since nothing remembers it was sealed; in git, its last commit being sealed makes it a FAIL (test_removing_the_seal_is_not_a_way_around_it). The top-level store is outside git.\n2026-10-17: store.load now calls a format-1 file downgraded when any store file beside it is not format 1 (every CLI write seals them all), in git or out: tests/test_seal.py Legacy.test_outside_git_one_file_set_back_beside_a_sealed_one_fails, mutant seal-sibling-forgotten. Left, by construction: outside git both files set back together with no records file look exactly like a pre-seal store (README, store files).",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "repo": "todo",
+      "work": "code",
+      "files": [
+        "todolib/checks.py"
+      ],
+      "done_when": "outside git, a store file whose seal was removed and whose format was set back to 1 fails todo check (not a WARN); a test plants it",
+      "retire": null,
+      "added": "2026-10-09",
+      "done": "2026-10-17",
+      "resolution": "fixed: a format-1 file beside a sealed one fails outside git too; both set back together stays a WARN (nothing remembers)",
+      "imported": null,
+      "size": "M"
     }
   ],
-  "seal": "dc188853a86265fb"
+  "seal": "18e87e903339e401"
 }

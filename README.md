@@ -545,9 +545,12 @@ things hold every other writer off them:
   next write never launders a hand edit; restore the file from git and make the
   change with the CLI, or read the diff and `todo reseal --reason R`, which
   records it. Removing the seal fails too: a format-2 file with no seal is a hand
-  edit, and so is a format-1 file whose last git commit was sealed. A file from
-  before seals (`format` 1, never sealed) is a `WARN` until the next CLI write
-  seals it.
+  edit, and so is a format-1 file whose last git commit was sealed, or that sits
+  beside a store file written since seals (every CLI write seals them all), in git
+  or out of it. A file from before seals (`format` 1, never sealed, as is every
+  file beside it) is a `WARN` until the next CLI write seals it. Outside git, both
+  files set back to format 1 together, with no records file, cannot be told from
+  that: nothing there remembers them sealed.
 
 ## The rendered file
 
