@@ -222,32 +222,6 @@
       "size": "S"
     },
     {
-      "id": "td-33",
-      "title": "todo ready still lists an item marked dispatched",
-      "kind": "suspicion",
-      "status": "open",
-      "evidence": "2026-10-09: todo dispatchable leaves dispatched items out, but todo ready was left as it was (it answers 'well-formed enough to hand out', not 'free to hand out'). A caller that reads ready instead of dispatchable could hand the same item out twice. Unconfirmed whether any caller reads ready that way.",
-      "probe": "approve and dispatch a ready item, then run todo ready: it is listed; decide whether ready should leave it out or flag it",
-      "reported_to": null,
-      "parent": null,
-      "blocked_by": null,
-      "repo": "todo",
-      "work": "code",
-      "size": "S",
-      "files": null,
-      "done_when": "todo ready flags an approved, dispatched item as dispatched (flag, not hide); a test shows the mark changes ready's output",
-      "handoff": null,
-      "approved": null,
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "added": "2026-10-09",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-36",
       "title": "checks gate: hooks-installed reports drift on four installed .claude/ files",
       "kind": "report",
@@ -835,5 +809,5 @@
       "imported": null
     }
   ],
-  "seal": "7dca4199b1c2e89f"
+  "seal": "3d76a2cc12e6f3e9"
 }

@@ -62,6 +62,24 @@ class Dispatchable(Case):
         self.todo("-C", self.a, "dispatch", "aa-1", "--clear")
         self.assertEqual(self.ids(self.view()), ["todo:aa-1"])
 
+    def test_ready_flags_a_dispatched_item_and_never_hides_it(self):
+        """td-33: ready answers 'well-formed enough to hand out'; one handed out
+        stays listed but must not read as free. The mark alone changes the line."""
+        self.todo("-C", self.a, "add", "job", "--kind", NOTE, *READY)
+
+        def line():
+            [ln] = [ln for ln in self.todo("-C", self.a, "ready").stdout.splitlines() if ln.startswith("aa-1 ")]
+            return ln
+        before = line()
+        self.assertNotIn("dispatched", before)
+        self.todo("-C", self.a, "approve", "aa-1", "--source", "s")
+        self.todo("-C", self.a, "dispatch", "aa-1")
+        flagged = line()
+        self.assertIn(f"[dispatched {TODAY}] job", flagged)
+        self.assertEqual(flagged.replace(f"[dispatched {TODAY}] ", ""), before)
+        self.todo("-C", self.a, "dispatch", "aa-1", "--clear")
+        self.assertEqual(line(), before)
+
     def test_an_approved_item_not_ready_is_held_with_why(self):
         self.todo("-C", self.a, "add", "no done-when", "--kind", NOTE, "--work", next(iter(VOCAB.works)))
         self.todo("-C", self.a, "add", "waiting", "--kind", NOTE, *READY, "--status", VOCAB.jacob_status, "--waits-on", WAITS)

@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (26 open, 31 closed in todo-history.json; seal eb20c1ae63af): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (25 open, 32 closed in todo-history.json; seal f5ea562a8307): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -58,14 +58,6 @@
   · added: 2026-10-15
 
 ## Unconfirmed suspicions
-
-- **td-33 · todo ready still lists an item marked dispatched**
-  2026-10-09: todo dispatchable leaves dispatched items out, but todo ready was left as it was (it answers 'well-formed enough to hand out', not 'free to hand out'). A caller that reads ready instead of dispatchable could hand the same item out twice. Unconfirmed whether any caller reads ready that way.
-  · probe: approve and dispatch a ready item, then run todo ready: it is listed; decide whether ready should leave it out or flag it
-  · work: code
-  · size: S
-  · done when: todo ready flags an approved, dispatched item as dispatched (flag, not hide); a test shows the mark changes ready's output
-  · added: 2026-10-09
 
 - **td-45 · research ids are unchecked until tools/research has a CLI**
   8cb53f9: check counts research ids as unchecked foreign refs (INFO). Nothing proves an rs- id exists.

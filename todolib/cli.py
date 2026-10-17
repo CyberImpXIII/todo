@@ -1111,7 +1111,11 @@ def cmd_ready(args):
     ws = workspace(args, store)
     known_repo(ws, args.repo)
     for it, _ in ready_items(ws, args.repo, args.work, refused):
-        print(f"{it['id']:<8} {it['repo']:<20} {it['work']:<9} {it.get('size'):<2} {it['title'][:TITLE_WIDTH]}")
+        # flagged, never hidden: ready says well-formed enough to hand out, and one
+        # handed out already must not read as free (`todo dispatchable` leaves it out)
+        d = it.get("dispatched")
+        mark = f"[dispatched {d.get('date')}] " if isinstance(d, dict) else ""
+        print(f"{it['id']:<8} {it['repo']:<20} {it['work']:<9} {it.get('size'):<2} {mark}{it['title'][:TITLE_WIDTH]}")
         n += 1
     if n == 0:
         print(f"(nothing ready: an open item needs repo, work and done_when set, size {' or '.join(VOCAB.ready_sizes)}, "
