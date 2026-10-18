@@ -8,6 +8,7 @@
   {"name": "test.report_fallback", "run": "python3 -m unittest tests.test_report_fallback", "files": ["tests/test_report_fallback.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.decisions", "run": "python3 -m unittest tests.test_decisions", "files": ["tests/test_decisions.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.checkjson", "run": "python3 -m unittest tests.test_checkjson", "files": ["tests/test_checkjson.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.migrate", "run": "python3 -m unittest tests.test_migrate", "files": ["tests/test_migrate.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.detect", "run": "python3 -m unittest tests.test_detect", "files": ["tests/test_detect.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.repostatus", "run": "python3 -m unittest tests.test_repostatus", "files": ["tests/test_repostatus.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.syncplans", "run": "python3 -m unittest tests.test_syncplans", "files": ["tests/test_syncplans.py"], "except": ["tests/", "TODO.md"]},

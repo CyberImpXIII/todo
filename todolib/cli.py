@@ -11,7 +11,8 @@ from pathlib import Path
 from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
 from . import decisions as decide
-from . import detect, repostatus
+from . import detect, readers, repostatus
+from . import migrate as migrating
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import syncplans
@@ -1928,6 +1929,57 @@ def cmd_history(args):
         print("(no closed items match)")
 
 
+def cmd_migrate(args):
+    """`todo migrate --dry-run [--all] [--json]` and `todo migrate --readers [--json]`
+    (PLAN-todo-tool.md §10.6). The dry run takes this store (--all: every scanned
+    one) into a throwaway todo.db, its exports and a second todo.db made from them,
+    and says per repo: migrated, record for record, or why not; it writes nothing in
+    any repo. --readers lists every line outside this tool that names the JSON files.
+    Without either it refuses: no store is converted yet (todolib/migrate.py)."""
+    if args.readers:
+        root = scan_root(store_dir_for(Path.cwd(), args.C), args.root)
+        found = readers.scan(root)
+        if args.json:
+            print(json.dumps(dict(found, root=str(root)), indent=1, ensure_ascii=False))
+            return
+        print(f"scan root: {root}")
+        for h in found["hits"]:
+            print(f"  {h['path']}:{h['line']}: {h['text']}")
+        for s in found["skipped"]:
+            print(f"  SKIPPED {s['path']}: {s['why']}")
+        print(f"readers: {readers.summary(found)}")
+        return
+    if not args.dry_run:
+        root = scan_root(store_dir_for(Path.cwd(), args.C), args.root)
+        raise TodoError("todo migrate converts no store yet: todo still reads only the JSON files, and the switch "
+                        f"waits until no reader outside this tool names them ({readers.summary(readers.scan(root))}; "
+                        "todo migrate --readers lists them). Run it with --dry-run (PLAN-todo-tool.md §10.6)")
+    ws = read_workspace(args)
+    if args.all:
+        targets = ws.stores
+    elif ws.current is not None:
+        targets = [ws.current]
+    else:
+        raise NoStore(f"no {STORE_FILE} here: -C DIR names a store, --all takes every scanned one")
+    results = [migrating.dry_run(s) for s in targets]
+    found = readers.scan(ws.root)
+    bad = sum(not r["ok"] for r in results) + (len(ws.errors) if args.all else 0)
+    if args.json:
+        print(json.dumps({"ok": bad == 0, "root": str(ws.root), "repos": results,
+                          "unreadable": ws.errors if args.all else [],
+                          "readers": {"lines": len(found["hits"]), "files": len({h["path"] for h in found["hits"]})}},
+                         indent=1, ensure_ascii=False))
+    else:
+        print(f"scan root: {ws.root} (dry run: nothing is written in any repo)")
+        for r in results:
+            print(migrating.line(r))
+        for e in (ws.errors if args.all else []):
+            print(f"  NOT   (unreadable)         {e}")
+        print(f"readers: {readers.summary(found)}; the switch waits until there are none")
+    if bad:
+        raise TodoError(f"dry run: {bad} of {len(results) + (len(ws.errors) if args.all else 0)} stores would not migrate")
+
+
 # -- the parser --------------------------------------------------------------
 
 COMMANDS = {
@@ -1961,6 +2013,7 @@ COMMANDS = {
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
     "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run"),
+    "migrate": (cmd_migrate, "the move to todo.db: --dry-run says per repo whether it would migrate; --readers lists what still names the JSON files"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -2106,6 +2159,12 @@ def build_parser():
                                   "findings (JSON); with --run, closes them first and reports only those it could not")
     ps["detect"].add_argument("--id", metavar="D", help="run this detector alone (its items alone are judged)")
     ps["detect"].add_argument("--json", action="store_true")
+    ps["migrate"].add_argument("--dry-run", dest="dry_run", action="store_true",
+                               help="into a throwaway todo.db and back; write nothing in any repo")
+    ps["migrate"].add_argument("--all", action="store_true", help="with --dry-run: every scanned store")
+    ps["migrate"].add_argument("--readers", action="store_true",
+                               help="every line outside this tool that names the JSON files")
+    ps["migrate"].add_argument("--json", action="store_true")
     ps["repos"].add_argument("--status", action="store_true",
                              help="every git repo under the root, with a store or not: open items, last commit, uncommitted files")
     ps["repos"].add_argument("--json", action="store_true", help="with --status")

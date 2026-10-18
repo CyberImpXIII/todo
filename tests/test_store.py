@@ -152,14 +152,15 @@ class Workspace(Case):
 
 
 class OneWayIn(Case):
-    """Only store.py writes a file; everything else goes through Store.save or write_atomic."""
+    """Only store.py writes a file (and sqlstore.py, the store helper, its database and
+    exports); everything else goes through Store.save or write_atomic."""
 
     WRITERS = re.compile(r"\b(write_text|write_bytes|os\.replace|os\.rename|shutil\.)")
 
     def test_only_store_py_writes_files(self):
         hits = []
         for f in sorted((ROOT / "todolib").glob("*.py")):
-            if f.name == "store.py":
+            if f.name in ("store.py", "sqlstore.py"):
                 continue
             src = f.read_text()
             for n, line in enumerate(src.splitlines(), 1):
