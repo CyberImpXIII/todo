@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (24 open, 33 closed in todo-history.json; seal 2f02e61647f0): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (29 open, 33 closed in todo-history.json; seal d46d5ccfb79a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -107,7 +107,7 @@
   · reported to: checks on 2026-10-09 (no counterpart yet)
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-15 (sha256 55621f435a82)
+  · plan pins: PLAN-services.md§3 as of 2026-10-18 (sha256 5bb8d78b440b)
   · added: 2026-10-09
 
 - **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
@@ -125,7 +125,7 @@
   · work: code
   · done when: tools/checks serves the shared tag vocabulary (the seven namespaces and their closed values) by a verb or file todolib can read
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-15 (sha256 55621f435a82)
+  · plan pins: PLAN-services.md§3 as of 2026-10-18 (sha256 5bb8d78b440b)
   · added: 2026-10-15
 
 - **td-43 · parts.py exits 0 when a part only said UNCHECKED (exit 3); dev.sh turns it into 3 itself**
@@ -151,7 +151,7 @@
   · done when: todolib reads the shared tag vocabulary from the architecture service (S3) instead of vocab.json tags.shared, and tests/test_tags.py Vocabulary compares against S3, not the plan
   · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-15 (sha256 55621f435a82)
+  · plan pins: PLAN-services.md§3 as of 2026-10-18 (sha256 5bb8d78b440b)
   · added: 2026-10-09
 
 - **td-54 · Nothing runs `todo detect` on a schedule yet**
@@ -180,3 +180,50 @@
   c400088: PLAN-todo-tool.md §10.5 names closed_by; todo records the closing detector in the item's detector field and resolution done-detected (README Detectors). Jacob to confirm.
   · work: docs
   · added: 2026-10-16
+
+- **td-58 · The switch to todo.db: Store on SQLite, exports rewritten on each write**
+  2026-10-18, commit 914e3cc: todo migrate --dry-run --all is 7 of 7 ok (JSON to todo.db to 4 exports and back, record for record); the conversion itself is refused. Still to build: Store reading and writing todo.db, every write rewriting the 0444 exports, a fresh clone importing them, check failing an edited export (verify_exports), cli.json declaring each store's kind for stores-classified (ST5), todo.db gitignored.
+  · work: code
+  · size: L
+  · files: todolib/store.py, todolib/migrate.py, cli.json
+  · done when: Store reads and writes todo.db; each write rewrites the exports; a fresh clone imports them; ./dev.sh check fails an edited or stale export; cli.json declares todo.db dynamic and the exports static
+  · tags: plan:PLAN-todo-tool.md§10.6
+  · added: 2026-10-18
+
+- **td-59 · Readers of the JSON stores move to the CLI or the exports before the switch**
+  2026-10-18, todo migrate --readers: 95 lines in 30 files outside this tool name todo.json, todo-history.json or todo-records.json (income, knowledge-base, job-import-scripts, tools/checks, context-hygiene, hooks, setup, usage, wizard); hidden folders are not read, so the .claude layer's readers (dispatch-guard, report-filer, offload, todo-writes, temp-rules) are listed by their owner, not here. Each was reported to its owner in the tl-268 handoff.
+  · work: outreach
+  · size: M
+  · done when: todo migrate --readers lists no reader that opens a JSON store directly (excludes and fixtures aside), and each owner's item is closed
+  · tags: plan:PLAN-todo-tool.md§10.6
+  · added: 2026-10-18
+
+- **td-60 · Store reads and writes todo.db (gitignored); migrate converts on request**
+  split from td-58: The switch to todo.db: Store on SQLite, exports rewritten on each write
+  · parent: td-58
+  · work: code
+  · size: M
+  · files: todolib/store.py, todolib/migrate.py, cli.json
+  · done when: todolib/store.py reads and writes todo.db through sqlstore.Db; todo.db is gitignored; todo migrate without --dry-run converts a store and the JSON files go
+  · tags: plan:PLAN-todo-tool.md§10.6
+  · added: 2026-10-18
+
+- **td-61 · Each write rewrites the 0444 exports; a fresh clone imports them**
+  split from td-58: The switch to todo.db: Store on SQLite, exports rewritten on each write
+  · parent: td-58
+  · work: code
+  · size: M
+  · files: todolib/store.py, todolib/migrate.py, cli.json
+  · done when: every write rewrites todo.*.jsonl at 0444 in the same transaction; a test deletes todo.db and gets every record back from the exports
+  · tags: plan:PLAN-todo-tool.md§10.6
+  · added: 2026-10-18
+
+- **td-62 · ./dev.sh check fails an edited or stale export (verify_exports); cli.json declares todo.db dynamic and the exports static (ST5)**
+  split from td-58: The switch to todo.db: Store on SQLite, exports rewritten on each write
+  · parent: td-58
+  · work: code
+  · size: M
+  · files: todolib/store.py, todolib/migrate.py, cli.json
+  · done when: ./dev.sh check FAILs on an edited and on a stale export (a test each, a mutant each); cli.json names todo.db kind dynamic with schema_version and export, the exports kind static with producer and regen
+  · tags: plan:PLAN-todo-tool.md§10.6
+  · added: 2026-10-18
