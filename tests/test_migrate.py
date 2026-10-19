@@ -211,14 +211,6 @@ class Migrate(Case):
         self.assertEqual((doc["ok"], [x["repo"] for x in doc["repos"]]), (True, ["a"]))
         self.assertEqual(sorted(doc["repos"][0]["exports"]), sorted(s.file for s in migrate.EXPORTS))
 
-    def test_without_dry_run_it_converts_nothing(self):
-        d = self.a_store()
-        before = self.snapshot()
-        r = self.todo("-C", d, "migrate", ok=False)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("converts no store yet", r.stderr)
-        self.assertEqual(self.snapshot(), before)
-
     def test_readers_lists_code_not_prose_hidden_folders_or_the_store(self):
         d = self.a_store()
         (d / "tool.sh").write_text("#!/bin/sh\njq . todo.json\n")

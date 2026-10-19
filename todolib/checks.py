@@ -11,9 +11,10 @@ import subprocess
 from . import approval, deps, plans, tags
 from . import decisions as decide
 from . import detect, syncplans
+from . import migrate as migrating
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
-from .store import (DATE_RE, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
-                    HISTORY_FILE, RENDER_FILE, TodoError, git_toplevel, id_number, never_scanned, seal_state, today)
+from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
+                    HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today)
 from .vocab import VOCAB
 
 GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports",
@@ -134,9 +135,9 @@ def check_item(it, where, store, out):
     if it.get("size") is not None and it["size"] not in VOCAB.sizes:
         out.append(("FAIL", "vocab", iid, f"size {it['size']!r} is not declared (one of {', '.join(VOCAB.sizes)})"))
     if where == "store" and status == VOCAB.closed:
-        out.append(("FAIL", "schema", iid, f"status {status} in {store.path.name}: closed items live in {HISTORY_FILE} (todo done moves them)"))
+        out.append(("FAIL", "schema", iid, f"status {status} in {store.where.name}: closed items live in {store.history_where.name} (todo done moves them)"))
     if where == "history" and status != VOCAB.closed:
-        out.append(("FAIL", "schema", iid, f"status {status} in {HISTORY_FILE}: only closed items live there"))
+        out.append(("FAIL", "schema", iid, f"status {status} in {store.history_where.name}: only closed items live there"))
     if where == "store":
         for f in ("done", "resolution"):
             if not _empty(it.get(f)):
@@ -264,17 +265,32 @@ def check_waiting(store, out):
                                              + " -- todo edit ID --pointer --hinges-on --recommend"))
 
 
+def git_show(top, path, sha="HEAD"):
+    """path's content at sha in the repository at top, or None when it is not there."""
+    rel = path.resolve().relative_to(top.resolve())
+    shown = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=top, capture_output=True, text=True)
+    return shown.stdout if shown.returncode == 0 else None
+
+
 def committed_records(store):
-    """The records file as git's HEAD holds it: (data or None, why not read)."""
+    """The records as git's HEAD holds them: (data or None, why not read). On
+    todo.db its records export at HEAD, else the JSON file a commit before the
+    move still holds there."""
     top = git_toplevel(store.dir)
     if not top:
         return None, "not a git repo"
-    rel = store.records_path.resolve().relative_to(top.resolve())
-    shown = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=top, capture_output=True, text=True)
-    if shown.returncode != 0:
+    if store.on_db:
+        text = git_show(top, store.records_where)
+        if text is not None:
+            try:
+                return migrating.records_doc(text), None
+            except TodoError:
+                return None, "does not parse at HEAD"
+    text = git_show(top, store.records_path)
+    if text is None:
         return None, "not committed"
     try:
-        return json.loads(shown.stdout), None
+        return json.loads(text), None
     except ValueError:
         return None, "does not parse at HEAD"
 
@@ -589,36 +605,49 @@ def check_render(store, out):
         out.append((level, "render", "-", f"{RENDER_FILE} is {what}: `todo import {RENDER_FILE}` recovers new bullets, `todo render --force` keeps the diff in todo.json and rewrites it{tail}"))
     edits = store.data.get("hand_edits") or []
     if edits:
-        out.append(("INFO", "render", "-", f"hand edits recorded: {len(edits)} (todo.json hand_edits)"))
+        out.append(("INFO", "render", "-", f"hand edits recorded: {len(edits)} ({store.where.name} hand_edits)"))
+
+
+def _json_items(text):
+    try:
+        return json.loads(text).get("items", [])
+    except (ValueError, AttributeError):
+        return None
+
+
+def _export_items(text):
+    try:
+        return migrating.history_rows(text)
+    except TodoError:
+        return None
 
 
 def history_versions(store):
-    """[(sha, items-by-id)] for every committed version of the history file."""
+    """[(sha, file, items-by-id)] for every committed version of history: the
+    JSON file's, and todo.db's history export's, so the audit spans the move."""
     top = git_toplevel(store.dir)
     if not top:
         return None
-    rel = store.history_path.resolve().relative_to(top.resolve())
-    log = subprocess.run(["git", "log", "--format=%h", "--", str(rel)], cwd=top, capture_output=True, text=True)
     versions = []
-    for sha in log.stdout.split():
-        shown = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=top, capture_output=True, text=True)
-        if shown.returncode != 0:
-            continue  # the commit deleted the file; the next older one still counts
-        try:
-            items = json.loads(shown.stdout).get("items", [])
-        except ValueError:
-            versions.append((sha, None))
-            continue
-        versions.append((sha, {it.get("id"): it for it in items}))
+    for path, parse in ((store.history_path, _json_items), (store.dir / EXPORT_FILES["history"], _export_items)):
+        rel = path.resolve().relative_to(top.resolve())
+        log = subprocess.run(["git", "log", "--format=%h", "--", str(rel)], cwd=top, capture_output=True, text=True)
+        for sha in log.stdout.split():
+            text = git_show(top, path, sha)
+            if text is None:
+                continue  # the commit deleted the file; the next older one still counts
+            items = parse(text)
+            versions.append((sha, path.name, None if items is None else
+                             {it.get("id"): it for it in items if isinstance(it, dict)}))
     return versions
 
 
 def check_history(store, out):
     if store.history is None:
-        out.append(("FAIL", "history", "-", f"{HISTORY_FILE} missing (todo init writes it; it is never deleted)"))
+        out.append(("FAIL", "history", "-", f"{store.history_where.name} missing (todo init writes it; it is never deleted)"))
         return
     if set(store.history) != expected_keys(store.history, HISTORY_KEYS) or store.history.get("repo") != store.repo:
-        out.append(("FAIL", "history", "-", f"{HISTORY_FILE} must hold exactly {HISTORY_KEYS}, repo {store.repo}"))
+        out.append(("FAIL", "history", "-", f"{store.history_where.name} must hold exactly {HISTORY_KEYS}, repo {store.repo}"))
     undated = [it["id"] for it in store.closed if it.get("imported") and not it.get("done")]
     if undated:
         out.append(("INFO", "history", "-", f"{len(undated)} imported closed item(s) carry no date (a Resolved bullet has none); their evidence holds the bullet text"))
@@ -627,13 +656,13 @@ def check_history(store, out):
         out.append(("INFO", "history", "-", "not a git repo: the append-only audit against the git log is skipped here"))
         return
     now = {it.get("id"): it for it in store.closed}
-    for sha, items in versions:
+    for sha, name, items in versions:
         if items is None:
-            out.append(("FAIL", "history", "-", f"{HISTORY_FILE} at {sha} does not parse"))
+            out.append(("FAIL", "history", "-", f"{name} at {sha} does not parse"))
             continue
         for iid, it in items.items():
             if iid not in now:
-                out.append(("FAIL", "history", iid, f"was in {HISTORY_FILE} at {sha} and is gone: history is append-only"))
+                out.append(("FAIL", "history", iid, f"was in {name} at {sha} and is gone: history is append-only"))
             elif now[iid] != it:
                 out.append(("FAIL", "history", iid, f"changed since {sha}: history entries are never edited"))
 
@@ -649,7 +678,19 @@ def check_seal(store, out):
     around the CLI fails here, however well-formed. A file written before seals
     is a WARN until the next CLI write seals it, unless git's last commit of it, or
     a store file beside it, was sealed (store.load calls that "downgraded"): then
-    the seal was removed by hand."""
+    the seal was removed by hand.
+
+    On todo.db the seals are its exports' (PLAN-todo-tool.md §10.6): one missing,
+    writable, edited by hand, or stale (sealed, but not what todo.db holds) fails,
+    and so does a todo.db that git would track: the exports are what is committed."""
+    if store.on_db:
+        for name, state in store.seals.items():
+            if state != "sealed":
+                out.append(("FAIL", "seal", "-", f"{name}: {EXPORT_STATES[state]}"))
+        if git_ignores(store.dir, DB_FILE) is False:
+            out.append(("FAIL", "seal", "-", f"{DB_FILE} is not gitignored: add `{DB_FILE}` and `{DB_FILE}-*` to "
+                                             ".gitignore (the exports are committed, the database never is)"))
+        return
     for name, state in store.seals.items():
         if state == "sealed":
             continue
@@ -663,7 +704,7 @@ def check_store(store, ws):
     out = []
     check_seal(store, out)
     if set(store.data) != expected_keys(store.data, STORE_KEYS):
-        out.append(("FAIL", "schema", "-", f"todo.json keys {sorted(store.data)}, expected {STORE_KEYS}"))
+        out.append(("FAIL", "schema", "-", f"{store.where.name} keys {sorted(store.data)}, expected {STORE_KEYS}"))
     for it in store.items:
         check_item(it, "store", store, out)
     for it in store.closed:

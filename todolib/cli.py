@@ -19,9 +19,9 @@ from . import steps as stepping
 from . import syncplans
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
-from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
+from .store import (DB_FILE, EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
                     fallback_lead, file_report_bullet, id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today,
-                    write_atomic)
+                    git_ignores, has_store, write_atomic)
 from .vocab import VOCAB
 
 HAND_EDIT_DIFF_MAX = 4000
@@ -62,7 +62,7 @@ def read_workspace(args):
 
 def require_history(store):
     if store.history is None:
-        raise TodoError(f"{store.history_path} is missing: restore it (git checkout -- {store.history_path.name}); "
+        raise TodoError(f"{store.history_where} is missing: restore it (git checkout -- {store.history_where.name}); "
                         "history is append-only and is never recreated empty")
 
 
@@ -348,7 +348,7 @@ def cmd_reseal(args):
                                                         "reason": args.reason})
         store.save(reseal=True)
         write_render(store)
-    print(f"resealed {', '.join(broken)}; recorded in todo.json hand_edits. `todo check` judges the content.")
+    print(f"resealed {', '.join(broken)}; recorded in {store.where.name} hand_edits" + (f" (rewritten from {DB_FILE}: an edit to them is undone)" if store.on_db else "") + ". `todo check` judges the content.")
 
 
 def cmd_help(args):
@@ -368,7 +368,7 @@ def one_line(it):
 
 
 def print_item(it, where, store, ws):
-    print(f"{it['id']}  ({store.repo}, {'open, in todo.json' if where == 'store' else 'closed, in todo-history.json'})")
+    print(f"{it['id']}  ({store.repo}, {'open, in ' + store.where.name if where == 'store' else 'closed, in ' + store.history_where.name})")
     for name in VOCAB.field_names():
         v = it.get(name)
         if v in (None, "", []):
@@ -458,7 +458,7 @@ def cmd_edit(args):
         if where == "history":
             raise TodoError(f"{args.id} is closed; history entries are never edited (add a new item with --parent {args.id})")
         if item is None:
-            raise TodoError(f"{args.id} is not in {store.path}")
+            raise TodoError(f"{args.id} is not in {store.where}")
         changes = {f: getattr(args, f) for f in EDITABLE if getattr(args, f) is not None}
         by = VOCAB.made_by.get(changes.get("kind")) or VOCAB.made_by.get(item["kind"])
         if "kind" in changes and changes["kind"] != item["kind"] and by:
@@ -624,7 +624,7 @@ def cmd_reject(args):
             require_clean(s)
         _, moved = reject(ws, item, store, reason, today())
         commit_all(touched.values())
-    print(f"closed {args.id} as {args.as_}, moved to {store.history_path.name}")
+    print(f"closed {args.id} as {args.as_}, moved to {store.history_where.name}")
     for dep_id, s in moved:
         print(f"  {dep_id} ({s.repo}) waits on Jacob again: {s.find(dep_id)[0]['waits_on']}")
 
@@ -659,7 +659,7 @@ def cmd_done(args):
         if where == "history":
             raise TodoError(f"{args.id} is already closed ({item.get('done')}); ids are never reused")
         if item is None:
-            raise TodoError(f"{args.id} is not in {store.path}" + ("" if store.owns(args.id) else
+            raise TodoError(f"{args.id} is not in {store.where}" + ("" if store.owns(args.id) else
                             f" (its prefix is not {store.prefix}: close it in its own repo)"))
         if args.resolution.strip() == VOCAB.role("import_resolution"):
             raise TodoError(f"resolution {args.resolution!r} is set by todo import only, for a closed bullet "
@@ -677,7 +677,7 @@ def cmd_done(args):
         store.items.remove(item)
         parent_note = close_finished_parent(args, store, item)
         commit(store)
-    print(f"closed {args.id}, moved to {store.history_path.name}")
+    print(f"closed {args.id}, moved to {store.history_where.name}")
     if parent_note:
         print(parent_note)
 
@@ -721,7 +721,7 @@ def cmd_split(args):
         if where == "history":
             raise TodoError(f"cannot split {args.id}: it is closed")
         if parent is None:
-            raise TodoError(f"{args.id} is not in {store.path} (split an item in its own repo)")
+            raise TodoError(f"{args.id} is not in {store.where} (split an item in its own repo)")
         if parent.get("kind") == VOCAB.role("report_kind"):
             raise TodoError(f"{args.id} is a {parent['kind']}: its work lives in the owner's store; split it there")
         # A child is a piece of the approved whole, so it carries the approval; never
@@ -766,7 +766,7 @@ def cmd_report(args):
             require_clean(s)
         item, where = store.find(args.id)
         if where != "store":
-            raise TodoError(f"{args.id} is not an open item in {store.path}")
+            raise TodoError(f"{args.id} is not an open item in {store.where}")
         by = VOCAB.made_by.get(item["kind"]) or VOCAB.made_by.get(args.kind)
         if by:
             raise TodoError(f"a {item['kind'] if VOCAB.made_by.get(item['kind']) else args.kind} item stays one ({by} keeps it) and none is made by "
@@ -825,7 +825,7 @@ def file_without_store(ws, store, item, repo):
     hand-written TODO.md (PLAN-architecture.md §11 S4), never left only here.
     (path, written, evidence line), or None when no such repo is found, or more
     than one folder bears the name (then nothing is written: which is meant?)."""
-    dirs = [d for d in scan_stores(ws.root, storeless=True) if d.name == repo and not (d / STORE_FILE).is_file()]
+    dirs = [d for d in scan_stores(ws.root, storeless=True) if d.name == repo and not has_store(d)]
     if len(dirs) != 1:
         if len(dirs) > 1:
             print(f"{len(dirs)} repos are named {repo} ({', '.join(os.path.relpath(d, ws.root) for d in dirs)}): "
@@ -1144,7 +1144,7 @@ def open_item(store, item_id):
     if where == "history":
         raise TodoError(f"{item_id} is closed ({item.get('done') or 'undated'}); history entries are never edited")
     if item is None:
-        raise TodoError(f"{item_id} is not in {store.path}" + ("" if store.owns(item_id) else
+        raise TodoError(f"{item_id} is not in {store.where}" + ("" if store.owns(item_id) else
                         f" (its prefix is not {store.prefix}: run this in its own repo, or -C it)"))
     return item
 
@@ -1214,7 +1214,7 @@ def cmd_decisions(args):
         if args.from_:
             old = decide.find_table(store.tables, args.from_)
             if old is None:
-                raise TodoError(f"--from {args.from_}: no such table in {store.records_path} "
+                raise TodoError(f"--from {args.from_}: no such table in {store.records_where} "
                                 f"({', '.join(t['id'] for t in store.tables) or 'none recorded'})")
             by_id = {it["id"]: (it, s) for it, s in complete}
             kept = [(r, by_id[r["item"]]) for r in old["rows"] if r["item"] in by_id]
@@ -1277,7 +1277,7 @@ def cmd_answer(args):
         tid = named or args.table
         table = decide.find_table(store.tables, tid) if tid else decide.latest_table(store.tables)
         if table is None:
-            raise TodoError(f"answer: {f'no table {tid}' if tid else 'no table recorded'} in {store.records_path} "
+            raise TodoError(f"answer: {f'no table {tid}' if tid else 'no table recorded'} in {store.records_where} "
                             "(todo decisions makes one)")
         rows = {r["n"]: r for r in table["rows"]}
         plan, refused = [], []
@@ -1565,7 +1565,7 @@ def cmd_steps(args):
         print(json.dumps({"steps": rows, "closed": closed}, indent=2))
     else:
         if not rows:
-            print(f"(no open {VOCAB.role('step_kind')} in {store.path})")
+            print(f"(no open {VOCAB.role('step_kind')} in {store.where})")
         for r in rows:
             state = "" if not args.run else (" closed" if r["id"] in closed else
                                              f" {r['verdict'] or 'UNCHECKED'} ({r['detail']})")
@@ -1932,13 +1932,51 @@ def cmd_history(args):
         print("(no closed items match)")
 
 
+def convert_store(args):
+    """`todo migrate` for real: this store's JSON files into todo.db and its exports."""
+    store = Store(store_dir_for(Path.cwd(), args.C))
+    root = scan_root(store.dir, args.root)
+    with store.lock():
+        found = readers.scan(root)
+        if found["hits"] or found["skipped"]:
+            unread = f"; {len(found['skipped'])} files could not be read, so may name them" if found["skipped"] else ""
+            raise TodoError(f"not moved: {readers.summary(found)}{unread}. The switch waits until no reader outside this tool "
+                            "names the JSON files (PLAN-todo-tool.md §10.6); `todo migrate --readers` lists them")
+        if git_ignores(store.dir, DB_FILE) is False:
+            raise TodoError(f"not moved: git would track {DB_FILE} in {store.dir}. Add `{DB_FILE}` and `{DB_FILE}-*` to "
+                            ".gitignore first: the exports are committed, the database never is")
+        sizes = store.convert()
+    if args.json:
+        print(json.dumps({"ok": True, "repo": store.repo, "dir": str(store.dir), "exports": sizes,
+                          "open_items": len(store.items), "closed_items": len(store.closed)}, indent=1))
+        return
+    print(f"moved {store.repo} to {DB_FILE}: {len(store.items)} open, {len(store.closed)} closed, record for record; "
+          f"{len(sizes)} exports written ({sum(sizes.values())} bytes), a fresh clone's {DB_FILE} made from them "
+          "matches; the JSON files are gone. Commit the exports and the removals together")
+
+
+def cmd_export(args):
+    """`todo export`: todo.db's static exports rewritten from it (cli.json's
+    `export` verb and the exports' `regen`)."""
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        before = store.write_exports()
+    changed = sorted(f for f, state in before.items() if state != "sealed")
+    print(f"wrote {len(store.seals)} exports of {store.db_path}"
+          + (f"; put back: {', '.join(f'{f} ({before[f]})' for f in changed)}" if changed else "; none had changed"))
+
+
 def cmd_migrate(args):
     """`todo migrate --dry-run [--all] [--json]` and `todo migrate --readers [--json]`
     (PLAN-todo-tool.md §10.6). The dry run takes this store (--all: every scanned
     one) into a throwaway todo.db, its exports and a second todo.db made from them,
     and says per repo: migrated, record for record, or why not; it writes nothing in
     any repo. --readers lists every line outside this tool that names the JSON files.
-    Without either it refuses: no store is converted yet (todolib/migrate.py)."""
+    Without either it moves this store to todo.db (Store.convert), under the lock,
+    and only while no such reader is left under the scan root (§10.6: the switch
+    waits until the list is empty) and git ignores todo.db; a move cut off midway
+    is finished by running it again."""
     if args.readers:
         root = scan_root(store_dir_for(Path.cwd(), args.C), args.root)
         found = readers.scan(root)
@@ -1953,10 +1991,10 @@ def cmd_migrate(args):
         print(f"readers: {readers.summary(found)}")
         return
     if not args.dry_run:
-        root = scan_root(store_dir_for(Path.cwd(), args.C), args.root)
-        raise TodoError("todo migrate converts no store yet: todo still reads only the JSON files, and the switch "
-                        f"waits until no reader outside this tool names them ({readers.summary(readers.scan(root))}; "
-                        "todo migrate --readers lists them). Run it with --dry-run (PLAN-todo-tool.md §10.6)")
+        if args.all:
+            raise TodoError("--all goes with --dry-run: a store moves to todo.db one repo at a time (-C DIR)")
+        convert_store(args)
+        return
     ws = read_workspace(args)
     if args.all:
         targets = ws.stores
@@ -2016,7 +2054,8 @@ COMMANDS = {
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
     "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run"),
-    "migrate": (cmd_migrate, "the move to todo.db: --dry-run says per repo whether it would migrate; --readers lists what still names the JSON files"),
+    "migrate": (cmd_migrate, "the move to todo.db: moves this store once no reader names the JSON files; --dry-run says per repo whether it would; --readers lists those readers"),
+    "export": (cmd_export, "rewrite todo.db's static exports (todo.*.jsonl) from it"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -2167,7 +2206,7 @@ def build_parser():
     ps["detect"].add_argument("--json", action="store_true")
     ps["migrate"].add_argument("--dry-run", dest="dry_run", action="store_true",
                                help="into a throwaway todo.db and back; write nothing in any repo")
-    ps["migrate"].add_argument("--all", action="store_true", help="with --dry-run: every scanned store")
+    ps["migrate"].add_argument("--all", action="store_true", help="with --dry-run: every scanned store (a move is one repo at a time)")
     ps["migrate"].add_argument("--readers", action="store_true",
                                help="every line outside this tool that names the JSON files")
     ps["migrate"].add_argument("--json", action="store_true")

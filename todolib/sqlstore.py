@@ -13,9 +13,12 @@ can lift it as the shared Python store helper (PLAN-services.md §4 step 10.2).
   the store and its user_version, the row count and a seal over the rest, then one
   record per line, sorted by the spec's key, keys sorted, so the same rows always
   give the same bytes. `write_exports` writes each at mode 0444 (a temp file, then
-  a rename); `read_export` refuses a header or seal that does not match (a hand
-  edit); `verify_exports` lists every export that is missing, writable, edited or
-  different from the store.
+  a rename), and may run inside a transaction, so its COMMIT follows the exports;
+  `read_export` refuses a header or seal that does not match (a hand edit);
+  `export_problems` names, by code, how one export does not stand (EXPORT_CODES),
+  and `verify_exports` lists every one of those lines over a set of exports.
+- `Db.replace(spec, records)` swaps a table's rows inside the caller's transaction.
+- `DbError` is the database's own error, for a caller that names no driver.
 
 Only this module and store.py write files (tests/test_store.py OneWayIn), and only
 this module opens a database.
@@ -29,6 +32,14 @@ from pathlib import Path
 
 SEAL_LEN = 16
 HEADER_KEY = "export"
+DbError = sqlite3.Error
+# How an export can fail to stand, worst first: export_problems returns these codes.
+EXPORT_CODES = {
+    "missing": "the file is not there",
+    "edited": "its lines do not match its seal or header: edited by hand",
+    "stale": "sealed, but not what the store holds now: written from another state of it",
+    "writable": "a write bit is set; an export sits at 0444",
+}
 
 
 class StoreError(Exception):
@@ -138,6 +149,11 @@ class Db:
             self.conn.execute(f"INSERT INTO {spec.table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
                               [rec[c] for c in cols])
 
+    def replace(self, spec, records):
+        """The table's rows become records (inside the caller's transaction)."""
+        self.conn.execute(f"DELETE FROM {spec.table}")
+        self.insert(spec, records)
+
     # -- the static exports ---------------------------------------------------
     def export(self, spec, producer):
         rows = self.rows(spec)
@@ -168,26 +184,28 @@ class Db:
                                      f"the store is at {self.version}")
                 self.insert(spec, rows)
 
+    def export_problems(self, folder, spec, producer):
+        """[(code, line)] for one export that does not stand as the store would
+        write it, codes from EXPORT_CODES; [] when it stands."""
+        path = Path(folder) / spec.file
+        if not path.is_file():
+            return [("missing", f"{spec.file}: missing")]
+        problems = []
+        mode = path.stat().st_mode & 0o777
+        if mode != 0o444:
+            problems.append(("writable", f"{spec.file}: writable (mode {mode:04o}); an export sits at 0444"))
+        try:
+            read_export(path, spec)
+        except StoreError as e:
+            return problems + [("edited", str(e))]
+        if path.read_text() != self.export(spec, producer):
+            problems.append(("stale", f"{spec.file}: differs from the store {self.path.name}"))
+        return problems
+
     def verify_exports(self, folder, specs, producer):
         """One line per export that does not stand as the store would write it:
         missing, writable, edited by hand (its seal), or different from the store."""
-        problems = []
-        for spec in specs:
-            path = Path(folder) / spec.file
-            if not path.is_file():
-                problems.append(f"{spec.file}: missing")
-                continue
-            mode = path.stat().st_mode & 0o777
-            if mode != 0o444:
-                problems.append(f"{spec.file}: writable (mode {mode:04o}); an export sits at 0444")
-            try:
-                read_export(path, spec)
-            except StoreError as e:
-                problems.append(str(e))
-                continue
-            if path.read_text() != self.export(spec, producer):
-                problems.append(f"{spec.file}: differs from the store {self.path.name}")
-        return problems
+        return [line for spec in specs for _, line in self.export_problems(folder, spec, producer)]
 
 
 def read_export(path, spec):
@@ -196,7 +214,13 @@ def read_export(path, spec):
     path = Path(path)
     if not path.is_file():
         raise StoreError(f"{spec.file}: missing")
-    head, _, body = path.read_text().partition("\n")
+    return parse_export(path.read_text(), spec)
+
+
+def parse_export(text, spec, sealed=True):
+    """(header, rows) of an export's text. sealed=False reads the rows of a
+    version whose seal no longer matters (an old commit's, for an audit)."""
+    head, _, body = text.partition("\n")
     try:
         header = json.loads(head)
         rows = [json.loads(line) for line in body.splitlines()]
@@ -204,6 +228,8 @@ def read_export(path, spec):
         raise StoreError(f"{spec.file}: does not parse: {e}")
     if not isinstance(header, dict) or header.get(HEADER_KEY) != spec.table:
         raise StoreError(f"{spec.file}: its first line is not the header of an export of {spec.table}")
+    if not sealed:
+        return header, rows
     if header.get("seal") != _seal(header, body):
         raise StoreError(f"{spec.file}: its seal does not match its lines: edited by hand")
     if header.get("rows") != len(rows):

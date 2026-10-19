@@ -4,6 +4,6 @@
   },
   "accessor": {
     "impl": ["todolib/*.py"],
-    "exclude": ["devtools/mutants.json", "devtools/audit.json"]
+    "exclude": ["devtools/mutants.json", "devtools/audit.json", ".gitignore"]
   }
 }

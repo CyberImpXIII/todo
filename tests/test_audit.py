@@ -63,11 +63,15 @@ class Direction(unittest.TestCase):
         devtools/mutants.json, whose self-gate-quiet mutant plants a hand edit in
         todo.json on purpose, and devtools/audit.json, whose `accepted` entries name the
         append-only history file's line they exempt. Anything wider would let a second
-        writer through unseen."""
+        writer through unseen. A third, .gitignore, names todo.db only to keep git
+        off it (the exports are committed, the database never is): every line of it
+        naming the store is that ignore and nothing else."""
         cfg = json.loads((ROOT / "checks.json").read_text())["accessor"]
         self.assertEqual(cfg["impl"], ["todolib/*.py"])
         self.assertIn(ROOT / "todolib" / "store.py", list(ROOT.glob(cfg["impl"][0])))
-        self.assertEqual(cfg["exclude"], ["devtools/mutants.json", "devtools/audit.json"])
+        self.assertEqual(cfg["exclude"], ["devtools/mutants.json", "devtools/audit.json", ".gitignore"])
+        naming = [ln for ln in (ROOT / ".gitignore").read_text().splitlines() if "todo" in ln]
+        self.assertEqual(naming, ["todo.db", "todo.db-*", ".todo.db.tmp-*"])
         mutants = json.loads((ROOT / "devtools" / "mutants.json").read_text())["mutants"]
         self.assertIn("todo.json", [m.get("file") for m in mutants])
         accepted = json.loads((ROOT / "devtools" / "audit.json").read_text()).get("accepted", [])

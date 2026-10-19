@@ -74,7 +74,8 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo answer REPLY [--table TABLE]` | apply Jacob's reply to a decisions table, `"1) yes 2) no 3) b 4) <words>"`, read against the table named (`dt-N:` leading the reply, or `--table`), else the latest: a yes approves, a no rejects, an option's name chooses it; any other answer is kept in `jacob_words`, status unchanged. Refused whole, nothing applied, on a row the table lacks, a row named twice, or a row whose decision is closed |
 | `todo sync-plans [FILE ...] [--dry-run] [--json] [--plans-dir D] [--plans-cli P]` | make and keep the `plan-step` items of each plan's steps (Plan steps, below): `new`, `new-decision`, `updated`, `renumbered`, `stale`, `flagged` (dispatched, so unchanged), `gone`, `listed` (a step it gives no item). No FILE reads every `PLAN-*.md` in the plans folder and also judges the items of a plan file no longer there. `--dry-run` writes nothing. Each kind of change names at most `sync_plans.max_listed` steps; `--json` gives `{dry_run, plans, steps, actions, notices, counts}`, every action. Fails open: no plans CLI, an unreadable plan or store, a hand-edited `TODO.md` is a `NOTICE` line on stderr, exit 0 |
 | `todo detect [--id D] [--json]` | run the detectors (Detectors, below), each outside any lock, then file, update and close their `stall` and `lag` items under the lock of every scanned store, and record each run in this store's `todo-records.json`: `new`, `seen` (count, evidence or last-seen changed), `cleared` (closed `done-detected`). `--id D` runs one detector and judges its items alone. `--json` gives `{runs, actions, notices}`. Exit 1 when a detector failed (filed as a stall, its items unjudged) |
-| `todo migrate [--dry-run] [--all] [--readers] [--json]` | the move to `todo.db` (The move to todo.db, below). `--dry-run`: this store (`--all`: every scanned one) into a throwaway `todo.db`, its exports, and a second `todo.db` made from them; one line per repo, `ok` or `NOT` with why; exit 1 when any would not migrate; writes nothing in any repo. `--readers`: every line outside this tool naming the JSON files. Neither: refused (exit 1), no store is converted yet. `--json` gives `{ok, root, repos, unreadable, readers}`, or with `--readers` `{root, hits, skipped, files}` |
+| `todo migrate [--dry-run] [--all] [--readers] [--json]` | the move to `todo.db` (The move to todo.db, below). `--dry-run`: this store (`--all`: every scanned one) into a throwaway `todo.db`, its exports, and a second `todo.db` made from them; one line per repo, `ok` or `NOT` with why; exit 1 when any would not migrate; writes nothing in any repo. `--readers`: every line outside this tool naming the JSON files. Neither: moves this store to `todo.db` (`--all` is refused: one repo at a time), and only while that list is empty and git ignores `todo.db`; else refused (exit 1), nothing changed. `--json` gives `{ok, root, repos, unreadable, readers}`, with `--readers` `{root, hits, skipped, files}`, and for a move `{ok, repo, dir, exports, open_items, closed_items}` |
+| `todo export` | on `todo.db`: rewrite its four exports from it (`cli.json`'s `export` verb and the exports' `regen`). Puts back one missing or writable; refuses one edited by hand or stale (`todo reseal --reason R` rewrites those, recorded) |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -579,9 +580,42 @@ things hold every other writer off them:
 
 The store is moving to one SQLite file per repo, `todo.db`, gitignored, with a
 committed static export of each table beside it (PLAN-todo-tool.md §10.6,
-PLAN-services.md §3 "Every store is static or dynamic"). **No store is converted
-yet:** the CLI still reads and writes the JSON files above, and `todo migrate`
-without `--dry-run` refuses. What exists:
+PLAN-services.md §3 "Every store is static or dynamic"). `Store` reads and writes
+either: a folder holding `todo.json` is on the JSON files, one holding `todo.db`
+or its exports is on `todo.db`, and one holding both is a move that did not
+finish, which every command refuses and `todo migrate` finishes. A new store
+starts on the JSON files (`todo init`). **No real store is moved yet:** `todo
+migrate` refuses while any reader outside this tool names the JSON files (the
+readers, below), so the switch waits until that list is empty.
+
+- **The move,** `todo migrate` (`Store.convert`), under the store's lock: refused
+  while a reader is listed, or while git would track `todo.db`. The three files go
+  into a temp `todo.db`, read back record for record, renamed into place; the
+  exports are written and checked; a second `todo.db` made from the exports alone
+  (a fresh clone) is read back record for record; only then do the JSON files go.
+  Commit the exports and the removals together.
+- **On todo.db,** every write is one transaction: header keys, open items and
+  records replaced, history appended to only (a write that would change or drop a
+  closed item is refused whole, beside the schema's trigger), and the four exports
+  rewritten, sealed, at 0444, before the COMMIT. Each command reads the store back
+  out of `todo.db` as the JSON files held it, so every gate reads it unchanged.
+- **A fresh clone** has the exports and no `todo.db`: its first command makes
+  `todo.db` from them (a temp file linked into place only while none is there).
+- **The seals are the exports'.** `todo check` (gate `seal`) fails an export that
+  is missing, writable, edited by hand (its seal), or stale (sealed, but not what
+  `todo.db` holds: a pull, a checkout, a write cut off before its COMMIT), and a
+  `todo.db` that git would track. Every write refuses an edited or stale export;
+  for a stale one, delete `todo.db` and the next command rebuilds it from the
+  exports; `todo reseal --reason R` instead rewrites them from `todo.db`,
+  recorded. `todo export` puts back a missing or writable one.
+- **History stays append-only** across the move: gate `history` reads the git log
+  of `todo-history.json` and of `todo.history.jsonl`, and a closed item in any
+  committed version of either that is gone or changed now fails.
+- **`cli.json`** declares `todo.db` dynamic (schema version 1, export verb
+  `export`) and each export static, producer `todo`, regenerated by `todo export`
+  (`stores-classified`); `tests/test_seal.py` holds those kinds to the code.
+
+What the move is built from:
 
 - **The store helper,** `todolib/sqlstore.py`, with nothing of this tool in it (a
   test holds it to that), for setup to lift as the shared one: it opens a file with
@@ -608,16 +642,16 @@ without `--dry-run` refuses. What exists:
 - **The readers,** `todo migrate --readers`: every line under the scan root,
   outside this tool, that names `todo.json`, `todo-history.json` or
   `todo-records.json` (code, tests, guards' lists, configs' excludes; Markdown and
-  the store files themselves are prose and are not read). Each breaks or goes stale
+  the store files themselves, the exports among them, are not read). Each breaks or goes stale
   when the files go, so the switch waits until the list is empty, each moved to a
   `todo` command by its owner. Hidden folders are not read (this tool never reads
   the delegation layer), and the output says so; a file over 2 MB is listed as
   skipped, never passed.
 
-Still to come, at the switch: `Store` reading and writing `todo.db`, every write
-rewriting the exports, a fresh clone's first command importing them, `todo check`
-failing an export that differs from the store, and `cli.json` declaring the kinds
-(`todo.db` dynamic, the exports and `TODO.md` static) for `stores-classified`.
+Still open: the readers themselves (each moved to a `todo` command by its
+owner), `TODO.md` and the JSON files declared with a kind in `cli.json`, and
+whether a pull that brings newer exports should rebuild `todo.db` by itself
+rather than fail it as stale (this repo's TODO.md).
 
 ## The rendered file
 

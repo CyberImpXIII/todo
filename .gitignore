@@ -13,3 +13,6 @@ TODO-HISTORY.md
 registry.proposed.json
 .claude/state/
 .progress/
+todo.db
+todo.db-*
+.todo.db.tmp-*

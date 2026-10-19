@@ -9,7 +9,7 @@ What is not read, and why:
 - this tool's own folder: it is the CLI, and moves with the switch;
 - Markdown (`*.md`): prose, plans and rendered TODO.md files, which name the
   files without reading them;
-- the store files themselves (item prose naming them);
+- the store files themselves (item prose naming them), and todo.db's exports;
 - hidden folders: todo never reads the delegation layer (PLAN-todo-tool.md §8
   decision 4), so readers there are listed by that layer's owner, and the scan
   says so rather than reporting them clean;
@@ -20,9 +20,11 @@ import os
 import re
 from pathlib import Path
 
-from .store import HISTORY_FILE, RECORDS_FILE, STORE_FILE, never_scanned
+from .store import EXPORT_FILES, HISTORY_FILE, RECORDS_FILE, STORE_FILE, never_scanned
 
 NAMES = [STORE_FILE, HISTORY_FILE, RECORDS_FILE]
+# The store itself, never read: the JSON files, and todo.db's exports, whose meta rows name them.
+STORE_NAMES = set(NAMES) | set(EXPORT_FILES.values())
 NAME_RE = re.compile(r"(?<![\w.-])(" + "|".join(re.escape(n) for n in NAMES) + r")(?![\w-])")
 PRUNE = {"node_modules", "__pycache__", "venv"}
 NOT_READ_SUFFIXES = {".md"}
@@ -42,7 +44,7 @@ def scan(root, own=TOOL_DIR):
                              if not never_scanned(n) and n not in PRUNE and (d / n).resolve() != own)
         for name in sorted(filenames):
             p = d / name
-            if never_scanned(name) or name in NAMES or p.suffix in NOT_READ_SUFFIXES or not p.is_file():
+            if never_scanned(name) or name in STORE_NAMES or p.suffix in NOT_READ_SUFFIXES or not p.is_file():
                 continue
             rel = os.path.relpath(p, root)
             if p.stat().st_size > MAX_BYTES:

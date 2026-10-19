@@ -1,9 +1,12 @@
-"""One repo's store: todo.json (open items) and todo-history.json (closed items).
+"""One repo's store: todo.json (open items) and todo-history.json (closed items),
+or, once `todo migrate` moved it, todo.db and its four static exports.
 
-Every write goes through `Store.save()` (atomic: a temp file, then rename) under
-`Store.lock()` (an flock on the repo folder), so two sessions writing the same
-store serialise instead of losing an update. Nothing else in todolib writes a
-store file; tests/test_store.py audits that.
+Every write goes through `Store.save()` (atomic: a temp file, then rename; on
+todo.db one transaction whose COMMIT follows the exports) under `Store.lock()`
+(an flock on the repo folder), so two sessions writing the same store serialise
+instead of losing an update. Nothing else in todolib writes a store file
+(sqlstore.py writes the database and the exports for it); tests/test_store.py
+audits that.
 """
 import contextlib
 import datetime
@@ -35,6 +38,22 @@ HISTORY_KEYS = ["format", "repo", "items", SEAL_KEY]
 # 0444 like the other two; absent reads as empty.
 RECORDS_FILE = "todo-records.json"
 RECORDS_KEYS = ["format", "repo", "tables", "runs", SEAL_KEY]
+# The move to todo.db (PLAN-todo-tool.md §10.6, todolib/migrate.py): one SQLite file,
+# gitignored, and one static export per table, committed, sealed and 0444, which a
+# fresh clone imports on its first command. A folder is on todo.db when either is
+# there and todo.json is not; with both, a move did not finish (`todo migrate`).
+DB_FILE = "todo.db"
+EXPORT_FILES = {"meta": "todo.meta.jsonl", "items": "todo.items.jsonl",
+                "history": "todo.history.jsonl", "records": "todo.records.jsonl"}
+# How an export stands next to todo.db (store.seals on todo.db; migrate.export_states).
+EXPORT_STATES = {
+    "sealed": f"as {DB_FILE} writes it",
+    "missing": f"missing: deleted around the CLI ({DB_FILE} still holds it; any write puts it back)",
+    "edited": "its lines do not match its seal: edited by hand",
+    "stale": f"sealed, but not what {DB_FILE} holds: written from another state of it (a git pull, a checkout, "
+             f"or a write cut off before its COMMIT). Delete {DB_FILE}: the next command rebuilds it from the exports",
+    "writable": "writable: an export sits at 0444 (any write puts it back)",
+}
 PREFIX_RE = re.compile(r"^[a-z][a-z0-9]{0,7}$")
 ID_RE = re.compile(r"^([a-z][a-z0-9]{0,7})-([0-9]+)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -237,6 +256,15 @@ def committed_sealed(folder, name):
         return False
 
 
+def git_ignores(folder, name):
+    """True when git ignores folder/name, False when it would track it, None
+    outside a git repo (nothing to ignore it from)."""
+    if not git_toplevel(folder):
+        return None
+    r = subprocess.run(["git", "check-ignore", "-q", "--", name], cwd=folder, capture_output=True, text=True)
+    return r.returncode == 0
+
+
 class Store:
     def __init__(self, folder):
         self.dir = Path(folder).resolve()
@@ -244,18 +272,54 @@ class Store:
         self.history_path = self.dir / HISTORY_FILE
         self.render_path = self.dir / RENDER_FILE
         self.records_path = self.dir / RECORDS_FILE
+        self.db_path = self.dir / DB_FILE
+        self.backing = None
         self.data = None
         self.history = None
         self.records = None
         self.seals = {}
 
     # -- reading -----------------------------------------------------------
-    def exists(self):
-        return self.path.is_file()
+    def backend(self):
+        """What the folder holds: "json", "db" (todo.db or its exports), "both"
+        (a move to todo.db that did not finish), or None (no store)."""
+        on_json = self.path.is_file()
+        on_db = self.db_path.is_file() or (self.dir / EXPORT_FILES["meta"]).is_file()
+        return "both" if on_json and on_db else "json" if on_json else "db" if on_db else None
 
-    def load(self):
-        if not self.exists():
+    def exists(self):
+        return self.backend() is not None
+
+    @property
+    def on_db(self):
+        return (self.backing or self.backend()) == "db"
+
+    @property
+    def where(self):
+        """The file that holds the open items, for a message."""
+        return self.db_path if self.on_db else self.path
+
+    @property
+    def history_where(self):
+        """The file that holds history, for a message and the append-only audit."""
+        return self.dir / EXPORT_FILES["history"] if self.on_db else self.history_path
+
+    @property
+    def records_where(self):
+        return self.dir / EXPORT_FILES["records"] if self.on_db else self.records_path
+
+    def load(self, backend=None):
+        """The store as it stands. backend="json" reads the JSON files whatever
+        else is there (Store.convert, finishing a move)."""
+        backing = backend or self.backend()
+        if backing is None:
             raise NoStore(f"no {STORE_FILE} in {self.dir}: run `todo init --prefix XX` there first")
+        if backing == "both":
+            raise TodoError(f"{self.dir} holds both {STORE_FILE} and {DB_FILE} or its exports: a move to {DB_FILE} "
+                            "did not finish. `todo migrate` there finishes it (PLAN-todo-tool.md §10.6)")
+        self.backing = backing
+        if backing == "db":
+            return self._load_db()
         try:
             self.data = json.loads(self.path.read_text())
         except ValueError as e:
@@ -290,9 +354,51 @@ class Store:
                 self.seals[name] = "downgraded"
         return self
 
+    def _load_db(self):
+        """The store from todo.db, made from the exports first when it is not
+        here (a fresh clone). Each file's content comes back as the JSON files
+        held it, sealed in memory, so every gate reads it as it reads them; the
+        seals that matter on disk are the exports', in self.seals."""
+        from . import migrate  # migrate imports this module
+        if not self.db_path.is_file():
+            self._db_from_exports(migrate)
+        try:
+            with migrate.open_db(self.db_path) as db:
+                docs = migrate.rebuild(db)
+                self.seals = migrate.export_states(db, self.dir)
+        except (migrate.StoreError, migrate.DbError) as e:
+            raise TodoError(f"{self.db_path} cannot be read ({type(e).__name__}: {e}). Delete it: the next command "
+                            "rebuilds it from the exports")
+        if STORE_FILE not in docs:
+            raise TodoError(f"{self.db_path} holds no store (no repo, prefix or counter). Delete it: the next "
+                            "command rebuilds it from the exports")
+        self.data = sealed(docs[STORE_FILE])
+        self.history = sealed(docs[HISTORY_FILE]) if HISTORY_FILE in docs else None
+        self.records = sealed(docs[RECORDS_FILE]) if RECORDS_FILE in docs else None
+        return self
+
+    def _db_from_exports(self, migrate):
+        """todo.db made from the committed exports, in a temp file that is linked
+        into place only while no todo.db is there: two commands doing this at
+        once never replace one another's, or a write made in between."""
+        tmp = self.dir / f".{DB_FILE}.tmp-{os.getpid()}"
+        try:
+            with migrate.open_db(tmp) as db:
+                db.import_exports(self.dir, migrate.EXPORTS)
+            os.link(tmp, self.db_path)
+        except FileExistsError:
+            pass  # another command made it first, from the same exports
+        except (migrate.StoreError, migrate.DbError) as e:
+            raise TodoError(f"no {DB_FILE} in {self.dir}, and its exports do not make one: {e}. Restore them "
+                            "(git checkout -- 'todo.*.jsonl')")
+        finally:
+            _remove_db_file(tmp)
+
     def unsealed(self):
-        """The files changed around the CLI since it last wrote them, as loaded."""
-        return [name for name, state in self.seals.items() if state in ("broken", "missing", "downgraded")]
+        """The files changed around the CLI since it last wrote them, as loaded.
+        On todo.db: an export edited by hand, or one todo.db does not match."""
+        bad = ("edited", "stale") if self.backing == "db" else ("broken", "missing", "downgraded")
+        return [name for name, state in self.seals.items() if state in bad]
 
     @property
     def repo(self):
@@ -383,24 +489,129 @@ class Store:
         fails loudly at the file, and one that gets through breaks the seal,
         which `check` fails. A file whose seal was broken when loaded is never
         written over, or the next CLI write would launder the hand edit; only
-        `todo reseal` (reseal=True, recorded in hand_edits) accepts it."""
+        `todo reseal` (reseal=True, recorded in hand_edits) accepts it.
+
+        On todo.db the same holds for the exports: one edited by hand, or one
+        todo.db does not match (stale), is never written over but by reseal,
+        which rewrites them from todo.db (migrate.store_documents: one
+        transaction, history appended to only, the exports before the COMMIT)."""
         if self.history is None:
-            raise TodoError(f"{self.history_path} is missing; refusing to write a store without its history")
+            raise TodoError(f"{self.history_where} is missing; refusing to write a store without its history")
         broken = self.unsealed()
         if broken and not reseal:
+            if self.backing == "db":
+                raise TodoError(f"{', '.join(broken)} in {self.dir}: " + "; ".join(
+                    f"{EXPORT_STATES[self.seals[n]]}" for n in broken) + ". An edited one: restore it (git checkout -- "
+                    f"FILE). Or, having read the diff, `todo reseal --reason R` rewrites them from {DB_FILE}, recorded "
+                    "in hand_edits")
             raise TodoError(f"{', '.join(broken)} in {self.dir} changed around the CLI since its last write (its seal does not match). "
                             "Restore it (git checkout -- FILE) and make the change with the CLI, or, having read the diff, "
                             "`todo reseal --reason R` accepts it and records that in hand_edits")
         self.data["items"].sort(key=lambda it: id_number(it.get("id")))
         self.history = sealed(self.history)
         self.data = sealed(self.data)
+        if self.records is not None:
+            self.records = sealed(self.records)
+        if self.backing == "db":
+            self._save_db()
+            return
         write_atomic(self.history_path, dump(self.history), readonly=True)
         write_atomic(self.path, dump(self.data), readonly=True)
         self.seals = {STORE_FILE: "sealed", HISTORY_FILE: "sealed"}
         if self.records is not None:
-            self.records = sealed(self.records)
             write_atomic(self.records_path, dump(self.records), readonly=True)
             self.seals[RECORDS_FILE] = "sealed"
+
+    def _save_db(self):
+        from . import migrate
+        with migrate.open_db(self.db_path) as db:
+            migrate.store_documents(db, migrate.documents(self), self.dir)
+            self.seals = migrate.export_states(db, self.dir)  # read back, never assumed
+
+    def write_exports(self):
+        """`todo export`: every export rewritten from todo.db as it stands (the
+        caller holds the lock). Refuses an edited or stale one, as save does:
+        rewriting either would undo a change made outside todo.db.
+        Returns {export: its state before}."""
+        from . import migrate
+        if self.backing != "db":
+            raise TodoError(f"{self.dir} is not on {DB_FILE}: its store is {STORE_FILE}, which has no exports "
+                            "(`todo migrate` moves it)")
+        before = dict(self.seals)
+        broken = self.unsealed()
+        if broken:
+            raise TodoError(f"{', '.join(broken)} in {self.dir}: " + "; ".join(EXPORT_STATES[self.seals[n]] for n in broken)
+                            + f". `todo export` rewrites only missing or writable ones; `todo reseal --reason R` "
+                            f"rewrites these from {DB_FILE}, recorded")
+        with migrate.open_db(self.db_path) as db:
+            db.write_exports(self.dir, migrate.EXPORTS, migrate.PRODUCER)
+            self.seals = migrate.export_states(db, self.dir)
+        return before
+
+    def convert(self):
+        """The move to todo.db in this folder (`todo migrate`; the caller holds the
+        lock and has checked that no reader names the JSON files). todo.db is built
+        in a temp file and held to the JSON record for record, renamed into place,
+        its exports written and checked, a fresh clone made from them alone in a
+        throwaway folder and checked, and only then do the JSON files go. Cut off
+        anywhere after the rename, the folder holds both, which load() refuses
+        and the next convert() finishes. Returns {export: bytes}."""
+        from . import migrate
+        backing = self.backend()
+        if backing is None:
+            raise NoStore(f"no {STORE_FILE} in {self.dir}: nothing to move")
+        if backing == "db":
+            raise TodoError(f"{self.dir} is already on {DB_FILE}")
+        self.load(backend="json")
+        why = migrate.not_ready(self)
+        if why:
+            raise TodoError(f"{self.dir}: {why}; nothing changed")
+        want = migrate.documents(self)
+        try:
+            if not self.db_path.is_file():
+                tmp = self.dir / f".{DB_FILE}.tmp-{os.getpid()}"
+                try:
+                    with migrate.open_db(tmp) as db:
+                        migrate.import_documents(db, want)
+                        problems = migrate.differences(want, migrate.rebuild(db))
+                    if problems:
+                        raise TodoError(f"{DB_FILE} does not hold the JSON: {'; '.join(problems)}; nothing changed")
+                    os.replace(tmp, self.db_path)
+                finally:
+                    _remove_db_file(tmp)
+            with migrate.open_db(self.db_path) as db:
+                problems = migrate.differences(want, migrate.rebuild(db))
+                if problems:
+                    raise TodoError(f"{self.db_path} and the JSON files differ ({'; '.join(problems)}): an earlier move "
+                                    f"was cut off and the JSON changed since. Nothing removed; delete {DB_FILE} and run "
+                                    "`todo migrate` again")
+                sizes = db.write_exports(self.dir, migrate.EXPORTS, migrate.PRODUCER)
+                problems = db.verify_exports(self.dir, migrate.EXPORTS, migrate.PRODUCER)
+            if problems:
+                raise TodoError(f"the exports do not stand: {'; '.join(problems)}; the JSON files are kept")
+            problems = migrate.fresh_differences(self.dir, want)
+            if problems:
+                raise TodoError(f"a {DB_FILE} made from the exports alone does not hold the JSON: {'; '.join(problems)}; "
+                                "the JSON files are kept")
+        except (migrate.StoreError, migrate.DbError) as e:
+            raise TodoError(f"{DB_FILE} refused the move ({type(e).__name__}: {e}); the JSON files are kept")
+        for p in (self.path, self.history_path, self.records_path):
+            if p.is_file():
+                p.unlink()
+        self.load()
+        return sizes
+
+
+def _remove_db_file(path):
+    """A temp database and its sidecars, if any are left."""
+    for p in (path, Path(f"{path}-wal"), Path(f"{path}-shm"), Path(f"{path}-journal")):
+        if p.is_file():
+            p.unlink()
+
+
+def has_store(folder):
+    """True when folder holds a store: todo.json, todo.db or todo.db's exports."""
+    return Store(folder).exists()
 
 
 def store_dir_for(cwd, explicit=None):
@@ -413,7 +624,7 @@ def store_dir_for(cwd, explicit=None):
     if top:
         return top.resolve()
     for d in [cwd, *cwd.parents]:
-        if (d / STORE_FILE).is_file():
+        if has_store(d):
             return d
     return cwd
 
@@ -433,7 +644,7 @@ def scan_root(store_dir, explicit=None):
     for d in store_dir.parents:
         if git_toplevel(d):
             continue
-        if (d / STORE_FILE).is_file() or (d / "CLAUDE.md").is_file():
+        if has_store(d) or (d / "CLAUDE.md").is_file():
             return d
     return store_dir.parent
 
@@ -445,7 +656,7 @@ def scan_stores(root, depth=SCAN_DEPTH, storeless=False):
     todo.json or not (the repos a report may name; `todo import`)."""
     root = Path(root).resolve()
     found = []
-    if (root / STORE_FILE).is_file():
+    if has_store(root):
         found.append(root)
     for dirpath, dirnames, _ in os.walk(root):
         rel = Path(dirpath).relative_to(root)
@@ -453,7 +664,7 @@ def scan_stores(root, depth=SCAN_DEPTH, storeless=False):
         dirnames[:] = sorted(d for d in dirnames
                              if not never_scanned(d) and d not in SCAN_PRUNE) if level < depth else []
         d = Path(dirpath)
-        if d != root and (d / ".git").exists() and (storeless or (d / STORE_FILE).is_file()):
+        if d != root and (d / ".git").exists() and (storeless or has_store(d)):
             found.append(d)
     return found
 

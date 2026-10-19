@@ -1,17 +1,18 @@
-"""`todo migrate` (PLAN-todo-tool.md §10.6, PLAN-services.md §4 step 10.1): the
-move of a repo's store from its JSON files to `todo.db`, one SQLite file.
+"""The move of a repo's store from its JSON files to `todo.db`, one SQLite file
+(PLAN-todo-tool.md §10.6, PLAN-services.md §4 step 10.1): todo's schema, its four
+static exports, and the round trips that prove a store survives the move.
 
-Today only the dry run exists. For one loaded store, `dry_run` imports its three
-JSON files into a `todo.db` in a throwaway folder, writes the four static exports
-beside it, imports those exports into a second, fresh `todo.db` (what a fresh
-clone does), and rebuilds the JSON files' content from each database. Both
-rebuilds must equal the files as loaded, record for record, or the repo is
-reported "not", with the first difference. Nothing is written in the repo.
-
-The real conversion waits on two things, and `todo migrate` without --dry-run
-refuses until then: the store reading todo.db (store.py reads the JSON files
-only), and no reader outside this tool naming the JSON files by path
-(`readers.scan`, `todo migrate --readers`).
+- `dry_run(store)` imports a loaded store's three JSON files into a `todo.db` in a
+  throwaway folder, writes the exports beside it, imports those into a second,
+  fresh `todo.db` (what a fresh clone does), and rebuilds the JSON content from
+  each. Both must equal the files as loaded, record for record, or the repo is
+  reported "not", with the first difference. Nothing is written in the repo.
+- `Store.convert` (store.py) does the same in the repo itself, then removes the
+  JSON files; `todo migrate` runs it only while no reader outside this tool names
+  them (`readers.scan`).
+- A store on todo.db reads through `rebuild` and writes through `store_documents`:
+  one transaction that replaces the open items, header keys and records, appends
+  to history only, and writes every export before its COMMIT.
 
 The schema, version 1: one table per file's records, and `meta` for each file's
 header keys:
@@ -24,11 +25,11 @@ header keys:
 import tempfile
 from pathlib import Path
 
-from .sqlstore import Db, ExportSpec, StoreError, canonical
-from .store import HISTORY_FILE, RECORDS_FILE, SEAL_KEY, STORE_FILE, TodoError
+from .sqlstore import EXPORT_CODES, Db, DbError, ExportSpec, StoreError, canonical, parse_export
+from .store import DB_FILE, EXPORT_FILES, HISTORY_FILE, RECORDS_FILE, SEAL_KEY, STORE_FILE, TodoError
 
-DB_FILE = "todo.db"
-PRODUCER = "todo migrate"
+# Every write rewrites the exports, so their producer is the CLI, not this verb.
+PRODUCER = "todo"
 ITEMS_KEY = "items"
 TABLES_KEY = "tables"
 RUNS_KEY = "runs"
@@ -54,12 +55,13 @@ MIGRATIONS = [
         "UNIQUE (section, key))",
     ],
 ]
+SCHEMA_VERSION = len(MIGRATIONS)
 
 EXPORTS = [
-    ExportSpec("meta", "todo.meta.jsonl", ["file", "seq"], ["value"]),
-    ExportSpec("items", "todo.items.jsonl", ["seq"], ["body"]),
-    ExportSpec("history", "todo.history.jsonl", ["seq"], ["body"]),
-    ExportSpec("records", "todo.records.jsonl", ["section", "seq"], ["body"]),
+    ExportSpec("meta", EXPORT_FILES["meta"], ["file", "seq"], ["value"]),
+    ExportSpec("items", EXPORT_FILES["items"], ["seq"], ["body"]),
+    ExportSpec("history", EXPORT_FILES["history"], ["seq"], ["body"]),
+    ExportSpec("records", EXPORT_FILES["records"], ["section", "seq"], ["body"]),
 ]
 SPEC = {s.table: s for s in EXPORTS}
 
@@ -74,8 +76,9 @@ def documents(store):
     return {f: {k: v for k, v in d.items() if k != SEAL_KEY} for f, d in docs.items() if d is not None}
 
 
-def import_documents(db, docs):
-    """The files' content into an empty db, in one transaction."""
+def table_rows(docs):
+    """{table: rows} for the files' content: the one mapping both a first import
+    and every later write use."""
     meta, items, history, records = [], [], [], []
     for file, doc in docs.items():
         if not isinstance(doc, dict):
@@ -91,9 +94,39 @@ def import_documents(db, docs):
         records.append({"section": TABLES_KEY, "seq": n, "key": None, "body": t})
     for n, (k, v) in enumerate(rec.get(RUNS_KEY, {}).items()):
         records.append({"section": RUNS_KEY, "seq": n, "key": k, "body": v})
+    return {"meta": meta, "items": items, "history": history, "records": records}
+
+
+def import_documents(db, docs):
+    """The files' content into an empty db, in one transaction."""
+    rows = table_rows(docs)
     with db.transaction():
-        for table, rows in (("meta", meta), ("items", items), ("history", history), ("records", records)):
-            db.insert(SPEC[table], rows)
+        for table in ("meta", "items", "history", "records"):
+            db.insert(SPEC[table], rows[table])
+
+
+def store_documents(db, docs, folder):
+    """One write of a store on todo.db, in one transaction: the header keys, open
+    items and records replaced, history appended to only (an entry already there
+    that changed or went is refused, as the schema's trigger would), and every
+    export rewritten in folder before the COMMIT, so a failed export rolls the
+    write back. Returns {export file: bytes}."""
+    rows = table_rows(docs)
+    try:
+        with db.transaction():
+            have = db.rows(SPEC["history"])
+            new = rows["history"]
+            for old, now in zip(have, new):
+                if old["id"] != now["id"] or canonical(old["body"]) != canonical(now["body"]):
+                    raise TodoError(f"history is append-only: {old['id']} (entry {old['seq']}) would change in {DB_FILE}")
+            if len(new) < len(have):
+                raise TodoError(f"history is append-only: {len(have) - len(new)} entries would go from {DB_FILE}")
+            db.insert(SPEC["history"], new[len(have):])
+            for table in ("meta", "items", "records"):
+                db.replace(SPEC[table], rows[table])
+            return db.write_exports(folder, EXPORTS, PRODUCER)
+    except (DbError, StoreError) as e:
+        raise TodoError(f"{DB_FILE} refused the write, nothing changed: {type(e).__name__}: {e}")
 
 
 def rebuild(db):
@@ -114,6 +147,46 @@ def rebuild(db):
         r[TABLES_KEY] = [x["body"] for x in recs if x["section"] == TABLES_KEY]
         r[RUNS_KEY] = {x["key"]: x["body"] for x in recs if x["section"] == RUNS_KEY}
     return docs
+
+
+def export_states(db, folder):
+    """{export file: "sealed" or the worst EXPORT_CODES code} against the db:
+    how each committed export stands next to the store it was written from."""
+    out = {}
+    for spec in EXPORTS:
+        codes = {code for code, _ in db.export_problems(folder, spec, PRODUCER)}
+        out[spec.file] = next((c for c in EXPORT_CODES if c in codes), "sealed")
+    return out
+
+
+def history_rows(text):
+    """The closed items in one committed version of the history export (its seal
+    not judged: an old version is read for the append-only audit, not trusted)."""
+    _, rows = read_rows(text, SPEC["history"])
+    return [r.get("body") for r in rows]
+
+
+def records_doc(text):
+    """{tables, runs} from one committed version of the records export."""
+    _, rows = read_rows(text, SPEC["records"])
+    return {TABLES_KEY: [r["body"] for r in rows if r.get("section") == TABLES_KEY],
+            RUNS_KEY: {r["key"]: r["body"] for r in rows if r.get("section") == RUNS_KEY}}
+
+
+def read_rows(text, spec):
+    try:
+        return parse_export(text, spec, sealed=False)
+    except StoreError as e:
+        raise TodoError(str(e))
+
+
+def fresh_differences(folder, want):
+    """What a fresh clone would hold: a todo.db made from folder's exports alone,
+    in a throwaway folder, against want. [] when record for record equal."""
+    with tempfile.TemporaryDirectory(prefix="todo-fresh-") as tmp:
+        with open_db(Path(tmp) / DB_FILE) as db:
+            db.import_exports(folder, EXPORTS)
+            return differences(want, rebuild(db))
 
 
 def differences(want, got):
@@ -146,25 +219,34 @@ def counts(docs):
             TABLES_KEY: len(rec.get(TABLES_KEY, [])), RUNS_KEY: len(rec.get(RUNS_KEY, {}))}
 
 
+def not_ready(store):
+    """Why a loaded JSON store may not move to todo.db as it stands, or None."""
+    if store.history is None:
+        return f"no {HISTORY_FILE}: a store without its history is never migrated"
+    unsealed = store.unsealed()
+    if unsealed:
+        return (f"{', '.join(unsealed)} changed around the CLI (seal): migrating would carry a hand edit "
+                "into todo.db; restore it or `todo reseal` first")
+    return None
+
+
 def dry_run(store):
     """One loaded store's dry run: {repo, dir, ok, why, counts, exports}. Writes
     only inside a throwaway folder, removed before it returns."""
-    out = {"repo": store.repo, "dir": str(store.dir), "ok": False, "why": None, "counts": None, "exports": None}
-    if store.history is None:
-        out["why"] = f"no {HISTORY_FILE}: a store without its history is never migrated"
+    out = {"repo": store.repo, "dir": str(store.dir), "ok": False, "why": None, "counts": None, "exports": None,
+           "on_db": store.backend() == "db"}
+    if out["on_db"]:
+        out["ok"], out["counts"] = True, counts(documents(store))
         return out
-    unsealed = store.unsealed()
-    if unsealed:
-        out["why"] = (f"{', '.join(unsealed)} changed around the CLI (seal): migrating would carry a hand edit "
-                      "into todo.db; restore it or `todo reseal` first")
+    out["why"] = not_ready(store)
+    if out["why"]:
         return out
     want = documents(store)
     out["counts"] = counts(want)
     try:
         with tempfile.TemporaryDirectory(prefix="todo-migrate-") as tmp:
-            first, fresh = Path(tmp) / "first", Path(tmp) / "fresh"
+            first = Path(tmp) / "first"
             first.mkdir()
-            fresh.mkdir()
             with open_db(first / DB_FILE) as db:
                 import_documents(db, want)
                 problems = differences(want, rebuild(db))
@@ -176,16 +258,14 @@ def dry_run(store):
                 if problems:
                     out["why"] = "the exports do not stand: " + "; ".join(problems)
                     return out
-            with open_db(fresh / DB_FILE) as db:
-                db.import_exports(first, EXPORTS)
-                problems = differences(want, rebuild(db))
-                if problems:
-                    out["why"] = "a todo.db made from the exports does not hold the JSON: " + "; ".join(problems)
-                    return out
+            problems = fresh_differences(first, want)
+            if problems:
+                out["why"] = "a todo.db made from the exports does not hold the JSON: " + "; ".join(problems)
+                return out
     except (StoreError, TodoError) as e:
         out["why"] = str(e)
         return out
-    except Exception as e:  # a constraint the JSON breaks: the database refused it
+    except DbError as e:  # a constraint the JSON breaks: the database refused it
         out["why"] = f"todo.db refused the JSON: {type(e).__name__}: {e}"
         return out
     out["ok"] = True
@@ -196,6 +276,8 @@ def line(r):
     if not r["ok"]:
         return f"  NOT   {r['repo']:<20} {r['why']}"
     c = r["counts"]
+    if r.get("on_db"):
+        return f"  ok    {r['repo']:<20} {c['open_items']} open, {c['closed_items']} closed: already on {DB_FILE}"
     size = sum(r["exports"].values())
     return (f"  ok    {r['repo']:<20} {c['open_items']} open, {c['closed_items']} closed, {c[TABLES_KEY]} tables, "
             f"{c[RUNS_KEY]} runs: into {DB_FILE} and {len(r['exports'])} exports ({size} bytes), and back, record for record")
