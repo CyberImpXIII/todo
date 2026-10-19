@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (41 open, 39 closed in todo-history.json; seal b1b916db3fab): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (42 open, 39 closed in todo-history.json; seal a077eb33f169): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -285,4 +285,8 @@
   · blocked by: td-59
   · work: labour
   · done when: todo migrate has run in every repo with a store; no todo.json is left; ./dev.sh check green in each
+  · added: 2026-10-19
+
+- **td-81 · PLAN-routing-tree.md §25 says todo ready lists only approved items; it lists approved and unapproved alike**
+  2026-10-19 (tl-404, e421281): §25 'A cron prompt is never Jacob's' says todo ready lists only items already approved and unblocked; ready has never filtered on approval (todo dispatchable does). ready --json now carries approved/by_rule/dispatched per row, and tests/test_ready.py holds rows with approved set and dispatched null equal to dispatchable --json's ids. On the workspace store ready --json counted 39. Relayed in the tl-404 dispatch report to the release job's owner: count N from dispatchable --json, or filter ready rows on approved and not dispatched.
   · added: 2026-10-19
