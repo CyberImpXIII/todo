@@ -158,8 +158,8 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "5bb8d78b440bd29f05064cb564dfebfe5187384ca300b4d475947a4492048bce",
-          "date": "2026-10-18"
+          "digest": "bf080ba6bc04fe06235186fa7bb125df963bdfc56be484cb104161babeb2197f",
+          "date": "2026-10-19"
         }
       ],
       "size": "M"
@@ -193,8 +193,8 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "5bb8d78b440bd29f05064cb564dfebfe5187384ca300b4d475947a4492048bce",
-          "date": "2026-10-18"
+          "digest": "bf080ba6bc04fe06235186fa7bb125df963bdfc56be484cb104161babeb2197f",
+          "date": "2026-10-19"
         }
       ]
     },
@@ -281,8 +281,8 @@
       "plan_pins": [
         {
           "plan": "PLAN-services.md§3",
-          "digest": "5bb8d78b440bd29f05064cb564dfebfe5187384ca300b4d475947a4492048bce",
-          "date": "2026-10-18"
+          "digest": "bf080ba6bc04fe06235186fa7bb125df963bdfc56be484cb104161babeb2197f",
+          "date": "2026-10-19"
         }
       ],
       "added": "2026-10-15",
@@ -1334,5 +1334,5 @@
       "imported": null
     }
   ],
-  "seal": "9b212d084370cc3f"
+  "seal": "c07cd153ff3df8e2"
 }

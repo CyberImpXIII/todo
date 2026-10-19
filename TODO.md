@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (38 open, 33 closed in todo-history.json; seal bd8939f79c6b): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (38 open, 33 closed in todo-history.json; seal 47cd8e745da8): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -122,7 +122,7 @@
   · reported to: checks on 2026-10-09 (no counterpart yet)
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-18 (sha256 5bb8d78b440b)
+  · plan pins: PLAN-services.md§3 as of 2026-10-19 (sha256 bf080ba6bc04)
   · added: 2026-10-09
 
 - **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
@@ -140,7 +140,7 @@
   · work: code
   · done when: tools/checks serves the shared tag vocabulary (the seven namespaces and their closed values) by a verb or file todolib can read
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-18 (sha256 5bb8d78b440b)
+  · plan pins: PLAN-services.md§3 as of 2026-10-19 (sha256 bf080ba6bc04)
   · added: 2026-10-15
 
 - **td-43 · parts.py exits 0 when a part only said UNCHECKED (exit 3); dev.sh turns it into 3 itself**
@@ -176,7 +176,7 @@
   · done when: todolib reads the shared tag vocabulary from the architecture service (S3) instead of vocab.json tags.shared, and tests/test_tags.py Vocabulary compares against S3, not the plan
   · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-18 (sha256 5bb8d78b440b)
+  · plan pins: PLAN-services.md§3 as of 2026-10-19 (sha256 bf080ba6bc04)
   · added: 2026-10-09
 
 - **td-54 · Nothing runs `todo detect` on a schedule yet**
