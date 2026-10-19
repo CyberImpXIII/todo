@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (38 open, 35 closed in todo-history.json; seal 652dbe1ecfe3): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (41 open, 39 closed in todo-history.json; seal b1b916db3fab): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -22,6 +22,11 @@
   reported from tools/checks to tools/todo in dispatch toolu_01UsoP3YSofAzhSbJhhJbU2p, filed from the dispatch ledger by the delegation layer's report filer: importing a "Reported to other owners" section gives report items with no `reported_to`, which fail `todo check` -- input: `todo -C tools/checks init --prefix ck; todo -C tools/checks import TODO.md; todo -C tools/checks check` -- expected: an import that passes its own check, e.g. the owner read from the start of the bullet, or `edit --reported-to` without writing into the owner's store. Suspi...
   · parent: tl-250
   · added: 2026-10-16
+
+- **td-76 · TODO.md's header says it is rendered from todo.json when the store is on todo.db**
+  the render header is fixed text; on todo.db the data comes from todo.db
+  · work: code
+  · added: 2026-10-19
 
 ## Open decisions
 
@@ -50,6 +55,16 @@
   · tags: plan:PLAN-architecture.md§11
   · added: 2026-10-15
 
+- **td-79 · On todo.db, after a git pull the exports are newer than todo.db: rebuild it from them, or refuse as stale**
+  · status: waiting-jacob
+  · waits on: approval
+  · pointer: PLAN-services.md §4
+  · hinges on: whether a pull that brings newer exports should silently replace a local todo.db
+  · recommend: rebuild
+  · options: rebuild = todo.db is rebuilt from the exports when they are newer and sealed; fail = every command fails as stale until todo.db is deleted
+  · work: decision
+  · added: 2026-10-19
+
 ## Unconfirmed suspicions
 
 - **td-45 · research ids are unchecked until tools/research has a CLI**
@@ -75,6 +90,18 @@
 - **td-72 · unverified: items name this repo both todo and tools/todo, so a --repo filter sees two repos**
   2026-10-19 (tl-378): todo -C <root> list --repo tools/todo lists tl-308 and tl-378 (the top-level store names repo tools/todo), while this store's repo and its own items say todo; stale-plans --repo tools/todo printed 0 pinned sections while --repo todo listed td-24/25/42 as changed. known_repo accepts both because an item names each. A wrong-answer shape: a filter that silently splits one repo in two.
   · probe: todo -C <root> list --repo tools/todo and --repo todo: an item in the first is about this repo; decide whether check or add should map a store path to its repo name, or refuse a repo that is a path to a store named otherwise
+  · added: 2026-10-19
+
+- **td-74 · unverified: a write that fails between exports leaves the exports mixed**
+  store_documents writes the exports before COMMIT; a raise mid-way rolls todo.db back but leaves the exports already renamed, so a later rebuild from exports reads a mix
+  · probe: a test that makes write_file raise on the third export inside store_documents, then reads the four exports' headers
+  · work: test
+  · added: 2026-10-19
+
+- **td-75 · unverified: migrate in the both state discards exports pulled from another clone**
+  Store.convert builds from the JSON files whenever they exist
+  · probe: a store with todo.json and pulled exports but no todo.db: run todo migrate, compare the exports before and after
+  · work: test
   · added: 2026-10-19
 
 ## Reported to other owners
@@ -157,6 +184,11 @@
   · reported to: .claude on 2026-10-19 (relayed by hand; never pairs)
   · added: 2026-10-19
 
+- **td-78 · unverified: checks' accessor counts a .gitignore entry naming the store as an accessor**
+  tools/todo .gitignore names todo.db to keep git off it; accessor counts it; worked around with an exclude in checks.json, held by tests/test_audit.py
+  · reported to: checks on 2026-10-19 (no counterpart yet)
+  · added: 2026-10-19
+
 ## Interim rules
 
 - **td-24 · The tag table in vocab.json is a local copy; read it from the architecture service once it exists**
@@ -201,51 +233,12 @@
   · work: docs
   · added: 2026-10-16
 
-- **td-58 · The switch to todo.db: Store on SQLite, exports rewritten on each write**
-  2026-10-18, commit 914e3cc: todo migrate --dry-run --all is 7 of 7 ok (JSON to todo.db to 4 exports and back, record for record); the conversion itself is refused. Still to build: Store reading and writing todo.db, every write rewriting the 0444 exports, a fresh clone importing them, check failing an edited export (verify_exports), cli.json declaring each store's kind for stores-classified (ST5), todo.db gitignored.
-  · work: code
-  · size: L
-  · files: todolib/store.py, todolib/migrate.py, cli.json
-  · done when: Store reads and writes todo.db; each write rewrites the exports; a fresh clone imports them; ./dev.sh check fails an edited or stale export; cli.json declares todo.db dynamic and the exports static
-  · tags: plan:PLAN-todo-tool.md§10.6
-  · added: 2026-10-18
-
 - **td-59 · Readers of the JSON stores move to the CLI or the exports before the switch**
   2026-10-18, todo migrate --readers: 95 lines in 30 files outside this tool name todo.json, todo-history.json or todo-records.json (income, knowledge-base, the job importer's scripts, tools/checks, context-hygiene, hooks, setup, usage, wizard); hidden folders are not read, so the .claude layer's readers (dispatch-guard, report-filer, offload, todo-writes, temp-rules) are listed by their owner, not here. Each was reported to its owner in the tl-268 handoff. (2026-10-19: the importer's folder name is now a roster name, which the direction audit refuses here, so it is described.)
   2026-10-19 (tl-383), todo migrate --readers --root <workspace>: 109 lines in 34 files, 1366 files read, 4 skipped (over 2 MB: two wheels in addon-bench, emailTools/bandcamp_digest.html, knowledge-base/data/kb.sqlite). By repo: tools/checks 46 (checkslib/todocheck.py:21 STORE, source/no-roster.py:44 TODO_STORE, todo-store.py, todo-valid.py, fixtures, tests), income 21 (devtools/ask.py:145 opens todo.json; tests test_ask, test_refs, test_wizard; check.parts.json excepts), tools/hooks 16 (lib/extra-stores.sh:33-34 store list, store-guard.sh and its test), tools/hub 9 (devtools/hubcheck.py:48 REQUIRED, tests/test_hubcheck.py), tools/wizard 6 (wizardlib/stores.py:193 opens todo.json, tests/helpers.py:217), scripts 4 (check.parts.json:41, dev.sh, test_parts_file.py:49), tools/context-hygiene 3 and knowledge-base 2 (excludes), tools/usage 1 (a test asserting absence), tools/setup 1 (fake_todo message). Direct opens: income ask.py, wizard stores.py and helpers.py, income tests; the rest are presence checks, guard lists, excludes and fixtures. Hidden layer not read. Not empty, so no store is converted (PLAN-todo-tool.md §10.6: switch only once the list is empty).
   · work: outreach
   · size: M
   · done when: todo migrate --readers lists no reader that opens a JSON store directly (excludes and fixtures aside), and each owner's item is closed
-  · tags: plan:PLAN-todo-tool.md§10.6
-  · added: 2026-10-18
-
-- **td-60 · Store reads and writes todo.db (gitignored); migrate converts on request**
-  split from td-58: The switch to todo.db: Store on SQLite, exports rewritten on each write
-  · parent: td-58
-  · work: code
-  · size: M
-  · files: todolib/store.py, todolib/migrate.py, cli.json
-  · done when: todolib/store.py reads and writes todo.db through sqlstore.Db; todo.db is gitignored; todo migrate without --dry-run converts a store and the JSON files go
-  · tags: plan:PLAN-todo-tool.md§10.6
-  · added: 2026-10-18
-
-- **td-61 · Each write rewrites the 0444 exports; a fresh clone imports them**
-  split from td-58: The switch to todo.db: Store on SQLite, exports rewritten on each write
-  · parent: td-58
-  · work: code
-  · size: M
-  · files: todolib/store.py, todolib/migrate.py, cli.json
-  · done when: every write rewrites todo.*.jsonl at 0444 in the same transaction; a test deletes todo.db and gets every record back from the exports
-  · tags: plan:PLAN-todo-tool.md§10.6
-  · added: 2026-10-18
-
-- **td-62 · ./dev.sh check fails an edited or stale export (verify_exports); cli.json declares todo.db dynamic and the exports static (ST5)**
-  split from td-58: The switch to todo.db: Store on SQLite, exports rewritten on each write
-  · parent: td-58
-  · work: code
-  · size: M
-  · files: todolib/store.py, todolib/migrate.py, cli.json
-  · done when: ./dev.sh check FAILs on an edited and on a stale export (a test each, a mutant each); cli.json names todo.db kind dynamic with schema_version and export, the exports kind static with producer and regen
   · tags: plan:PLAN-todo-tool.md§10.6
   · added: 2026-10-18
 
@@ -281,4 +274,15 @@
   · work: tooling
   · files: devtools/parts.py
   · done when: devtools/parts.py VERSION equals tools/checks/checkslib/parts.py VERSION
+  · added: 2026-10-19
+
+- **td-77 · convert's read-back checks have no mutant: no correct implementation trips them**
+  fresh_differences and verify_exports inside Store.convert never differ for a correct build, so no mutant of the build shows them red; tests/test_db.py Move exercises the path, not the refusal
+  · work: test
+  · added: 2026-10-19
+
+- **td-80 · Run todo migrate on each real store once td-59's readers are gone**
+  · blocked by: td-59
+  · work: labour
+  · done when: todo migrate has run in every repo with a store; no todo.json is left; ./dev.sh check green in each
   · added: 2026-10-19
