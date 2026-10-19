@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (38 open, 35 closed in todo-history.json; seal 294ddd18d676): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (38 open, 35 closed in todo-history.json; seal 652dbe1ecfe3): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -212,6 +212,7 @@
 
 - **td-59 · Readers of the JSON stores move to the CLI or the exports before the switch**
   2026-10-18, todo migrate --readers: 95 lines in 30 files outside this tool name todo.json, todo-history.json or todo-records.json (income, knowledge-base, the job importer's scripts, tools/checks, context-hygiene, hooks, setup, usage, wizard); hidden folders are not read, so the .claude layer's readers (dispatch-guard, report-filer, offload, todo-writes, temp-rules) are listed by their owner, not here. Each was reported to its owner in the tl-268 handoff. (2026-10-19: the importer's folder name is now a roster name, which the direction audit refuses here, so it is described.)
+  2026-10-19 (tl-383), todo migrate --readers --root <workspace>: 109 lines in 34 files, 1366 files read, 4 skipped (over 2 MB: two wheels in addon-bench, emailTools/bandcamp_digest.html, knowledge-base/data/kb.sqlite). By repo: tools/checks 46 (checkslib/todocheck.py:21 STORE, source/no-roster.py:44 TODO_STORE, todo-store.py, todo-valid.py, fixtures, tests), income 21 (devtools/ask.py:145 opens todo.json; tests test_ask, test_refs, test_wizard; check.parts.json excepts), tools/hooks 16 (lib/extra-stores.sh:33-34 store list, store-guard.sh and its test), tools/hub 9 (devtools/hubcheck.py:48 REQUIRED, tests/test_hubcheck.py), tools/wizard 6 (wizardlib/stores.py:193 opens todo.json, tests/helpers.py:217), scripts 4 (check.parts.json:41, dev.sh, test_parts_file.py:49), tools/context-hygiene 3 and knowledge-base 2 (excludes), tools/usage 1 (a test asserting absence), tools/setup 1 (fake_todo message). Direct opens: income ask.py, wizard stores.py and helpers.py, income tests; the rest are presence checks, guard lists, excludes and fixtures. Hidden layer not read. Not empty, so no store is converted (PLAN-todo-tool.md §10.6: switch only once the list is empty).
   · work: outreach
   · size: M
   · done when: todo migrate --readers lists no reader that opens a JSON store directly (excludes and fixtures aside), and each owner's item is closed
