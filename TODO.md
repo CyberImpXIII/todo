@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (38 open, 33 closed in todo-history.json; seal 47cd8e745da8): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (38 open, 35 closed in todo-history.json; seal 294ddd18d676): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -22,16 +22,6 @@
   reported from tools/checks to tools/todo in dispatch toolu_01UsoP3YSofAzhSbJhhJbU2p, filed from the dispatch ledger by the delegation layer's report filer: importing a "Reported to other owners" section gives report items with no `reported_to`, which fail `todo check` -- input: `todo -C tools/checks init --prefix ck; todo -C tools/checks import TODO.md; todo -C tools/checks check` -- expected: an import that passes its own check, e.g. the owner read from the start of the bullet, or `edit --reported-to` without writing into the owner's store. Suspi...
   · parent: tl-250
   · added: 2026-10-16
-
-- **td-70 · `todo import` reads the bullet that `todo report` itself writes into a TODO.md (`- todo:tl-341 fr...**
-  reported from tools/hub to tools/todo in dispatch toolu_0149gmnPxZkJ1M35Fa3qxH88, filed from the dispatch ledger by the delegation layer's report filer: `todo import` reads the bullet that `todo report` itself writes into a TODO.md (`- todo:tl-341 from claudeTest (...)`) as a report TO repo "todo" -- input: tools/hub/TODO.md line 160 before import (became hb-20) -- expected: imported as the counterpart of tl-341, or as a note
-  · parent: tl-375
-  · added: 2026-10-19
-
-- **td-71 · tests.test_handoff fails test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments beca...**
-  reported from tools/checks to tools/todo in dispatch toolu_01RTRCd7BG3nGNiNv96j65Qw, filed from the dispatch ledger by the delegation layer's report filer: tests.test_handoff fails test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments because RUNNER_RUN_OPTIONS lacks --jobs -- input: cd tools/todo && python3 -m unittest tests.test_handoff -- expected: the pin includes "--jobs": "<n>".
-  · parent: tl-377
-  · added: 2026-10-19
 
 ## Open decisions
 
@@ -80,6 +70,11 @@
 - **td-66 · unverified: applies all is read as any location, including folders checks all does not walk**
   tl-311: todolib/practices.applies returns true for applies==all at any folder under the scan root; checks' own cells are per location it discovers.
   · probe: brief an item whose repo is a plain non-git folder under the root, and compare with the locations checks practices --json lists cells for
+  · added: 2026-10-19
+
+- **td-72 · unverified: items name this repo both todo and tools/todo, so a --repo filter sees two repos**
+  2026-10-19 (tl-378): todo -C <root> list --repo tools/todo lists tl-308 and tl-378 (the top-level store names repo tools/todo), while this store's repo and its own items say todo; stale-plans --repo tools/todo printed 0 pinned sections while --repo todo listed td-24/25/42 as changed. known_repo accepts both because an item names each. A wrong-answer shape: a filter that silently splits one repo in two.
+  · probe: todo -C <root> list --repo tools/todo and --repo todo: an item in the first is about this repo; decide whether check or add should map a store path to its repo name, or refuse a repo that is a path to a store named otherwise
   · added: 2026-10-19
 
 ## Reported to other owners
@@ -278,4 +273,11 @@
   Draft by a research session 2026-10-19 (tl-322), read-only: description, stores and shapes for tools/todo, written from its CLAUDE.md and cli.json; validated as written there: checks one registered and checks one services-valid both ok on a git-archive copy of the repo with the draft as services.json, other fields unchanged. stores = cli.json's 3 entries (todo.json, todo-history.json, todo-records.json); no shapes. Open point 5 (whether each repo's todo.json counts as that repo's store) is a planning question that touches this repo's files. Reword the description freely; stores must stay equal to cli.json's store (registered holds them equal both ways). (Agent names reworded 2026-10-19: this store's direction audit refuses roster names.)
   · parent: tl-343
   · done when: services.json in tools/todo carries description, stores and (where any) shapes, and 'checks one registered tools/todo' from tools/checks is ok
+  · added: 2026-10-19
+
+- **td-73 · devtools/parts.py here is runner 1.3.0; tools/checks' is 1.4.0 (--jobs)**
+  2026-10-19 (tl-378): VERSION in devtools/parts.py is 1.3.0, in tools/checks/checkslib/parts.py 1.4.0; python3 devtools/parts.py usage --json lists run options --resume, --only, --json (no --jobs), while tests/test_handoff.py now pins the shared runner's four. ./dev.sh check runs the local copy. The copy is setup's to re-install; nothing here uses --jobs.
+  · work: tooling
+  · files: devtools/parts.py
+  · done when: devtools/parts.py VERSION equals tools/checks/checkslib/parts.py VERSION
   · added: 2026-10-19

@@ -2,7 +2,7 @@
   "format": 2,
   "repo": "todo",
   "prefix": "td",
-  "next": 72,
+  "next": 74,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -1260,14 +1260,14 @@
       "imported": null
     },
     {
-      "id": "td-70",
-      "title": "`todo import` reads the bullet that `todo report` itself writes into a TODO.md (`- todo:tl-341 fr...",
-      "kind": "bug",
+      "id": "td-72",
+      "title": "unverified: items name this repo both todo and tools/todo, so a --repo filter sees two repos",
+      "kind": "suspicion",
       "status": "open",
-      "evidence": "reported from tools/hub to tools/todo in dispatch toolu_0149gmnPxZkJ1M35Fa3qxH88, filed from the dispatch ledger by the delegation layer's report filer: `todo import` reads the bullet that `todo report` itself writes into a TODO.md (`- todo:tl-341 from claudeTest (...)`) as a report TO repo \"todo\" -- input: tools/hub/TODO.md line 160 before import (became hb-20) -- expected: imported as the counterpart of tl-341, or as a note",
-      "probe": null,
+      "evidence": "2026-10-19 (tl-378): todo -C <root> list --repo tools/todo lists tl-308 and tl-378 (the top-level store names repo tools/todo), while this store's repo and its own items say todo; stale-plans --repo tools/todo printed 0 pinned sections while --repo todo listed td-24/25/42 as changed. known_repo accepts both because an item names each. A wrong-answer shape: a filter that silently splits one repo in two.",
+      "probe": "todo -C <root> list --repo tools/todo and --repo todo: an item in the first is about this repo; decide whether check or add should map a store path to its repo name, or refuse a repo that is a path to a store named otherwise",
       "reported_to": null,
-      "parent": "tl-375",
+      "parent": null,
       "blocked_by": null,
       "waits_on": null,
       "pointer": null,
@@ -1297,14 +1297,14 @@
       "imported": null
     },
     {
-      "id": "td-71",
-      "title": "tests.test_handoff fails test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments beca...",
-      "kind": "bug",
+      "id": "td-73",
+      "title": "devtools/parts.py here is runner 1.3.0; tools/checks' is 1.4.0 (--jobs)",
+      "kind": "note",
       "status": "open",
-      "evidence": "reported from tools/checks to tools/todo in dispatch toolu_01RTRCd7BG3nGNiNv96j65Qw, filed from the dispatch ledger by the delegation layer's report filer: tests.test_handoff fails test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments because RUNNER_RUN_OPTIONS lacks --jobs -- input: cd tools/todo && python3 -m unittest tests.test_handoff -- expected: the pin includes \"--jobs\": \"<n>\".",
+      "evidence": "2026-10-19 (tl-378): VERSION in devtools/parts.py is 1.3.0, in tools/checks/checkslib/parts.py 1.4.0; python3 devtools/parts.py usage --json lists run options --resume, --only, --json (no --jobs), while tests/test_handoff.py now pins the shared runner's four. ./dev.sh check runs the local copy. The copy is setup's to re-install; nothing here uses --jobs.",
       "probe": null,
       "reported_to": null,
-      "parent": "tl-377",
+      "parent": null,
       "blocked_by": null,
       "waits_on": null,
       "pointer": null,
@@ -1314,11 +1314,13 @@
       "chosen": null,
       "jacob_words": null,
       "repo": "todo",
-      "work": null,
+      "work": "tooling",
       "size": null,
-      "files": null,
+      "files": [
+        "devtools/parts.py"
+      ],
       "research": null,
-      "done_when": null,
+      "done_when": "devtools/parts.py VERSION equals tools/checks/checkslib/parts.py VERSION",
       "done_check": null,
       "handoff": null,
       "approved": null,
@@ -1334,5 +1336,5 @@
       "imported": null
     }
   ],
-  "seal": "c07cd153ff3df8e2"
+  "seal": "a77bad941286bfab"
 }
