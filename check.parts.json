@@ -39,6 +39,8 @@
    "always": "runs tools/checks' check-partial and check-json on this repo"},
   {"name": "test.plan_pins", "run": "python3 -m unittest tests.test_plan_pins", "files": ["tests/test_plan_pins.py"], "except": ["tests/", "TODO.md"],
    "always": "runs the workspace's setup tool on its plans"},
+  {"name": "test.practices", "run": "python3 -m unittest tests.test_practices", "files": ["tests/test_practices.py"], "except": ["tests/", "TODO.md"],
+   "always": "runs the workspace's checks tool, outside this repo"},
   {"name": "test.read_anywhere", "run": "python3 -m unittest tests.test_read_anywhere", "files": ["tests/test_read_anywhere.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.render", "run": "python3 -m unittest tests.test_render", "files": ["tests/test_render.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.reports", "run": "python3 -m unittest tests.test_reports", "files": ["tests/test_reports.py"], "except": ["tests/", "TODO.md"]},

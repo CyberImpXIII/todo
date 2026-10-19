@@ -28,6 +28,12 @@ class Vocab:
         for rule in ("stop_rule", "iterate_rule"):
             if not str(self.brief.get(rule) or "").strip():
                 raise ValueError(f"vocab.json: brief.{rule} is empty; every brief carries it")
+        self.practices = {k: v for k, v in (self.brief.get("practices") or {}).items() if not k.startswith("_")}
+        for key in ("heading", "line", "report_line", "none_line", "unchecked"):
+            if not str(self.practices.get(key) or "").strip():
+                raise ValueError(f"vocab.json: brief.practices.{key} is empty; every brief carries the practices block")
+        if not self.practices.get("states") or not all(isinstance(s, str) and s for s in self.practices["states"]):
+            raise ValueError("vocab.json: brief.practices.states names no state")
         self.fields = {k: v for k, v in data["fields"].items() if not k.startswith("_")}
         self.approval_by = str(data["approval"].get("by") or "").strip()
         if not self.approval_by:

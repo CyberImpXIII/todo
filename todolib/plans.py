@@ -55,27 +55,28 @@ def shown(ref):
     return f"{file} §{section}" if section else file
 
 
-def default_cli(start=None):
-    """The setup tool beside this one: <ancestor>/setup/setup for the first ancestor
-    of this repo holding it (an ancestor walk, not a fixed `../`, so a copy of the
-    repo deeper down -- devtools/mutate.py runs one -- finds it too). None when no
-    ancestor holds it."""
+def default_cli(start=None, name=PLANS_CLI_NAME):
+    """A tool beside this one, the setup tool by default: <ancestor>/setup/setup
+    (`name`'s parts) for the first ancestor of this repo holding it (an ancestor
+    walk, not a fixed `../`, so a copy of the repo deeper down -- devtools/mutate.py
+    runs one -- finds it too). None when no ancestor holds it. todolib/practices.py
+    finds the checks tool the same way."""
     here = Path(start or __file__).resolve().parent.parent
     for d in here.parents:
-        p = d.joinpath(*PLANS_CLI_NAME)
+        p = d.joinpath(*name)
         if p.is_file():
             return p
     return None
 
 
-def resolve_cli(given):
-    """(path, None) for the plans CLI to call, or (None, why)."""
-    p = Path(given) if given else default_cli()
+def resolve_cli(given, name=PLANS_CLI_NAME, what="plans CLI", flag="--plans-cli"):
+    """(path, None) for the sibling CLI to call (the plans CLI by default), or (None, why)."""
+    p = Path(given) if given else default_cli(name=name)
     if p is None:
-        return None, ("no plans CLI: no setup/setup above " + str(Path(__file__).resolve().parent.parent)
-                      + " (--plans-cli names one)")
+        return None, (f"no {what}: no {'/'.join(name)} above " + str(Path(__file__).resolve().parent.parent)
+                      + f" ({flag} names one)")
     if not p.is_file():
-        return None, f"no plans CLI at {p} (--plans-cli names another)"
+        return None, f"no {what} at {p} ({flag} names another)"
     return p, None
 
 

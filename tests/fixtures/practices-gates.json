@@ -1,0 +1,31 @@
+{
+ "_comment": "A practice registry for tests/test_practices.py, handed to the real checks tool by tests/fixtures/checks-registry.sh (its --registry). One row of each kind the brief must leave out (a principle, a gate, an unbuilt, a superseded prose row) beside prose rows for all, for a, for b and for the folder x.",
+ "practices": {
+  "_comment": "the shape of tools/checks gates.json's practices block",
+  "keys": {
+   "id": "id", "part": "part", "principle": "principle", "rule": "rule", "sources": "sources",
+   "applies": "applies", "held": "held", "subject": "subject", "status": "status", "own_ids": "own_ids",
+   "cells": "cells"
+  },
+  "rows": [
+   {"id": "root-fixture", "part": "A", "rule": "A principle.", "sources": ["CLAUDE.md"], "applies": "all",
+    "held": {"kind": "rollup", "text": "rollup of its supporting rows"}, "status": "live"},
+   {"id": "fx-everywhere", "part": "B", "principle": "root-fixture", "rule": "Held everywhere.", "sources": ["CLAUDE.md"],
+    "applies": "all", "held": {"kind": "prose", "text": "prose: the log shows it", "shows": "the log shows it"}, "status": "live"},
+   {"id": "fx-gated", "part": "B", "principle": "root-fixture", "rule": "Held by a check.", "sources": ["CLAUDE.md"],
+    "applies": "all", "held": {"kind": "gate", "text": "gate", "gate": "tools/checks/source/no-secrets.py", "check": "no-secrets"},
+    "status": "live"},
+   {"id": "fx-unbuilt", "part": "B", "principle": "root-fixture", "rule": "A check is planned.", "sources": ["CLAUDE.md"],
+    "applies": "all", "held": {"kind": "unbuilt", "text": "planned check"}, "status": "live"},
+   {"id": "fx-in-a", "part": "B", "principle": "root-fixture", "rule": "Held in a.", "sources": ["CLAUDE.md"],
+    "applies": ["a"], "held": {"kind": "prose", "text": "prose (a alone)"}, "status": "live"},
+   {"id": "fx-in-b", "part": "B", "principle": "root-fixture", "rule": "Held in b.", "sources": ["CLAUDE.md"],
+    "applies": ["b"], "held": {"kind": "prose", "text": "prose: b's note", "shows": "b's note"}, "status": "live"},
+   {"id": "fx-in-x", "part": "B", "principle": "root-fixture", "rule": "Held in the folder x.", "sources": ["CLAUDE.md"],
+    "applies": ["x"], "held": {"kind": "prose", "text": "prose: x's note", "shows": "x's note"}, "status": "live"},
+   {"id": "fx-old", "part": "B", "principle": "root-fixture", "rule": "Replaced.", "sources": ["CLAUDE.md"],
+    "status": "superseded-by fx-everywhere"}
+  ],
+  "blocked": []
+ }
+}

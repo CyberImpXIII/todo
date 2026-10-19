@@ -39,6 +39,15 @@
   "brief": {
     "_comment": "What every `todo brief` carries besides the item (PLAN-small-tasks.md §2.3, §3.5, §4.1): `stop_rule` is the plan's words, verbatim (tests/test_handoff.py holds them equal when the plan is present). `iterate_rule` is §3.5 worded to the shared runner's real commands (tools/checks checkslib/parts.py), not the plan's sketch: each backticked command in it must be `./dev.sh check` plus options the runner's `run` takes, or `./dev.sh test <part>` (dev.sh's `check --only <part>`), held to the runner's `usage --json` (tests/test_handoff.py IterateRule).",
     "stop_rule": "Commit after each step that passes. If the full check fails twice, stop and report what passed, what failed and where. Do not start the suite a third time.",
+    "practices": {
+      "_comment": "The brief's practices block (PLAN-services.md §3 A3 and the A-1 decision, §4 step 7.4; README \"Practices in the brief\"): `heading` starts the block that lists, one line each, the prose rows of tools/checks' practice registry that apply to the item's repo (read by todolib/practices.py through `checks practices --json`); `report_line` asks for the one line the agent's report ends with, starting `line`, one entry per id in one of `states` (the cell states an explanation records, plus unknown for A6); `none_line` is said when no prose row applies, `unchecked` when the rows could not be read (never read as none applying). Flagging a report without `line` is the delegation layer's half of step 7.4, outside this repo. tests/test_practices.py holds report_line to line and states, and states to the plan's cell states.",
+      "heading": "Practices",
+      "line": "practices:",
+      "states": ["justified", "unjustified", "unknown"],
+      "report_line": "End your report with one line `practices: <id> justified: <how this work held it> | <id> unjustified: <what it did not hold, and why> | <id> unknown: <the question for Jacob>`, every id above once. A bare \"held\" reads as unjustified; never guess: unknown, with the question (A6).",
+      "none_line": "End your report with the line `practices: none apply`.",
+      "unchecked": "Still end your report with one `practices:` line: how this work held the practices it touched, or that the rows could not be read."
+    },
     "iterate_rule": "Iterate small, then run whole once. While fixing one thing, run only what it touches: where dev.sh hands its parts to the shared runner (parts.py), `./dev.sh test <part>` runs that one part, and `./dev.sh check --resume` re-runs only the parts whose files changed since they passed or that did not pass; where it does not, run the one test you changed by itself. Run the full suite once, before the commit: `./dev.sh check`, without --resume. The plan's check --quick does not exist: --resume is the runner's nearest."
   },
   "approval": {

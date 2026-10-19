@@ -12,6 +12,7 @@ from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
 from . import decisions as decide
 from . import detect, readers, repostatus
+from . import practices as practicing
 from . import migrate as migrating
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
@@ -1891,6 +1892,8 @@ def cmd_brief(args):
     print(f"Close it: {todo_bin} -C {s.dir} done {it['id']} --resolution \"...\"")
     print(f"Iterate rule: {VOCAB.brief['iterate_rule']}")
     print(f"Stop rule: {VOCAB.brief['stop_rule']}")
+    for ln in practicing.brief_lines(args.checks_cli, ws.root, work_dir(ws, s, it), it.get("repo"), VOCAB.practices):
+        print(ln)
     why = not_ready_reasons(ws, it)
     if why:
         print(f"NOT READY: {'; '.join(why)}")
@@ -2116,6 +2119,9 @@ def build_parser():
     ps["ready"].add_argument("--repo")
     ps["ready"].add_argument("--work", choices=list(VOCAB.works))
     ps["brief"].add_argument("id")
+    ps["brief"].add_argument("--checks-cli", dest="checks_cli", metavar="PATH",
+                             help="the checks tool whose `checks practices --json` lists the practice rows (default: "
+                                  "checks/checks in the first folder above this tool holding one)")
     ps["history"].add_argument("id", nargs="?")
     ps["history"].add_argument("--since")
     ps["history"].add_argument("--repo")

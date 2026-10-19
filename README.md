@@ -57,7 +57,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo import FILE [--dry-run] [--waits-on VALUE] [--plans-dir D] [--plans-cli P]` | a hand-written or hand-edited `TODO.md` into items (below). It prints the blocks it read as no item and what a rule could not read; `--waits-on` is the `waits_on` of each `waiting-jacob` item whose text names none, and without it a real import with such an item writes nothing. `--plans-dir`/`--plans-cli` read a `PLAN` pointer as `--pin-plan` does |
 | `todo repos [--status] [--json]` | every store the scan finds, with its counts. `--status`: every git repo under the root, with a store or not, sorted by path: its open items (null with no store), last commit (short sha, date, subject; null with none), uncommitted files (a count and the first ten), and `whose`, always null (who left them is the stamp ledger's to say, which todo never reads); `--json` gives `{root, repos}`. Needs no store of its own |
 | `todo ready [--repo R] [--work W]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed: ready to hand to whoever does that work. One already handed out stays listed, flagged `[dispatched DATE]` before its title (`todo dispatchable` leaves it out). An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it) |
-| `todo brief ID` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, the iterate rule and the stop rule (below). With no `done_when` it writes no brief at all: exit 1, nothing on stdout, and a message naming the item and the field. Exit 1 also when it is not ready otherwise (a field missing, a status other than open, a `blocked_by` id still open, or its size), the brief printed and marked NOT READY |
+| `todo brief ID [--checks-cli P]` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, the iterate rule, the stop rule and the practices that apply to its repo with the `practices:` line its report ends with (below; `--checks-cli` names the checks tool that reads them). With no `done_when` it writes no brief at all: exit 1, nothing on stdout, and a message naming the item and the field. Exit 1 also when it is not ready otherwise (a field missing, a status other than open, a `blocked_by` id still open, or its size), the brief printed and marked NOT READY |
 | `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
 | `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
@@ -188,6 +188,28 @@ with the runner itself when tools/checks is beside this repo). Each command the
 plan sketches must be used in backticks when the runner runs it and named as
 absent when it does not, so the wording fails its test when an option is added,
 removed or renamed on either side.
+
+**Practices in the brief** (PLAN-services.md §3 A3 and decision A-1, §4 step 7.4).
+After the stop rule every brief prints the practices block, worded by
+`vocab.json` `brief.practices`: each live prose row of the practice registry
+(tools/checks `gates.json`'s `practices` block) that applies to the item's repo,
+by id with one line (`must show: <shows>`, else the row's `held` text), and the
+report line the agent's report must end with: `practices: <id> justified: ... |
+<id> unjustified: ... | <id> unknown: <the question>`, every id once; a bare
+"held" reads as unjustified. Gate, unbuilt and principle rows are left out: a
+check holds them, or nothing yet does. The rows are read through the checks
+tool's one reader, `checks practices --json` (`--checks-cli P` names it, else the
+first `checks/checks` above this repo), fed a one-location report on stdin so no
+check runs; the location is the folder of the store whose repo name the item
+carries, else a folder of that name under the scan root. No checks tool, output
+that is not its rows, an item naming no repo or a repo that is no folder print
+`Practices: UNCHECKED: <why>` and still ask for the line; never "none apply",
+which is said only when the rows were read and none applies. The brief's exit
+code is unchanged by it. Flagging a report that lacks the line, and the ratchet,
+belong to the delegation layer, outside this repo (PLAN-services.md §4 step 7.4).
+`tests/test_practices.py` runs the real checks tool on a fixture registry
+(`tests/fixtures/practices-gates.json`, via `tests/fixtures/checks-registry.sh`)
+and on its own, and holds the states to the plan's cell states.
 
 A resolution is free text written by `todo done`, except the values below, which
 each have one setter and are refused everywhere else:
