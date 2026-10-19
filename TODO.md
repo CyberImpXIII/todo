@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (29 open, 33 closed in todo-history.json; seal d46d5ccfb79a): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (38 open, 33 closed in todo-history.json; seal bd8939f79c6b): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -22,6 +22,16 @@
   reported from tools/checks to tools/todo in dispatch toolu_01UsoP3YSofAzhSbJhhJbU2p, filed from the dispatch ledger by the delegation layer's report filer: importing a "Reported to other owners" section gives report items with no `reported_to`, which fail `todo check` -- input: `todo -C tools/checks init --prefix ck; todo -C tools/checks import TODO.md; todo -C tools/checks check` -- expected: an import that passes its own check, e.g. the owner read from the start of the bullet, or `edit --reported-to` without writing into the owner's store. Suspi...
   · parent: tl-250
   · added: 2026-10-16
+
+- **td-70 · `todo import` reads the bullet that `todo report` itself writes into a TODO.md (`- todo:tl-341 fr...**
+  reported from tools/hub to tools/todo in dispatch toolu_0149gmnPxZkJ1M35Fa3qxH88, filed from the dispatch ledger by the delegation layer's report filer: `todo import` reads the bullet that `todo report` itself writes into a TODO.md (`- todo:tl-341 from claudeTest (...)`) as a report TO repo "todo" -- input: tools/hub/TODO.md line 160 before import (became hb-20) -- expected: imported as the counterpart of tl-341, or as a note
+  · parent: tl-375
+  · added: 2026-10-19
+
+- **td-71 · tests.test_handoff fails test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments beca...**
+  reported from tools/checks to tools/todo in dispatch toolu_01RTRCd7BG3nGNiNv96j65Qw, filed from the dispatch ledger by the delegation layer's report filer: tests.test_handoff fails test_the_pin_is_the_runners_usage_and_dev_sh_hands_it_its_arguments because RUNNER_RUN_OPTIONS lacks --jobs -- input: cd tools/todo && python3 -m unittest tests.test_handoff -- expected: the pin includes "--jobs": "<n>".
+  · parent: tl-377
+  · added: 2026-10-19
 
 ## Open decisions
 
@@ -66,6 +76,11 @@
   c400088: kept for fixtures and trial runs; said on stderr every time (mutant detect-override-silent)
   · probe: TODO_DETECTORS=/tmp/x.json ./todo detect -> a NOTICE on stderr each time and the list checked as vocab.json's; unproven whether a stray env in a scheduled run could hide S7
   · added: 2026-10-16
+
+- **td-66 · unverified: applies all is read as any location, including folders checks all does not walk**
+  tl-311: todolib/practices.applies returns true for applies==all at any folder under the scan root; checks' own cells are per location it discovers.
+  · probe: brief an item whose repo is a plain non-git folder under the root, and compare with the locations checks practices --json lists cells for
+  · added: 2026-10-19
 
 ## Reported to other owners
 
@@ -137,6 +152,16 @@
   · done when: parts.py exits 3 when a run part said UNCHECKED and none failed, and dev.sh's said_unchecked wrapper is removed with its mutants
   · added: 2026-10-15
 
+- **td-65 · Practice rows in the brief lack the rule text: checks practices --json omits rule**
+  tl-311: checks practices --json --from <report> prints id, part, principle, status, held, applies per row (checkslib/cli.py line 336), no rule; a prose row without held.shows prints only its held text (e.g. 'prose (...)'). Expected: each row's rule.
+  · reported to: checks on 2026-10-19 (no counterpart yet)
+  · added: 2026-10-19
+
+- **td-69 · unverified: the dispatch ledger files items into this store with roster agent names in their evidence, which this repo's direction audit refuses**
+  2026-10-19 (tl-311): td-68 (parent tl-343) arrived uncommitted with two roster names in its evidence; devtools/audit.py failed on todo.json and TODO.md until td-68's evidence was reworded with todo edit. Expected: the filer writes no roster name into a tool's store (or the store owner is told which names to avoid).
+  · reported to: .claude on 2026-10-19 (relayed by hand; never pairs)
+  · added: 2026-10-19
+
 ## Interim rules
 
 - **td-24 · The tag table in vocab.json is a local copy; read it from the architecture service once it exists**
@@ -191,7 +216,7 @@
   · added: 2026-10-18
 
 - **td-59 · Readers of the JSON stores move to the CLI or the exports before the switch**
-  2026-10-18, todo migrate --readers: 95 lines in 30 files outside this tool name todo.json, todo-history.json or todo-records.json (income, knowledge-base, job-import-scripts, tools/checks, context-hygiene, hooks, setup, usage, wizard); hidden folders are not read, so the .claude layer's readers (dispatch-guard, report-filer, offload, todo-writes, temp-rules) are listed by their owner, not here. Each was reported to its owner in the tl-268 handoff.
+  2026-10-18, todo migrate --readers: 95 lines in 30 files outside this tool name todo.json, todo-history.json or todo-records.json (income, knowledge-base, the job importer's scripts, tools/checks, context-hygiene, hooks, setup, usage, wizard); hidden folders are not read, so the .claude layer's readers (dispatch-guard, report-filer, offload, todo-writes, temp-rules) are listed by their owner, not here. Each was reported to its owner in the tl-268 handoff. (2026-10-19: the importer's folder name is now a roster name, which the direction audit refuses here, so it is described.)
   · work: outreach
   · size: M
   · done when: todo migrate --readers lists no reader that opens a JSON store directly (excludes and fixtures aside), and each owner's item is closed
@@ -227,3 +252,30 @@
   · done when: ./dev.sh check FAILs on an edited and on a stale export (a test each, a mutant each); cli.json names todo.db kind dynamic with schema_version and export, the exports kind static with producer and regen
   · tags: plan:PLAN-todo-tool.md§10.6
   · added: 2026-10-18
+
+- **td-63 · To todo: unverified: sync-plans still reports su-87 stale after todo edit --evidence --pin-plan**
+  From setup (tl-285). Probe: todo sync-plans --dry-run PLAN-architecture.md (in tools/setup). Expected: a way to refresh plan_step.text/hash.
+  · parent: tl-308
+  · work: code
+  · done when: stale report clears after re-pin, or the cause is documented
+  · added: 2026-10-19
+
+- **td-64 · Brief reads practice rows via a synthetic --from report; switch to a rows-only checks verb when one exists**
+  tl-311: todolib/practices.py pipes {repos:[{rel:LOC,results:[]}]} to checks practices --json --from /dev/stdin and reads only .rows (a live run takes ~41 s). Reported to checks: no rows-only verb.
+  · work: code
+  · size: S
+  · done when: practices.rows calls a checks verb that prints the rows without a run, and tests/test_practices.py passes
+  · added: 2026-10-19
+
+- **td-67 · todo brief exit code ignores an UNCHECKED practices block**
+  tl-311: by design for now, a brief whose practices block is UNCHECKED (no checks CLI, invalid registry) still exits 0 or 1 as before; README Practices in the brief says so. Open: should it be exit 3 like other UNCHECKED reads? Hinges on whether dispatch should refuse such a brief.
+  · work: code
+  · size: S
+  · done when: a decision recorded: exit 3, or 0 kept with the reason in README
+  · added: 2026-10-19
+
+- **td-68 · PLAN-architecture.md §9 step 10.3: your services.json registry draft is in RESEARCH-registry-drafts.md, section `tools/todo`; write it in, then checks one registered**
+  Draft by a research session 2026-10-19 (tl-322), read-only: description, stores and shapes for tools/todo, written from its CLAUDE.md and cli.json; validated as written there: checks one registered and checks one services-valid both ok on a git-archive copy of the repo with the draft as services.json, other fields unchanged. stores = cli.json's 3 entries (todo.json, todo-history.json, todo-records.json); no shapes. Open point 5 (whether each repo's todo.json counts as that repo's store) is a planning question that touches this repo's files. Reword the description freely; stores must stay equal to cli.json's store (registered holds them equal both ways). (Agent names reworded 2026-10-19: this store's direction audit refuses roster names.)
+  · parent: tl-343
+  · done when: services.json in tools/todo carries description, stores and (where any) shapes, and 'checks one registered tools/todo' from tools/checks is ok
+  · added: 2026-10-19
