@@ -144,6 +144,21 @@ def marker_in(text, marker):
     return re.search(r"(?<![\w:-])" + re.escape(marker) + r"(?![\w-])", text) is not None
 
 
+FALLBACK_LEAD_RE = re.compile(r"^(?P<marker>\S+) from (?P<repo>\S+) \((?P<date>\d{4}-\d{2}-\d{2})\): (?P<title>\S.*)$")
+
+
+def fallback_lead(marker, repo, date, title):
+    """The first line of the bullet `todo report` files in a repo with no store, after
+    its list mark. read_fallback_lead reads it back (`todo import` in that repo)."""
+    return f"{marker} from {repo} ({date}): {title}"
+
+
+def read_fallback_lead(line):
+    """{marker, repo, date, title} from a line fallback_lead wrote, or None."""
+    m = FALLBACK_LEAD_RE.match(line)
+    return m.groupdict() if m else None
+
+
 def file_report_bullet(repo_dir, marker, lines):
     """The one write todo makes in a repo with no store (PLAN-architecture.md §11
     S4): `lines` (a bullet and its indented continuation lines) go into the repo's

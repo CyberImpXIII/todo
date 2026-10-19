@@ -20,7 +20,7 @@ from . import syncplans
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
-                    file_report_bullet, id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today,
+                    fallback_lead, file_report_bullet, id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today,
                     write_atomic)
 from .vocab import VOCAB
 
@@ -833,7 +833,7 @@ def file_without_store(ws, store, item, repo):
         return None
     marker = tagging.global_id(item["id"])
     where = os.path.relpath(store.dir, ws.root)
-    lines = [f"- {marker} from {store.repo} ({today()}): {item['title']}"]
+    lines = ["- " + fallback_lead(marker, store.repo, today(), item["title"])]
     for label, value in (("evidence", item.get("evidence")), ("done when", item.get("done_when"))):
         for i, ln in enumerate(str(value or "").splitlines()):
             lines.append(f"  {label + ': ' if i == 0 else ''}{ln}".rstrip())

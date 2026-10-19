@@ -129,7 +129,7 @@
     "generated_recommend": "yes"
   },
   "report_fallback": {
-    "_comment": "`todo report ID --to REPO` when REPO is a git repo the scan finds with no todo store (PLAN-architecture.md §11 S4): one bullet in its hand-written `file`, under the `heading` (an h2, added at the end when absent), marked with the item's todo:<id> so a second run adds nothing. The item's evidence records it; their_id stays null until REPO has a store.",
+    "_comment": "`todo report ID --to REPO` when REPO is a git repo the scan finds with no todo store (PLAN-architecture.md §11 S4): one bullet in its hand-written `file`, under the `heading` (an h2, added at the end when absent), marked with the item's todo:<id> so a second run adds nothing. The item's evidence records it; their_id stays null until REPO has a store. There, `todo import` reads a block under `heading` as that report's counterpart (roles.default_kind, parent the marker's id; the lead's form is todolib/store.py fallback_lead), never as a report (td-70).",
     "file": "TODO.md",
     "heading": "Reported here by other repos (todo report)"
   },

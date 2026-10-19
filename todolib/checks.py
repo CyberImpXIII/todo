@@ -545,7 +545,13 @@ def check_reports(store, ws, out):
         parent, _, pstore = ws.find(p)
         rt = (parent or {}).get("reported_to")
         if isinstance(rt, dict) and rt.get("repo") == store.repo:
-            if rt.get("their_id") != it["id"]:
+            if rt.get("their_id") is None:
+                # Not yet paired (td-70: an imported counterpart of a report that was filed
+                # here while this repo had no store): this item is right, the report's own
+                # check FAILs until its store pairs it.
+                out.append(("WARN", "reports", it["id"], f"parent {p} in {pstore.repo} is not paired with it yet: "
+                                                         f"`todo -C {pstore.dir} report {p} --to {store.repo}` pairs them"))
+            elif rt.get("their_id") != it["id"]:
                 out.append(("FAIL", "reports", it["id"], f"parent {p} in {pstore.repo} points at {rt.get('their_id')}, not here"))
             else:
                 answered.append(it["id"])

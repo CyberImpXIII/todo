@@ -17,7 +17,8 @@ import hashlib
 import re
 
 from .render import HEADER_PREFIX, ITEM_RE, render_item, FIELD_MARK
-from .store import TodoError, new_item
+from . import tags as tagging
+from .store import ID_RE, TodoError, new_item, read_fallback_lead
 from .vocab import VOCAB
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
@@ -248,6 +249,20 @@ def read_probe(text, vocab=VOCAB):
     return rest.strip() or None
 
 
+def read_reported_here(text):
+    """For a block under report_fallback.heading (what `todo report` filed in this
+    repo while it had no store): {parent, title}, or None when its text starts with
+    no todo:<id> marker. The parent is the reported item's id; the title is the
+    report's own when the lead is the one store.fallback_lead writes, else None."""
+    first = text.split("\n", 1)[0]
+    marker = first.split(" ", 1)[0]
+    local = tagging.local_id(marker)
+    if local == marker or not ID_RE.match(local):
+        return None
+    parsed = read_fallback_lead(first)
+    return {"parent": local, "title": parsed["title"] if parsed and parsed["marker"] == marker else None}
+
+
 def read_owner(text, repos, own, today, vocab=VOCAB):
     """reported_to from the lead's first word, or None: only a repo the scan finds."""
     first = lead(text)
@@ -322,11 +337,23 @@ def plan_import(text, store, today, repos=frozenset(), resolve_plan=None, waits_
         if bad:
             raise TodoError(f"cannot import a block with a line starting {FIELD_MARK!r} (the render's field mark): {bad[0][:80]!r}")
         kind, status = vocab.heading_rule(blk.headings)
+        extra, wanted = {}, None
+        if vocab.fallback_heading in blk.headings:
+            # Reported here by another repo (td-70): the counterpart of that report,
+            # never a report from this repo (its "Reported" would match the heading
+            # rule, and the marker's `todo:` the owner rule).
+            kind = vocab.role("default_kind")
+            here = read_reported_here(body)
+            if here:
+                extra["parent"] = here["parent"]
+                title = here["title"] or title
+            else:
+                plan.listed.append((title, f"under {vocab.fallback_heading!r} with no {tagging.PREFIX}<id> marker: "
+                                           "imported as a note with no parent"))
         done = None
         dm = vocab.done_marker.match(body)
         if dm:
             status, done = vocab.closed, dm.group(1)
-        extra, wanted = {}, None
         if status != vocab.closed:
             approved, why = read_approval(body, today, vocab)
             if why:
