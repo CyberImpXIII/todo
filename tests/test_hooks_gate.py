@@ -83,6 +83,39 @@ class HooksGate(unittest.TestCase):
         self.assertIn("UNCHECKED  test-h0.sh", out)
         self.assertIn("FAIL  test-h1.sh: exit 1", out)
 
+    def test_a_named_hook_runs_that_hook_alone(self):
+        # td-82: `./dev.sh hooks NAME.sh` is one check part per hook. The name must
+        # change what runs: h0's test fails, h1's passes, so each answers for itself.
+        copy = self.copy_with(1, 0)
+        code, out = self.run_dev(copy, "hooks", "h1.sh")
+        self.assertEqual(code, 0, out)
+        self.assertIn("ok    hooks: 1 hooks (h1.sh), each executable", out)
+        self.assertNotIn("test-h0.sh", out)
+        code, out = self.run_dev(copy, "hooks", "h0.sh")
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL  test-h0.sh: exit 1", out)
+        code, out = self.run_dev(copy, "hooks")
+        self.assertEqual(code, 1, out)
+
+    def test_a_name_that_is_no_hook_is_a_fail_never_an_empty_pass(self):
+        copy = self.copy_with(0)
+        for name, says in (("nosuch.sh", "no hook nosuch.sh in .claude/hooks"),
+                           ("h0", "no hook h0 in .claude/hooks"),
+                           ("test-h0.sh", "'test-h0.sh' is not a hook's file name"),
+                           ("../hooks/h0.sh", "'../hooks/h0.sh' is not a hook's file name")):
+            with self.subTest(name):
+                code, out = self.run_dev(copy, "hooks", name)
+                self.assertEqual(code, 1, out)
+                self.assertIn(f"FAIL  hooks: {says}", out)
+                self.assertNotIn("ok    hooks", out)
+
+    def test_a_named_hook_without_its_test_is_a_fail(self):
+        copy = self.copy_with(0)
+        (copy / ".claude" / "hooks" / "test-h0.sh").unlink()
+        code, out = self.run_dev(copy, "hooks", "h0.sh")
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL  h0.sh has no test-h0.sh", out)
+
     def test_check_counts_unchecked_apart_from_failed_and_never_green(self):
         """The hooks gate as a part of `./dev.sh check` (the shared runner, one part):
         exit 0, 1 and 3 give a pass, a fail and an UNCHECKED that exits 3, never 0."""

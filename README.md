@@ -809,7 +809,7 @@ gate that stopped running shows as a missing line:
 `./dev.sh check` is the one pre-commit command. It hands `check.parts.json` to
 `devtools/parts.py`, the shared parts runner (tools/checks' runner, installed by
 setup's `parts` component; PLAN-small-tasks.md §5): one part per `tests/test_*.py`
-module, then the gates (`./dev.sh hooks`, `files`, `audit`, `self`, `checks`,
+module, then the gates (`./dev.sh hooks`, one part per hook, `files`, `audit`, `self`, `checks`,
 `mutants`), each with its own timeout and recorded as it ends in `$PROGRESS_FILE`
 (default `.progress/check.json`, gitignored). The runner's options pass through:
 `--json` (one check-json document, one check per part), `--resume` (re-run only
@@ -842,6 +842,17 @@ part, so dev.sh reads the run (the `UNCHK` line, or in `--json` a check
 `unchecked` with `not run` and does not count (`tests/test_hooks_gate.py`,
 `tests/test_parts_file.py` Unchecked, mutants `hooks-unchecked-*`,
 `check-unchecked-is-green`, `check-*-unchecked-unread`, `check-json-not-run-is-unchecked`).
+
+In the check, the hooks gate is one part per hook (td-82): `hooks.NAME` runs
+`./dev.sh hooks NAME.sh`, that hook and its test file alone, each against its own
+timeout. Run as one part, every hook test one after another, it overran the
+runner's 900s under load with no output to say which test was running. A
+`./dev.sh hooks` with no name still runs them all. A name that is not a hook's
+file in `.claude/hooks` (a test, a path, a missing hook) is a FAIL, never an empty
+pass. `tests/test_parts_file.py` holds the parts to the hooks, both directions,
+and fails on a `test-*.sh` with no hook, which no part would run
+(`tests/test_hooks_gate.py`; mutants `hooks-name-ignored`,
+`hooks-unknown-name-passes`, `parts-hook-without-part`).
 
 `tests/test_dev.py` holds the check-json document on the cheap parts (`files`,
 `audit`): named parts `ok`, the rest `unchecked`; a red part `fail` and exit 1; an

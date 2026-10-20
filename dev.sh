@@ -22,7 +22,8 @@ usage() {
   test       the unit tests (tests/), trimmed to the result unless something fails; test PART ...: those
              parts alone (check --only PART ...)
   hooks      the shared hook copies: present, executable, parse, their own tests pass (a test's exit 3: UNCHECKED,
-             gate exit 3); registered once settings.json exists
+             gate exit 3); registered once settings.json exists. hooks NAME.sh ...: those hooks alone, the
+             check's hooks.NAME parts, one per hook (an unknown NAME: FAIL)
   files      the files the tool needs: present, executable where they must be, data parses
   audit      the direction audit (devtools/audit.py): nothing reads the delegation layer or names a roster agent
   self       todo check on this repo's own store (its TODO.md is the render of the store)
@@ -47,16 +48,34 @@ cmd_test() {
 # e.g. no site-scrapers above a lone clone), anything else FAIL. An UNCHECKED test is
 # named with its reason and makes the gate exit 3: never a pass, never a FAIL; a FAIL
 # anywhere still makes it 1 (tests/test_hooks_gate.py).
+# hooks NAME.sh ...: those hooks alone (each with its test file), so check.parts.json
+# gives every hook a part of its own and no one part runs every hook test (td-82); a
+# NAME that is not a hook in .claude/hooks is a FAIL, never an empty pass.
 cmd_hooks() {
   local fails=0 unchecked=0 n=0 h name t out code why settings=".claude/settings.json"
-  local registered=1
+  local registered=1 a files=() label=""
   if [ ! -f "$settings" ]; then
     registered=0
     echo "  NOTE  $settings absent: the hooks are not live here until Jacob copies .claude/settings.proposed.json over it (TODO.md)"
   elif ! jq -e . "$settings" >/dev/null 2>&1; then
     echo "  FAIL  $settings does not parse"; return 1
   fi
-  for h in .claude/hooks/*.sh; do
+  if [ "$#" -eq 0 ]; then
+    files=(.claude/hooks/*.sh)
+  else
+    for a in "$@"; do
+      case "$a" in
+        test-*|*/*|.*|"") echo "  FAIL  hooks: '$a' is not a hook's file name in .claude/hooks"; fails=$((fails+1)); continue ;;
+      esac
+      if [ ! -f ".claude/hooks/$a" ] || [ "${a%.sh}" = "$a" ]; then
+        echo "  FAIL  hooks: no hook $a in .claude/hooks"; fails=$((fails+1)); continue
+      fi
+      files+=(".claude/hooks/$a")
+      [ -f ".claude/hooks/test-$a" ] && files+=(".claude/hooks/test-$a")
+    done
+    label=" ($*)"
+  fi
+  for h in ${files[@]+"${files[@]}"}; do
     name=$(basename "$h")
     [ -x "$h" ] || { echo "  FAIL  $name is not executable"; fails=$((fails+1)); }
     bash -n "$h" 2>/dev/null || { echo "  FAIL  $name does not parse"; fails=$((fails+1)); }
@@ -81,7 +100,7 @@ cmd_hooks() {
     echo "  note  hooks: $((n - unchecked)) of $n passed their own test; $unchecked UNCHECKED (did not run here, not a pass)"
     return 3
   fi
-  echo "  ok    hooks: $n hooks, each executable and passing its own test$([ $registered -eq 1 ] && echo ', registered')"
+  echo "  ok    hooks: $n hooks$label, each executable and passing its own test$([ $registered -eq 1 ] && echo ', registered')"
   return 0
 }
 
@@ -162,7 +181,7 @@ said_unchecked() {
 case "${1:-}" in
   check)   shift; cmd_check "$@" ;;
   test)    shift; cmd_test "$@" ;;
-  hooks)   cmd_hooks ;;
+  hooks)   shift; cmd_hooks "$@" ;;
   files)   cmd_files ;;
   audit)   cmd_audit ;;
   self)    cmd_self ;;

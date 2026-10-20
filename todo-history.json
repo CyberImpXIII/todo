@@ -1157,7 +1157,50 @@
         "source": "Jacob 2026-10-20 via auto-relay line 297 (origin jacob); dt-36 row 12, not-exported-now"
       },
       "chosen": null
+    },
+    {
+      "id": "td-89",
+      "title": "not_exported lists all eight todo store entries, not the two PLAN-services.md §3 names",
+      "kind": "report",
+      "status": "done",
+      "evidence": "tl-502, 2026-10-20: PLAN-services.md §3 (td-29 answer) says todo's stores are todo.json and todo-history.json and cli.json lists 'them' under not_exported. cli.json's store has eight entries (todo-records.json, and todo.db with its four jsonl exports from 47445fc). Listing only the two left ./dev.sh checks FAIL stores-exported: 'declares no verify verb (entries: todo-records.json, todo.db, todo.meta.jsonl, todo.items.jsonl, todo.history.jsonl, todo.records.jsonl)'. Listing all eight, each with a why naming §4 step 10.1, gave 'checks: 12 ok, 3 unchecked'. Applied all eight under not-exported-now. The plan's owner, the top level (claudeTest), should confirm, or amend §3's sentence to match.",
+      "probe": null,
+      "reported_to": {
+        "repo": "claudeTest",
+        "date": "2026-10-20",
+        "their_id": "tl-503"
+      },
+      "parent": null,
+      "blocked_by": null,
+      "waits_on": null,
+      "pointer": null,
+      "hinges_on": null,
+      "recommend": null,
+      "options": null,
+      "chosen": null,
+      "jacob_words": null,
+      "repo": "todo",
+      "work": "docs",
+      "size": "S",
+      "files": [
+        "cli.json"
+      ],
+      "research": null,
+      "done_when": "PLAN-services.md §3 names every entry cli.json lists under not_exported, or the top level's owner says which to drop",
+      "done_check": null,
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "detector": null,
+      "plan_step": null,
+      "added": "2026-10-20",
+      "done": "2026-10-20",
+      "resolution": "answered from PLAN-services.md §3, planner 2026-10-20 (Jacob, relay line 300): cli.json's eight entries stand; step 10.1 removes them with verify --json; tl-503 closed by the planner",
+      "imported": null
     }
   ],
-  "seal": "b5e743c4b21f3583"
+  "seal": "1525432867dcd027"
 }

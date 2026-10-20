@@ -5,7 +5,8 @@ PLAN-small-tasks.md §3, §5, §7). Held here:
   the parts file   valid by the runner's own `validate`; one part per
                    tests/test_*.py module (and none for a module that is gone),
                    then exactly the gates dev.sh's GATES names after `test`, in
-                   that order, each run as `./dev.sh <gate>`;
+                   that order, each run as `./dev.sh <gate>`, the hooks gate
+                   as one part per hook in .claude/hooks (td-82);
   the wiring       a copy of dev.sh and the runner with canned parts: the text
                    run ends "N of M passed; failed: <name>", --json is one
                    document naming each part, `test <part>` runs that part
@@ -52,6 +53,16 @@ def parts():
     return json.loads(PARTS.read_text())["parts"]
 
 
+HOOKS = ROOT / ".claude" / "hooks"
+
+
+def hook_parts():
+    """(name, run) of the part each hook in .claude/hooks should have: hooks.NAME runs
+    `./dev.sh hooks NAME.sh`, that hook and its test alone (td-82)."""
+    return sorted((f"hooks.{h.stem}", f"./dev.sh hooks {h.name}")
+                  for h in HOOKS.glob("*.sh") if not h.name.startswith("test-"))
+
+
 def gates():
     """dev.sh's GATES, the one list of its gates (tests/test_docs.py holds it to the case arms)."""
     text = (ROOT / "dev.sh").read_text()
@@ -77,8 +88,22 @@ class PartsFile(unittest.TestCase):
         tests = [n for n in names if n.startswith("test.")]
         self.assertEqual(names[:len(tests)], tests, "the test modules come first")
         self.assertEqual(gates()[0], "test", "GATES opens with the unit tests, which the test.* parts are")
-        self.assertEqual([(p["name"], p["run"]) for p in ps[len(tests):]],
-                         [(g, f"./dev.sh {g}") for g in gates()[1:]])
+        want = []
+        for g in gates()[1:]:
+            want += hook_parts() if g == "hooks" else [(g, f"./dev.sh {g}")]
+        self.assertEqual([(p["name"], p["run"]) for p in ps[len(tests):]], want)
+
+    def test_one_hooks_part_per_hook_and_every_hook_test_has_its_hook(self):
+        # td-82: the hooks gate ran every hook test in one part, which overran its
+        # timeout under load; each hook now has a part, and together they cover what
+        # the bare `./dev.sh hooks` does: every hook, and every test-*.sh beside one.
+        got = sorted((p["name"], p["run"]) for p in parts() if p["name"].startswith("hooks"))
+        self.assertEqual(got, hook_parts())
+        self.assertGreater(len(got), 1, "one part per hook, not one part for all")
+        self.assertNotIn("hooks", [p["name"] for p in parts()], "no part runs every hook test")
+        names = {h.name for h in HOOKS.glob("*.sh")}
+        orphans = sorted(t for t in names if t.startswith("test-") and t[len("test-"):] not in names)
+        self.assertEqual(orphans, [], "a hook test with no hook is run by no part")
 
     def test_progress_is_ignored_by_git(self):
         p = subprocess.run(["git", "-C", str(ROOT), "check-ignore", "-q", ".progress/check.json"])

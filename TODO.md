@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (47 open, 42 closed in todo-history.json; seal 6556678e8933): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (46 open, 43 closed in todo-history.json; seal 8d78139e9cd2): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -34,7 +34,7 @@
   · work: code
   · size: S
   · done when: the hooks part finishes inside its budget in a full ./dev.sh check, or is split so no one part runs every hook test
-  · handoff: not started: 2026-10-20 dispatch stopped at the primary-context check. Tree held another session's uncommitted work: td-67 (closed in store) code never committed: README.md, devtools/mutants.json, tests/test_practices.py (mtime 00:58-00:59, after HEAD 215a0f9 00:51); .claude/settings.json (Oct 18) registering git-funnel.sh and store-guard.sh. A fix here touches check.parts.json, dev.sh cmd_hooks, tests/test_parts_file.py and devtools/mutants.json (overlap). next: commit or route that work, then split the hooks part per .claude/hooks/test-*.sh in check.parts.json; verify with a full ./dev.sh check reading the hooks parts' seconds (2026-10-20, at 215a0f9)
+  · handoff: done: split the hooks gate into one check part per hook (hooks.NAME runs ./dev.sh hooks NAME.sh), dev.sh cmd_hooks takes hook names, gated by tests/test_parts_file.py + tests/test_hooks_gate.py + 3 mutants (all red). next: full ./dev.sh check, read the hooks.* parts' seconds, close. verify: ./dev.sh check; every hooks.* part ok inside 900s (2026-10-20, at d908806)
   · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
   · added: 2026-10-20
 
@@ -203,15 +203,6 @@
   tools/todo .gitignore names todo.db to keep git off it; accessor counts it; worked around with an exclude in checks.json, held by tests/test_audit.py
   · reported to: checks on 2026-10-19 (no counterpart yet)
   · added: 2026-10-19
-
-- **td-89 · not_exported lists all eight todo store entries, not the two PLAN-services.md §3 names**
-  tl-502, 2026-10-20: PLAN-services.md §3 (td-29 answer) says todo's stores are todo.json and todo-history.json and cli.json lists 'them' under not_exported. cli.json's store has eight entries (todo-records.json, and todo.db with its four jsonl exports from 47445fc). Listing only the two left ./dev.sh checks FAIL stores-exported: 'declares no verify verb (entries: todo-records.json, todo.db, todo.meta.jsonl, todo.items.jsonl, todo.history.jsonl, todo.records.jsonl)'. Listing all eight, each with a why naming §4 step 10.1, gave 'checks: 12 ok, 3 unchecked'. Applied all eight under not-exported-now. The plan's owner, the top level (claudeTest), should confirm, or amend §3's sentence to match.
-  · reported to: claudeTest on 2026-10-20 as tl-503
-  · work: docs
-  · size: S
-  · files: cli.json
-  · done when: PLAN-services.md §3 names every entry cli.json lists under not_exported, or the top level's owner says which to drop
-  · added: 2026-10-20
 
 ## Interim rules
 
