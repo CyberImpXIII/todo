@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (46 open, 43 closed in todo-history.json; seal 8d78139e9cd2): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (46 open, 44 closed in todo-history.json; seal 13383a657923): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -27,16 +27,6 @@
   the render header is fixed text; on todo.db the data comes from todo.db
   · work: code
   · added: 2026-10-19
-
-- **td-82 · The hooks part timed out (900s, no output) in a full ./dev.sh check under load; alone it passes in 319s**
-  2026-10-20 (td-59), ./dev.sh check: 49 of 51 passed; hooks ERROR timeout after 900s, no output. ./dev.sh test hooks alone: ok (319s). Each .claude/hooks/test-*.sh timed alone: test-store-guard.sh 123s (152 cases), test-no-secrets.sh 72s, the rest 11-50s, all exit 0. Conclusion (unverified): the parts run in parallel on a loaded machine and the hooks part, its tests run one after another, overruns the runner's 900s budget; nothing hangs.
-  · probe: run ./dev.sh check on an idle machine and read the hooks part's seconds; or split the hooks part per test file
-  · work: code
-  · size: S
-  · done when: the hooks part finishes inside its budget in a full ./dev.sh check, or is split so no one part runs every hook test
-  · handoff: done: split the hooks gate into one check part per hook (hooks.NAME runs ./dev.sh hooks NAME.sh), dev.sh cmd_hooks takes hook names, gated by tests/test_parts_file.py + tests/test_hooks_gate.py + 3 mutants (all red). next: full ./dev.sh check, read the hooks.* parts' seconds, close. verify: ./dev.sh check; every hooks.* part ok inside 900s (2026-10-20, at d908806)
-  · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
-  · added: 2026-10-20
 
 - **td-85 · the TODO.md renders are not declared as cli.json renders, so any subagent can write them -- input...**
   reported from tools/research to tools/todo in dispatch toolu_01UN1CyFQG8Z7QD9MeEmRrBq, filed from the dispatch ledger by the delegation layer's report filer: the TODO.md renders are not declared as cli.json renders, so any subagent can write them -- input: ownership_probe.py, render rows, persona "other" -- expected: enforced (G4; the same for the delegation layer's agent files). Reworded 2026-10-20 (tl-502): the filed text named a roster agent and the delegation layer's folder, which this repo's audit refuses
@@ -117,6 +107,15 @@
 - **td-84 · suspicion: a report item naming the delegation layer's own store would turn the direction audit red, since that store's repo name is also on devtools/audit.json's roster_names list**
   2026-10-20, confirmed in another form: td-85, filed into this store by the delegation layer's report filer during this session's ./dev.sh check, quotes a roster name and the delegation layer's agents folder, and turned the audit part red (audit FAIL at TODO.md:40 and todo.json:1568), which also made test.dev's two CheckJson tests and two mutant baselines red. Reported to that layer's owner in the td-67 report; td-85 left as filed.
   · probe: in a scratch copy, add a report item whose --reported-to is the repo name in the top-level .claude store's header, then run python3 devtools/audit.py there; red means repo names and the roster list collide
+  · added: 2026-10-20
+
+- **td-90 · Uncommitted td-67 test, mutants and README text, and a settings.json registering two hooks, sit in the tree with no owner**
+  2026-10-20: tree holds uncommitted work no session committed: td-67 (closed in store) README.md hunk at line 206, two mutants practices-unchecked-*-not-exit-3 in devtools/mutants.json, tests/test_practices.py test_an_unchecked_block_leaves_the_exit_code_alone (mtime 00:58-00:59); .claude/settings.json (Oct 18) registering git-funnel.sh and store-guard.sh. Left untouched by td-82's dispatch (commits 6dc62a4, 21bb4df staged around them); the full ./dev.sh check passed 62 of 62 with them in the tree.
+  · probe: ask the session or Jacob whether to commit them; settings.json is Jacob's to copy
+  · work: code
+  · size: S
+  · files: README.md, devtools/mutants.json, tests/test_practices.py, .claude/settings.json
+  · done when: the td-67 files are committed or dropped, and Jacob says whether settings.json's two registrations go in
   · added: 2026-10-20
 
 ## Reported to other owners

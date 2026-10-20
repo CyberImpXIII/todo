@@ -1200,7 +1200,52 @@
       "done": "2026-10-20",
       "resolution": "answered from PLAN-services.md §3, planner 2026-10-20 (Jacob, relay line 300): cli.json's eight entries stand; step 10.1 removes them with verify --json; tl-503 closed by the planner",
       "imported": null
+    },
+    {
+      "id": "td-82",
+      "title": "The hooks part timed out (900s, no output) in a full ./dev.sh check under load; alone it passes in 319s",
+      "kind": "bug",
+      "status": "done",
+      "evidence": "2026-10-20 (td-59), ./dev.sh check: 49 of 51 passed; hooks ERROR timeout after 900s, no output. ./dev.sh test hooks alone: ok (319s). Each .claude/hooks/test-*.sh timed alone: test-store-guard.sh 123s (152 cases), test-no-secrets.sh 72s, the rest 11-50s, all exit 0. Conclusion (unverified): the parts run in parallel on a loaded machine and the hooks part, its tests run one after another, overruns the runner's 900s budget; nothing hangs.",
+      "probe": "run ./dev.sh check on an idle machine and read the hooks part's seconds; or split the hooks part per test file",
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "waits_on": null,
+      "pointer": null,
+      "hinges_on": null,
+      "recommend": null,
+      "options": null,
+      "chosen": null,
+      "jacob_words": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "S",
+      "files": null,
+      "research": null,
+      "done_when": "the hooks part finishes inside its budget in a full ./dev.sh check, or is split so no one part runs every hook test",
+      "done_check": null,
+      "handoff": {
+        "date": "2026-10-20",
+        "text": "done: split the hooks gate into one check part per hook (hooks.NAME runs ./dev.sh hooks NAME.sh), dev.sh cmd_hooks takes hook names, gated by tests/test_parts_file.py + tests/test_hooks_gate.py + 3 mutants (all red). next: full ./dev.sh check, read the hooks.* parts' seconds, close. verify: ./dev.sh check; every hooks.* part ok inside 900s",
+        "commit": "d908806"
+      },
+      "approved": {
+        "by": "jacob",
+        "date": "2026-10-20",
+        "source": "Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284"
+      },
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "detector": null,
+      "plan_step": null,
+      "added": "2026-10-20",
+      "done": "2026-10-20",
+      "resolution": "fixed 6dc62a4: the hooks gate is one check part per hook (hooks.NAME, ./dev.sh hooks NAME.sh). Full ./dev.sh check 2026-10-20: 62 of 62 passed, hooks.* parts 2-31s each (store-guard 31s), ~120s in all. The evidence's 'parts run in parallel' was wrong: devtools/parts.py runs parts one after another; the 900s overrun was the one part's serial chain on a loaded machine",
+      "imported": null
     }
   ],
-  "seal": "1525432867dcd027"
+  "seal": "9c24f22dde0117a4"
 }
