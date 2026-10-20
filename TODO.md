@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (42 open, 39 closed in todo-history.json; seal a077eb33f169): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (43 open, 39 closed in todo-history.json; seal be34cca5fa22): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -27,6 +27,14 @@
   the render header is fixed text; on todo.db the data comes from todo.db
   · work: code
   · added: 2026-10-19
+
+- **td-82 · The hooks part timed out (900s, no output) in a full ./dev.sh check under load; alone it passes in 319s**
+  2026-10-20 (td-59), ./dev.sh check: 49 of 51 passed; hooks ERROR timeout after 900s, no output. ./dev.sh test hooks alone: ok (319s). Each .claude/hooks/test-*.sh timed alone: test-store-guard.sh 123s (152 cases), test-no-secrets.sh 72s, the rest 11-50s, all exit 0. Conclusion (unverified): the parts run in parallel on a loaded machine and the hooks part, its tests run one after another, overruns the runner's 900s budget; nothing hangs.
+  · probe: run ./dev.sh check on an idle machine and read the hooks part's seconds; or split the hooks part per test file
+  · work: code
+  · size: S
+  · done when: the hooks part finishes inside its budget in a full ./dev.sh check, or is split so no one part runs every hook test
+  · added: 2026-10-20
 
 ## Open decisions
 
@@ -236,9 +244,12 @@
 - **td-59 · Readers of the JSON stores move to the CLI or the exports before the switch**
   2026-10-18, todo migrate --readers: 95 lines in 30 files outside this tool name todo.json, todo-history.json or todo-records.json (income, knowledge-base, the job importer's scripts, tools/checks, context-hygiene, hooks, setup, usage, wizard); hidden folders are not read, so the .claude layer's readers (dispatch-guard, report-filer, offload, todo-writes, temp-rules) are listed by their owner, not here. Each was reported to its owner in the tl-268 handoff. (2026-10-19: the importer's folder name is now a roster name, which the direction audit refuses here, so it is described.)
   2026-10-19 (tl-383), todo migrate --readers --root <workspace>: 109 lines in 34 files, 1366 files read, 4 skipped (over 2 MB: two wheels in addon-bench, emailTools/bandcamp_digest.html, knowledge-base/data/kb.sqlite). By repo: tools/checks 46 (checkslib/todocheck.py:21 STORE, source/no-roster.py:44 TODO_STORE, todo-store.py, todo-valid.py, fixtures, tests), income 21 (devtools/ask.py:145 opens todo.json; tests test_ask, test_refs, test_wizard; check.parts.json excepts), tools/hooks 16 (lib/extra-stores.sh:33-34 store list, store-guard.sh and its test), tools/hub 9 (devtools/hubcheck.py:48 REQUIRED, tests/test_hubcheck.py), tools/wizard 6 (wizardlib/stores.py:193 opens todo.json, tests/helpers.py:217), scripts 4 (check.parts.json:41, dev.sh, test_parts_file.py:49), tools/context-hygiene 3 and knowledge-base 2 (excludes), tools/usage 1 (a test asserting absence), tools/setup 1 (fake_todo message). Direct opens: income ask.py, wizard stores.py and helpers.py, income tests; the rest are presence checks, guard lists, excludes and fixtures. Hidden layer not read. Not empty, so no store is converted (PLAN-todo-tool.md §10.6: switch only once the list is empty).
+  2026-10-20: todo list --json (beff5a9) is the CLI read the direct openers move to: `todo -C DIR list --json [--status S]`, rows {id, local_id, store, record}, each record the item whole, the same document before and after todo migrate (tests/test_list_json.py). Rescan (todo --root <workspace> migrate --readers): still 109 lines in 34 files, so nothing moved yet. Owner items: tl-293..tl-302 and kb-63 in the top-level store; tools/hub (devtools/hubcheck.py:48 REQUIRED lists todo.json, todo-history.json) has none, reported in this handoff.
   · work: outreach
   · size: M
   · done when: todo migrate --readers lists no reader that opens a JSON store directly (excludes and fixtures aside), and each owner's item is closed
+  · handoff: done: todo list --json (beff5a9, pushed) gives readers the open items on either backing; next: income ask.py load_items and wizard stores.py items()/tests helpers.py store_items move to `todo -C DIR list --json`, hub drops todo.json from REQUIRED, then rescan; verify: todo --root <workspace> migrate --readers lists no direct open (2026-10-20, at beff5a9)
+  · approved: jacob 2026-10-19: Jacob 2026-10-19 via auto-relay line 213 (origin jacob)
   · tags: plan:PLAN-todo-tool.md§10.6
   · added: 2026-10-18
 
