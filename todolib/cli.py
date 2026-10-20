@@ -854,8 +854,11 @@ def cmd_list(args):
         cited = syncplans.citation(args.cites)
         if cited is None:
             raise TodoError(f"--cites {args.cites!r}: FILE §n or FILE, e.g. 'PLAN-x.md §3'")
-    scope = ws.stores if (args.all or args.repo or cited) else [store]
-    n = 0
+    many = bool(args.all or args.repo or cited)
+    scope = ws.stores if many else [store]
+    # td-59: the one way a reader outside this tool gets the open items as data, on
+    # either backing (the JSON files or todo.db), so none opens todo.json itself.
+    view = {"root": str(ws.root), "items": [], "unreadable": list(ws.errors) if many else []}
     for s in scope:
         for it in s.items:
             if cited and not syncplans.cites(it, *cited):
@@ -870,10 +873,21 @@ def cmd_list(args):
                 continue
             if (args.ready or args.blocked) and bool(deps.open_blockers(ws, it)) != args.blocked:
                 continue
-            print(one_line(it))
-            n += 1
-    if n == 0:
-        print("(no open items match)")
+            view["items"].append({"id": tagging.global_id(it["id"]), "local_id": it["id"], "store": str(s.dir),
+                                  "record": it})
+    view["count"] = len(view["items"])
+    if args.json:
+        print(json.dumps(view, indent=1, ensure_ascii=False))
+    else:
+        for row in view["items"]:
+            print(one_line(row["record"]))
+        if not view["items"]:
+            print("(no open items match)")
+        for e in view["unreadable"]:
+            print(f"UNREADABLE  {e}")
+    if view["unreadable"]:
+        print("todo: UNCHECKED: a store could not be read, so the list may be missing its items", file=sys.stderr)
+        sys.exit(3)
 
 
 def cmd_show(args):
@@ -2172,6 +2186,9 @@ def build_parser():
     ps["list"].add_argument("--cites", metavar="'FILE §n'",
                             help="only items citing that plan section or one inside it (a plan: tag, a step's "
                                  "plan_step, a decision's pointer), in every scanned store; FILE alone cites any")
+    ps["list"].add_argument("--json", action="store_true",
+                            help="one document: {root, items, unreadable, count}, each item {id, local_id, store, "
+                                 "record}, the record whole")
     ps["show"].add_argument("id")
     ps["render"].add_argument("--all", action="store_true")
     ps["render"].add_argument("--history", action="store_true")

@@ -24,6 +24,7 @@
   {"name": "test.dev", "run": "python3 -m unittest tests.test_dev", "files": ["tests/test_dev.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.dispatch", "run": "python3 -m unittest tests.test_dispatch", "files": ["tests/test_dispatch.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.ready", "run": "python3 -m unittest tests.test_ready", "files": ["tests/test_ready.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.list_json", "run": "python3 -m unittest tests.test_list_json", "files": ["tests/test_list_json.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.docs", "run": "python3 -m unittest tests.test_docs", "files": ["tests/test_docs.py"], "except": ["tests/", "TODO.md"],
    "always": "reads PLAN-todo-tool.md in the workspace"},
   {"name": "test.edit", "run": "python3 -m unittest tests.test_edit", "files": ["tests/test_edit.py"], "except": ["tests/", "TODO.md"]},
