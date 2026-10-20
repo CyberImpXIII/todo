@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (43 open, 39 closed in todo-history.json; seal be34cca5fa22): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (47 open, 42 closed in todo-history.json; seal 6556678e8933): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -34,6 +34,28 @@
   · work: code
   · size: S
   · done when: the hooks part finishes inside its budget in a full ./dev.sh check, or is split so no one part runs every hook test
+  · handoff: not started: 2026-10-20 dispatch stopped at the primary-context check. Tree held another session's uncommitted work: td-67 (closed in store) code never committed: README.md, devtools/mutants.json, tests/test_practices.py (mtime 00:58-00:59, after HEAD 215a0f9 00:51); .claude/settings.json (Oct 18) registering git-funnel.sh and store-guard.sh. A fix here touches check.parts.json, dev.sh cmd_hooks, tests/test_parts_file.py and devtools/mutants.json (overlap). next: commit or route that work, then split the hooks part per .claude/hooks/test-*.sh in check.parts.json; verify with a full ./dev.sh check reading the hooks parts' seconds (2026-10-20, at 215a0f9)
+  · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
+  · added: 2026-10-20
+
+- **td-85 · the TODO.md renders are not declared as cli.json renders, so any subagent can write them -- input...**
+  reported from tools/research to tools/todo in dispatch toolu_01UN1CyFQG8Z7QD9MeEmRrBq, filed from the dispatch ledger by the delegation layer's report filer: the TODO.md renders are not declared as cli.json renders, so any subagent can write them -- input: ownership_probe.py, render rows, persona "other" -- expected: enforced (G4; the same for the delegation layer's agent files). Reworded 2026-10-20 (tl-502): the filed text named a roster agent and the delegation layer's folder, which this repo's audit refuses
+  · parent: tl-476
+  · added: 2026-10-20
+
+- **td-86 · td-9 can close (su-74 done); tools/todo/tests/test_mutate.py tests the rendered copy, a subset of...**
+  reported from tools/setup to tools/todo in dispatch toolu_01EBMeUPeGmdDova1f6umY6W, filed from the dispatch ledger by the delegation layer's report filer: td-9 can close (su-74 done); tools/todo/tests/test_mutate.py tests the rendered copy, a subset of setup's tests/test_mutate.py; .mutants/run-z9ahy1dy (Oct 13, 288 dirs) is left over -- input: `./setup todo --only mutate --dry-run` -- expected: todo deletes the duplicate test and the leftover run
+  · parent: tl-477
+  · added: 2026-10-20
+
+- **td-87 · the brief's iterate rule (vocab.json) says `./dev.sh test <part>` runs one part; in tools/setup i...**
+  reported from tools/setup to tools/todo in dispatch toolu_01EBMeUPeGmdDova1f6umY6W, filed from the dispatch ledger by the delegation layer's report filer: the brief's iterate rule (vocab.json) says `./dev.sh test <part>` runs one part; in tools/setup it ran the whole suite -- input: `./dev.sh test test.mutate_component` -- expected: the rule names `./dev.sh check --only <part>`
+  · parent: tl-478
+  · added: 2026-10-20
+
+- **td-88 · §10 step 2 needs a `todo resolve <id>...` command that takes many ids -- input: dispatch-section....**
+  reported from .claude to tools/todo in dispatch toolu_01GyQX8T9jq49RnqsSutbtXV, filed from the dispatch ledger by the delegation layer's report filer: §10 step 2 needs a `todo resolve <id>...` command that takes many ids -- input: dispatch-section.sh resolving every todo: pointer of one message -- expected: one call that resolves them all.
+  · parent: tl-487
   · added: 2026-10-20
 
 ## Open decisions
@@ -48,30 +70,10 @@
   · done when: ./dev.sh hooks prints 'registered'
   · added: 2026-10-04
 
-- **td-29 · cli.json declares the stores, so tools/checks' stores-exported now wants a verify verb**
-  ./dev.sh check, 2026-10-09, after cli.json was added for the seal (PLAN-todo-tool.md §9): checks gate FAIL stores-exported: 'cli.json: declares no `verify` verb: nothing shows the store's export is current'. That check (tools/checks source/stores-exported.py, PLAN-repo-setup.md §7.11) runs `todo verify --json` against an export in DATA_REPO. This tool has no export and no plan for one; the brief did not ask for it. Hinges on: whether todo stores get an export in the data repo at all (the top level's owner decides), and then `todo export` + `todo verify --json` per schema/verify.schema.json.
-  2026-10-15: still red in ./dev.sh check (stores-exported: cli.json declares no verify verb; 'a private one goes in not_exported with why'). tools/checks now offers the not_exported opt-out, so the choice is export or opt out; PLAN-repo-setup.md §7.11 (Jacob, 2026-10-05) does not say whether todo stores are exported. Waits on that answer.
-  · status: waiting-jacob
-  · waits on: decision:PLAN-repo-setup.md §7.11
-  · work: decision
-  · size: S
-  · done when: the checks gate's stores-exported is ok for this repo: either cli.json lists todo.json and todo-history.json under not_exported with why, or todo export and todo verify --json exist per tools/checks schema/verify.schema.json
-  · added: 2026-10-09
-
 - **td-44 · report fallback leaves a foreign TODO.md uncommitted, in tension with S2**
   e0f6e71: todo report --to a storeless repo appends a bullet to that repo's TODO.md and does not commit it (another owner's tree). PLAN-architecture.md §11 S2 reads a foreign uncommitted file as someone mid-task. Options: commit it there in the same run (S2's renderer rule), or leave it for the owner (now). Also unguarded: a read-modify-write race with the owner editing that TODO.md at the same moment.
   · tags: plan:PLAN-architecture.md§11
   · added: 2026-10-15
-
-- **td-79 · On todo.db, after a git pull the exports are newer than todo.db: rebuild it from them, or refuse as stale**
-  · status: waiting-jacob
-  · waits on: approval
-  · pointer: PLAN-services.md §4
-  · hinges on: whether a pull that brings newer exports should silently replace a local todo.db
-  · recommend: rebuild
-  · options: rebuild = todo.db is rebuilt from the exports when they are newer and sealed; fail = every command fails as stale until todo.db is deleted
-  · work: decision
-  · added: 2026-10-19
 
 ## Unconfirmed suspicions
 
@@ -111,6 +113,11 @@
   · probe: a store with todo.json and pulled exports but no todo.db: run todo migrate, compare the exports before and after
   · work: test
   · added: 2026-10-19
+
+- **td-84 · suspicion: a report item naming the delegation layer's own store would turn the direction audit red, since that store's repo name is also on devtools/audit.json's roster_names list**
+  2026-10-20, confirmed in another form: td-85, filed into this store by the delegation layer's report filer during this session's ./dev.sh check, quotes a roster name and the delegation layer's agents folder, and turned the audit part red (audit FAIL at TODO.md:40 and todo.json:1568), which also made test.dev's two CheckJson tests and two mutant baselines red. Reported to that layer's owner in the td-67 report; td-85 left as filed.
+  · probe: in a scratch copy, add a report item whose --reported-to is the repo name in the top-level .claude store's header, then run python3 devtools/audit.py there; red means repo names and the roster list collide
+  · added: 2026-10-20
 
 ## Reported to other owners
 
@@ -152,7 +159,7 @@
   · reported to: checks on 2026-10-09 (no counterpart yet)
   · work: decision
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-19 (sha256 bf080ba6bc04)
+  · plan pins: PLAN-services.md§3 as of 2026-10-20 (sha256 aafcbd1fba01)
   · added: 2026-10-09
 
 - **td-36 · checks gate: hooks-installed reports drift on four installed .claude/ files**
@@ -170,7 +177,7 @@
   · work: code
   · done when: tools/checks serves the shared tag vocabulary (the seven namespaces and their closed values) by a verb or file todolib can read
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-19 (sha256 bf080ba6bc04)
+  · plan pins: PLAN-services.md§3 as of 2026-10-20 (sha256 aafcbd1fba01)
   · added: 2026-10-15
 
 - **td-43 · parts.py exits 0 when a part only said UNCHECKED (exit 3); dev.sh turns it into 3 itself**
@@ -197,6 +204,15 @@
   · reported to: checks on 2026-10-19 (no counterpart yet)
   · added: 2026-10-19
 
+- **td-89 · not_exported lists all eight todo store entries, not the two PLAN-services.md §3 names**
+  tl-502, 2026-10-20: PLAN-services.md §3 (td-29 answer) says todo's stores are todo.json and todo-history.json and cli.json lists 'them' under not_exported. cli.json's store has eight entries (todo-records.json, and todo.db with its four jsonl exports from 47445fc). Listing only the two left ./dev.sh checks FAIL stores-exported: 'declares no verify verb (entries: todo-records.json, todo.db, todo.meta.jsonl, todo.items.jsonl, todo.history.jsonl, todo.records.jsonl)'. Listing all eight, each with a why naming §4 step 10.1, gave 'checks: 12 ok, 3 unchecked'. Applied all eight under not-exported-now. The plan's owner, the top level (claudeTest), should confirm, or amend §3's sentence to match.
+  · reported to: claudeTest on 2026-10-20 as tl-503
+  · work: docs
+  · size: S
+  · files: cli.json
+  · done when: PLAN-services.md §3 names every entry cli.json lists under not_exported, or the top level's owner says which to drop
+  · added: 2026-10-20
+
 ## Interim rules
 
 - **td-24 · The tag table in vocab.json is a local copy; read it from the architecture service once it exists**
@@ -211,7 +227,7 @@
   · done when: todolib reads the shared tag vocabulary from the architecture service (S3) instead of vocab.json tags.shared, and tests/test_tags.py Vocabulary compares against S3, not the plan
   · retire: the architecture service (S3) serves the shared vocabulary and todolib reads it from there; tests/test_tags.py Vocabulary then compares against S3, not the plan
   · tags: plan:PLAN-services.md§3
-  · plan pins: PLAN-services.md§3 as of 2026-10-19 (sha256 bf080ba6bc04)
+  · plan pins: PLAN-services.md§3 as of 2026-10-20 (sha256 aafcbd1fba01)
   · added: 2026-10-09
 
 - **td-54 · Nothing runs `todo detect` on a schedule yet**
@@ -249,7 +265,7 @@
   · size: M
   · done when: todo migrate --readers lists no reader that opens a JSON store directly (excludes and fixtures aside), and each owner's item is closed
   · handoff: done: todo list --json (beff5a9, pushed) gives readers the open items on either backing; next: income ask.py load_items and wizard stores.py items()/tests helpers.py store_items move to `todo -C DIR list --json`, hub drops todo.json from REQUIRED, then rescan; verify: todo --root <workspace> migrate --readers lists no direct open (2026-10-20, at beff5a9)
-  · approved: jacob 2026-10-19: Jacob 2026-10-19 via auto-relay line 213 (origin jacob)
+  · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
   · tags: plan:PLAN-todo-tool.md§10.6
   · added: 2026-10-18
 
@@ -265,13 +281,7 @@
   · work: code
   · size: S
   · done when: practices.rows calls a checks verb that prints the rows without a run, and tests/test_practices.py passes
-  · added: 2026-10-19
-
-- **td-67 · todo brief exit code ignores an UNCHECKED practices block**
-  tl-311: by design for now, a brief whose practices block is UNCHECKED (no checks CLI, invalid registry) still exits 0 or 1 as before; README Practices in the brief says so. Open: should it be exit 3 like other UNCHECKED reads? Hinges on whether dispatch should refuse such a brief.
-  · work: code
-  · size: S
-  · done when: a decision recorded: exit 3, or 0 kept with the reason in README
+  · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
   · added: 2026-10-19
 
 - **td-68 · PLAN-architecture.md §9 step 10.3: your services.json registry draft is in RESEARCH-registry-drafts.md, section `tools/todo`; write it in, then checks one registered**
@@ -301,3 +311,7 @@
 - **td-81 · PLAN-routing-tree.md §25 says todo ready lists only approved items; it lists approved and unapproved alike**
   2026-10-19 (tl-404, e421281): §25 'A cron prompt is never Jacob's' says todo ready lists only items already approved and unblocked; ready has never filtered on approval (todo dispatchable does). ready --json now carries approved/by_rule/dispatched per row, and tests/test_ready.py holds rows with approved set and dispatched null equal to dispatchable --json's ids. On the workspace store ready --json counted 39. Relayed in the tl-404 dispatch report to the release job's owner: count N from dispatchable --json, or filter ready rows on approved and not dispatched.
   · added: 2026-10-19
+
+- **td-83 · td-67's README reason rests on the dispatch guard reading brief exit codes other than 0/1 as 'todo could not answer'; nothing here can gate it**
+  Read .claude/hooks/dispatch-guard.sh lines 309-320 on 2026-10-20: rc 0 holds the prompt to the brief text, rc 1 with NOT READY or a todo: error blocks, any other rc falls back to brief_grammar. This repo reads no delegation-layer file (audit), so the README sentence can go stale unseen; asked that layer's owner (via the td-67 report) to pin it in its own dispatch-guard test.
+  · added: 2026-10-20

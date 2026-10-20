@@ -1,6 +1,16 @@
 {
   "store": ["todo.json", "todo-history.json", "todo-records.json",
             "todo.db", "todo.meta.jsonl", "todo.items.jsonl", "todo.history.jsonl", "todo.records.jsonl"],
+  "not_exported": {
+    "todo.json": "not exported now (Jacob 2026-10-20, dt-36 row 12, not-exported-now; td-29): committed JSON that git holds, so no export to the data repo is verified today. PLAN-services.md §4 step 10.1 (the move to todo.db) adds `verify --json` and removes this not_exported in the same change",
+    "todo-history.json": "not exported now (Jacob 2026-10-20, dt-36 row 12, not-exported-now; td-29): committed JSON that git holds, so no export to the data repo is verified today. PLAN-services.md §4 step 10.1 (the move to todo.db) adds `verify --json` and removes this not_exported in the same change",
+    "todo-records.json": "not exported now (Jacob 2026-10-20, dt-36 row 12, not-exported-now; td-29): committed JSON that git holds, so no export to the data repo is verified today. PLAN-services.md §4 step 10.1 (the move to todo.db) adds `verify --json` and removes this not_exported in the same change",
+    "todo.db": "not exported now (dt-36 row 12, not-exported-now): no repo has moved to todo.db yet (`todo migrate` has moved none), so there is nothing to export. PLAN-services.md §4 step 10.1 adds `verify --json` and removes this not_exported in the same change",
+    "todo.meta.jsonl": "not exported now (dt-36 row 12, not-exported-now): an export of todo.db, which no repo has yet. PLAN-services.md §4 step 10.1 adds `verify --json` and removes this not_exported in the same change",
+    "todo.items.jsonl": "not exported now (dt-36 row 12, not-exported-now): an export of todo.db, which no repo has yet. PLAN-services.md §4 step 10.1 adds `verify --json` and removes this not_exported in the same change",
+    "todo.history.jsonl": "not exported now (dt-36 row 12, not-exported-now): an export of todo.db, which no repo has yet. PLAN-services.md §4 step 10.1 adds `verify --json` and removes this not_exported in the same change",
+    "todo.records.jsonl": "not exported now (dt-36 row 12, not-exported-now): an export of todo.db, which no repo has yet. PLAN-services.md §4 step 10.1 adds `verify --json` and removes this not_exported in the same change"
+  },
   "cli": "todo",
   "verbs": ["init", "add", "edit", "done", "report", "list", "show", "render", "tree", "check", "import", "repos",
             "ready", "brief", "history", "get", "find", "refs", "split", "reseal", "approve", "dispatch", "dispatchable", "blockers", "stale-plans", "steps",
