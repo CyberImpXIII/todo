@@ -13,7 +13,9 @@
   ],
   "accepted": [
     {"file": "todo-history.json", "line": "\"resolution\": \"stale: checked 2026-10-15: every store in the scan (top level, income, context-hygiene, todo) is format 2 and sealed; store-guard's .claude/lib/extra-stores.sh holds todo.json and todo-history.json at any repo root without a cli.json declaring them (tools/hooks b7a8c6b)\",",
-     "why": "td-28's resolution (fd52be9) names the installed copy's path, which this repo carries under .claude/lib/ (skipped above), not a read of the delegation layer; history is append-only, so the line stays (2026-10-15)"}
+     "why": "td-28's resolution (fd52be9) names the installed copy's path, which this repo carries under .claude/lib/ (skipped above), not a read of the delegation layer; history is append-only, so the line stays (2026-10-15)"},
+    {"file": "todo-history.json", "line": "\"resolution\": \"answered from PLAN-services.md §3, planner 2026-10-20 (Jacob, relay line 300): cli.json's eight entries stand; step 10.1 removes them with verify --json; tl-503 closed by the planner\",",
+     "why": "td-89's resolution (6dc62a4), text given verbatim by the dispatch, names the roster agent that relayed Jacob's answer; committed and pushed before the audit ran, and history is append-only, so the line stays (2026-10-20)"}
   ],
   "_accepted": "single lines that hit a term and cannot be changed (an append-only history entry): file and exact stripped text; audit.py fails an entry that matches no line, or a line that hits no term",
   "roster_names": ["dispatcher", "planner", "harness", "deep-work", "email-tools", "job-import-scripts", "cron-scheduler"]

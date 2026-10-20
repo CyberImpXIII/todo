@@ -874,8 +874,9 @@ audit's own terms and planted violations. `tests/test_audit.py` holds every
 exclusion there to a file that exists and that `devtools/audit.py` skips too, so
 `checks.json` never widens the exemptions beyond the ones `audit.json` documents.
 `accepted` in `audit.json` exempts single lines that hit a term and cannot change,
-each by file and exact text with its reason: today one append-only history entry
-(td-28's resolution names the installed `lib/extra-stores.sh`). An entry whose line
+each by file and exact text with its reason: today two append-only history entries
+(td-28's resolution names the installed `lib/extra-stores.sh`; td-89's names the
+roster agent that relayed Jacob's answer). An entry whose line
 is gone, or whose line hits no term, fails the audit (mutants `audit-*`).
 
 The `checks` gate (td-12) runs `checks run . --json --names <roster_names from

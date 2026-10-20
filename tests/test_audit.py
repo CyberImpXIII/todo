@@ -112,21 +112,25 @@ class Direction(unittest.TestCase):
         accepted = json.loads((ROOT / "devtools" / "audit.json").read_text())["accepted"]
         self.assertTrue(accepted)
         for a in accepted:
-            with self.subTest(a["file"]):
+            with self.subTest(a["file"], line=a["line"][:40]):
                 self.assertTrue(a["why"])
                 line = a["line"]
-                self.write(a["file"], f"  {line}\n")
+                # the file's other accepted lines stay present, so only this entry is judged
+                rest = "".join(f"  {b['line']}\n" for b in accepted if b["file"] == a["file"] and b is not a)
+                self.write(a["file"], f"{rest}  {line}\n")
                 self.assertEqual(audit.audit(self.root)[0], [])
-                self.write(a["file"], f"  {line}\n  open('.claude/agents/x')\n")
+                self.write(a["file"], f"{rest}  {line}\n  open('.claude/agents/x')\n")
                 self.assertEqual(len(audit.audit(self.root)[0]), 1)
                 self.write("other.json", f"  {line}\n")
-                self.write(a["file"], f"  {line}\n")
+                self.write(a["file"], f"{rest}  {line}\n")
                 self.assertEqual([h.split()[2].rsplit(":", 2)[0] for h in audit.audit(self.root)[0]], ["other.json"])
                 (self.root / "other.json").unlink()
-                self.write(a["file"], "nothing here\n")
+                self.write(a["file"], f"{rest}nothing here\n")
                 hits = audit.audit(self.root)[0]
                 self.assertEqual(len(hits), 1)
                 self.assertIn("stale exemption", hits[0])
+        for a in accepted:  # the planted config below accepts none of these lines
+            (self.root / a["file"]).unlink(missing_ok=True)
         # an entry whose line hits no term: audit.json is the real one, so plant a config
         cfg = json.loads((ROOT / "devtools" / "audit.json").read_text())
         clean = "a line with no term in it"
