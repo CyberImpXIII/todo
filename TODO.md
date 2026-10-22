@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (46 open, 44 closed in todo-history.json; seal 13383a657923): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (50 open, 44 closed in todo-history.json; seal cf1f0bc6bb96): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -47,6 +47,28 @@
   reported from .claude to tools/todo in dispatch toolu_01GyQX8T9jq49RnqsSutbtXV, filed from the dispatch ledger by the delegation layer's report filer: §10 step 2 needs a `todo resolve <id>...` command that takes many ids -- input: dispatch-section.sh resolving every todo: pointer of one message -- expected: one call that resolves them all.
   · parent: tl-487
   · added: 2026-10-20
+
+- **td-91 · there is no CLI read for which dt-N row holds an item -- input: `todo -C /Users/Specter/Desktop/c...**
+  reported from .claude to tools/todo in dispatch toolu_01Nzpy2Hpfd9RyJ9kQ8hn1TB, filed from the dispatch ledger by the delegation layer's report filer: there is no CLI read for which dt-N row holds an item -- input: `todo -C /Users/Specter/Desktop/claudeTest get dt-36` gives exit 3 (UNCHECKED) -- expected: a verb (e.g. tl-461 resolve, or `get ID`) that returns that item's tabled rows as [{table,row}].
+  · parent: tl-536
+  · added: 2026-10-21
+
+- **td-92 · todo approve records Jacob's approval on a waiting-jacob item but leaves it waiting-jacob on approval, though the README's waits_on table says approve clears it**
+  2026-10-22: todo -C tools/context-hygiene approve ch-64 --source (his words of the day) wrote approved {jacob, 2026-10-22}; todo -C tools/context-hygiene get ch-64 then shows status waiting-jacob, waits_on approval, so parse and ready refuse it. README line 141 (waits_on table): approval is cleared by todo approve ID --source; line 67 (approve) says nothing of status; line 744: an imported approval makes a waiting-jacob item open. Either approve clears waits_on approval and opens the item, or the table is wrong
+  · probe: todo -C tools/context-hygiene get ch-64 | jq .record.status
+  · parent: tl-540
+  · added: 2026-10-22
+
+- **td-93 · todo decisions: the footer '<N> open decision(s) not tabled' reads as Jacob's backlog (he asked whether he must answer 150)**
+  dt-35 (2026-10-20): 16 rows plus '140 open decision(s) not tabled, lacking a field'. Jacob read 156 questions for him. The 140 are owners' open kind:decision items without pointer/hinges_on/recommend: tools/setup 55, income 29 (28 wizard questions asked at a terminal), claudeTest 23, knowledge-base 14, scripts 10, tools/todo 3, tools/hub 3, tools/context-hygiene 3; none is a question to him until an owner tables it
+  · parent: tl-493
+  · done when: the footer says whose the untabled items are and that none is a question for Jacob, e.g. '140 decision items in owners' stores lack row fields (setup 55, income 29, ...): not questions for you until tabled'; a test renders a store with one tabled and one untabled item and checks the wording
+  · added: 2026-10-22
+
+- **td-94 · `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/tod...**
+  reported from tools/research to tools/todo in dispatch toolu_019FsbVB8CsBmXLifZhcJL3k, filed from the dispatch ledger by the delegation layer's report filer: `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/todo -C /Users/Specter/Desktop/claudeTest history --json` -- expected: JSON (got exit 2, unrecognized arguments).
+  · parent: tl-559
+  · added: 2026-10-22
 
 ## Open decisions
 
@@ -268,9 +290,11 @@
 
 - **td-64 · Brief reads practice rows via a synthetic --from report; switch to a rows-only checks verb when one exists**
   tl-311: todolib/practices.py pipes {repos:[{rel:LOC,results:[]}]} to checks practices --json --from /dev/stdin and reads only .rows (a live run takes ~41 s). Reported to checks: no rows-only verb.
+  2026-10-22: still no rows-only verb: checks --help lists none; checks practices --row ID prints measured: live (a run); tools/checks HEAD 0be97db (2026-10-19) and its TODO.md hold no request for one. The synthetic --from read took 3 s and printed 53222 bytes, of which only .rows is read. Reported to checks again from this dispatch.
   · work: code
   · size: S
   · done when: practices.rows calls a checks verb that prints the rows without a run, and tests/test_practices.py passes
+  · handoff: done: nothing in code, blocked on tools/checks; next: when checks serves the rows by their own verb (e.g. checks practices --rows --json, no run, no cells), point practices.ARGS at it, drop the --from report, keep the UNCHECKED paths; verify: python3 -m unittest tests.test_practices and ./dev.sh check (2026-10-22, at 0bce7b4)
   · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
   · added: 2026-10-19
 
