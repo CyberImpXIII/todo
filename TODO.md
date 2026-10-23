@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (50 open, 44 closed in todo-history.json; seal cf1f0bc6bb96): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (52 open, 45 closed in todo-history.json; seal 742c8b6837bf): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -53,12 +53,6 @@
   · parent: tl-536
   · added: 2026-10-21
 
-- **td-92 · todo approve records Jacob's approval on a waiting-jacob item but leaves it waiting-jacob on approval, though the README's waits_on table says approve clears it**
-  2026-10-22: todo -C tools/context-hygiene approve ch-64 --source (his words of the day) wrote approved {jacob, 2026-10-22}; todo -C tools/context-hygiene get ch-64 then shows status waiting-jacob, waits_on approval, so parse and ready refuse it. README line 141 (waits_on table): approval is cleared by todo approve ID --source; line 67 (approve) says nothing of status; line 744: an imported approval makes a waiting-jacob item open. Either approve clears waits_on approval and opens the item, or the table is wrong
-  · probe: todo -C tools/context-hygiene get ch-64 | jq .record.status
-  · parent: tl-540
-  · added: 2026-10-22
-
 - **td-93 · todo decisions: the footer '<N> open decision(s) not tabled' reads as Jacob's backlog (he asked whether he must answer 150)**
   dt-35 (2026-10-20): 16 rows plus '140 open decision(s) not tabled, lacking a field'. Jacob read 156 questions for him. The 140 are owners' open kind:decision items without pointer/hinges_on/recommend: tools/setup 55, income 29 (28 wizard questions asked at a terminal), claudeTest 23, knowledge-base 14, scripts 10, tools/todo 3, tools/hub 3, tools/context-hygiene 3; none is a question to him until an owner tables it
   · parent: tl-493
@@ -68,6 +62,16 @@
 - **td-94 · `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/tod...**
   reported from tools/research to tools/todo in dispatch toolu_019FsbVB8CsBmXLifZhcJL3k, filed from the dispatch ledger by the delegation layer's report filer: `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/todo -C /Users/Specter/Desktop/claudeTest history --json` -- expected: JSON (got exit 2, unrecognized arguments).
   · parent: tl-559
+  · added: 2026-10-22
+
+- **td-96 · todo decisions --json records a new dt-N table whenever the open rows change, and todo answer wit...**
+  reported from tools/context-hygiene to tools/todo in dispatch toolu_01RMPEvSWQxt1HAVrsA96WMf, filed from the dispatch ledger by the delegation layer's report filer: todo decisions --json records a new dt-N table whenever the open rows change, and todo answer with no dt-N answers the latest table, so a read-only caller (the status line) risks putting Jacob's next answer under a table he never saw -- input: todo decisions --json -- expected: a read-only form (e.g. --no-record) that prints the same rows without recording
+  · parent: tl-567
+  · added: 2026-10-22
+
+- **td-97 · once tl-564 is pushed, todolib/practices.py can switch ARGS to ("practices", "--rows", "--json") ...**
+  reported from tools/checks to tools/todo in dispatch toolu_01RpouMWQvN6PJd7mGUETsvk, filed from the dispatch ledger by the delegation layer's report filer: once tl-564 is pushed, todolib/practices.py can switch ARGS to ("practices", "--rows", "--json") with no stdin report (td-64) -- input: `tools/checks/checks practices --rows --json` -- expected: the same rows as today, without cells.
+  · parent: tl-586
   · added: 2026-10-22
 
 ## Open decisions
@@ -133,6 +137,7 @@
 
 - **td-90 · Uncommitted td-67 test, mutants and README text, and a settings.json registering two hooks, sit in the tree with no owner**
   2026-10-20: tree holds uncommitted work no session committed: td-67 (closed in store) README.md hunk at line 206, two mutants practices-unchecked-*-not-exit-3 in devtools/mutants.json, tests/test_practices.py test_an_unchecked_block_leaves_the_exit_code_alone (mtime 00:58-00:59); .claude/settings.json (Oct 18) registering git-funnel.sh and store-guard.sh. Left untouched by td-82's dispatch (commits 6dc62a4, 21bb4df staged around them); the full ./dev.sh check passed 62 of 62 with them in the tree.
+  2026-10-22 (td-92): README.md (the todo approve row) and devtools/mutants.json (mutants approve-keeps-approval-wait, approve-ends-any-wait) now also hold td-92's uncommitted hunks, gating commit 910405b; commit.sh stages whole files, so they wait on this item's decision. Both passed: ./dev.sh check 62 of 62 with them in the tree.
   · probe: ask the session or Jacob whether to commit them; settings.json is Jacob's to copy
   · work: code
   · size: S
@@ -329,3 +334,11 @@
 - **td-83 · td-67's README reason rests on the dispatch guard reading brief exit codes other than 0/1 as 'todo could not answer'; nothing here can gate it**
   Read .claude/hooks/dispatch-guard.sh lines 309-320 on 2026-10-20: rc 0 holds the prompt to the brief text, rc 1 with NOT READY or a todo: error blocks, any other rc falls back to brief_grammar. This repo reads no delegation-layer file (audit), so the README sentence can go stale unseen; asked that layer's owner (via the td-67 report) to pin it in its own dispatch-guard test.
   · added: 2026-10-20
+
+- **td-95 · Decisions count: todo decisions --json writes a table, so the status line shows decisions ? until todo offers a read-only form**
+  tl-547: tools/todo/todolib/cli.py cmd_decisions records a new dt-N table (store.tables append + commit) whenever the open rows differ from every recorded table, and cmd_answer with no dt-N and no --table answers decide.latest_table. A status line refresh calling 'todo decisions --json' would therefore record tables Jacob never saw and could put his next bare '1) yes' under one of them. So statusline.counts.sources decisions ships args null and the line shows 'decisions ?'. Reported to todo through the tl-547 hand-back.
+  · parent: ch-89
+  · work: code
+  · files: hygiene.json, hygienelib/counts.py
+  · done when: todo offers a read-only form of the decisions table (e.g. todo decisions --json --no-record) that records nothing; then statusline.counts.sources decisions gets those args, files:counts:decisions is ok, and tests/test_statusline.py CountsAsShipped's decisions test is changed to the new args
+  · added: 2026-10-22
