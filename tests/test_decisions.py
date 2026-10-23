@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from tests.helpers import TODAY, Case, git_commit
+from todolib import decisions as decide
 from todolib import plans
 from todolib.store import RECORDS_FILE, new_item, sealed
 from todolib.vocab import VOCAB
@@ -71,15 +72,16 @@ class Base(Case):
     def records(self, repo=None):
         return json.loads((Path(repo or self.a) / RECORDS_FILE).read_text())
 
-    def plant_legacy(self):
-        """An open decision written before its fields existed (as an import leaves one):
-        add refuses to make one, so it is planted."""
-        data = self.store(self.a)
-        data["items"] = [new_item(id="aa-1", title="legacy", kind=DECISION, status=VOCAB.role("default_status"),
-                                  added=TODAY)]
-        data["next"] = 2
-        self.write_json(self.a / "todo.json", data)
-        self.run_in(self.a, "render", "--force")
+    def plant_legacy(self, repo=None, ids=("aa-1",)):
+        """Open decisions written before their fields existed (as an import leaves one):
+        add refuses to make one, so they are planted, replacing the store's items."""
+        repo = repo or self.a
+        data = self.store(repo)
+        data["items"] = [new_item(id=i, title=f"legacy {i}", kind=DECISION, status=VOCAB.role("default_status"),
+                                  added=TODAY) for i in ids]
+        data["next"] = len(ids) + 1
+        self.write_json(repo / "todo.json", data)
+        self.run_in(repo, "render", "--force")
 
 
 class Add(Base):
@@ -259,6 +261,30 @@ class Table(Base):
         out = self.run_in(self.a, "decisions").stdout
         self.assertIn("todo:aa-1 (pointer, hinges_on, recommend)", out)
         self.assertFalse((self.a / RECORDS_FILE).exists())
+
+    def test_the_untabled_footer_says_whose_they_are_and_that_none_asks_the_reader(self):
+        # td-93: '<N> open decision(s) not tabled' read as N questions for Jacob. A store
+        # with one tabled and one untabled decision: the table has the one row, and the
+        # footer names the untabled one as its owner's, with a count per repo.
+        self.plant_legacy()                                   # aa-1, untabled
+        self.decide("tabled")                                 # aa-2, a row
+        out = self.run_in(self.a, "decisions").stdout
+        self.assertIn("| 1 | PLAN-x.md §1: tabled |", out)
+        foot = out.split("\n\n")[-1].splitlines()
+        self.assertEqual(foot[0], "1 decision item(s) in owners' stores lack row fields (a 1): "
+                                  "not questions for you until an owner tables them", out)
+        self.assertEqual(foot[1], "for their owners (todo edit ID --pointer --hinges-on --recommend): "
+                                  "todo:aa-1 (pointer, hinges_on, recommend)", out)
+        self.assertNotIn("not tabled", out, "the old wording, read as the reader's backlog")
+        # The counts follow the stores: two more in b put b first, the total 3.
+        self.plant_legacy(self.b, ("bb-1", "bb-2"))
+        foot = self.run_in(self.a, "decisions").stdout.split("\n\n")[-1].splitlines()
+        self.assertTrue(foot[0].startswith("3 decision item(s) in owners' stores lack row fields (b 2, a 1): "), foot)
+        # Bounded: past max_listed repos and ids, the rest is counted, never dropped silently.
+        lines = decide.untabled_lines([{"id": f"todo:x{i}-1", "repo": f"r{i}", "missing": ["pointer"]} for i in range(3)], n=2)
+        self.assertIn("(r0 1, r1 1, ...)", lines[0])
+        self.assertTrue(lines[1].endswith("; +1 more (--json lists them)"), lines)
+        self.assertEqual(decide.untabled_lines([]), [], "no untabled decision: no footer")
 
 
 class Answer(Base):

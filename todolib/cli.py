@@ -1304,12 +1304,9 @@ def cmd_decisions(args):
         else:
             print("(no open decision to table" + (f" from {args.from_}: every row is closed or incomplete)" if args.from_ else
                                                   ": none is open and complete)"))
-        n = decide.D["max_listed"]
-        if listed:
-            print(f"\n{len(listed)} open decision(s) not tabled, lacking a field: "
-                  + "; ".join(f"{r['id']} ({', '.join(r['missing'])})" for r in listed[:n])
-                  + (f"; +{len(listed) - n} more (--json lists them)" if len(listed) > n else "")
-                  + " -- todo edit ID --pointer --hinges-on --recommend")
+        footer = decide.untabled_lines(listed)
+        if footer:
+            print("\n" + "\n".join(footer))
         for e in ws.errors:
             print(f"UNREADABLE  {e}")
     if ws.errors:

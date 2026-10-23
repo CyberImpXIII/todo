@@ -254,6 +254,27 @@ def table_lines(table, counts=None):
     return out
 
 
+def untabled_lines(listed, n=None):
+    """The footer under the table for the open decisions lacking a row field
+    (`listed`: {id, repo, missing}, as `todo decisions --json` gives them). They
+    are their owners' to table, not questions for the reader (td-93: a bare count
+    read as Jacob's backlog), so the first line says whose they are, a count per
+    repo, most first; the second names the first `n` for those owners."""
+    if not listed:
+        return []
+    n = D["max_listed"] if n is None else n
+    per = {}
+    for r in listed:
+        per[r["repo"]] = per.get(r["repo"], 0) + 1
+    repos = sorted(per.items(), key=lambda kv: (-kv[1], kv[0]))
+    shown = ", ".join(f"{repo} {k}" for repo, k in repos[:n]) + (", ..." if len(repos) > n else "")
+    ids = "; ".join(f"{r['id']} ({', '.join(r['missing'])})" for r in listed[:n])
+    more = f"; +{len(listed) - n} more (--json lists them)" if len(listed) > n else ""
+    return [f"{len(listed)} decision item(s) in owners' stores lack row fields ({shown}): "
+            f"not questions for you until an owner tables them",
+            f"for their owners (todo edit ID --pointer --hinges-on --recommend): {ids}{more}"]
+
+
 # -- the reply -----------------------------------------------------------------
 
 def parse_reply(text):
