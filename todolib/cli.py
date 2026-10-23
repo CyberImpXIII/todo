@@ -1191,6 +1191,22 @@ def open_item(store, item_id):
     return item
 
 
+def end_approval_wait(item):
+    """A waiting-jacob item that waited on his approval (roles.approval_waits_on) is
+    open once he gives it, its waits_on cleared, as the waits_on table's `clears`
+    says (tl-540). One waiting on anything else, or naming nothing, keeps its status:
+    the approval answers no other wait, and guessing that it does would put work in
+    `ready` that still needs him. Says which, for the approve line."""
+    wait = item.get("waits_on")
+    if wait == VOCAB.role("approval_waits_on"):
+        updated = dict(item, status=VOCAB.role("default_status"), waits_on=None)
+        validate(updated)
+        item.update(updated)
+        return f"waits_on {wait} cleared: it is {item['status']} now"
+    return (f"it stays {VOCAB.jacob_status}: it waits on {wait}, which an approval does not clear"
+            if wait else f"it stays {VOCAB.jacob_status}: it names no waits_on, so nothing says the approval ends its wait")
+
+
 def cmd_approve(args):
     """Record Jacob's go-ahead on an item: who (vocab.json approval.by), the day,
     and where he gave it. Without one, `todo dispatchable` never lists the item and
@@ -1236,6 +1252,8 @@ def cmd_approve(args):
                 freed = [d["id"] for d, _ in decide.dependents(workspace(args, store), args.id)]
                 if freed:
                     msg += f"; no longer blocks {', '.join(freed)}"
+            elif item.get("status") == VOCAB.jacob_status:
+                msg += "; " + end_approval_wait(item)
         commit(store)
     print(msg)
 

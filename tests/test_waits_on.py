@@ -13,6 +13,7 @@ JACOB = VOCAB.jacob_status
 OPEN = VOCAB.role("default_status")
 WITH_ARG = next(n for n, rx in VOCAB.waits_on_arg.items() if rx is not None and rx.match("intake"))
 RAW = json.loads((ROOT / "vocab.json").read_text())
+APPROVAL = VOCAB.role("approval_waits_on")
 
 
 class Field(Case):
@@ -64,6 +65,34 @@ class Field(Case):
         self.assertIn("needs --waits-on", err)
         self.todo("-C", self.a, "edit", "aa-1", "--status", JACOB, "--waits-on", WAITS)
 
+    def test_approve_opens_an_item_waiting_on_approval_and_clears_it(self):
+        # tl-540: the waits_on table says approval is cleared by `todo approve`; before
+        # the fix the item kept waiting-jacob on approval, so ready refused it
+        ready = ["--work", next(iter(VOCAB.works)), "--done-when", "dw", "--size", VOCAB.ready_sizes[0]]
+        self.todo("-C", self.a, "add", "w", "--kind", NOTE, "--status", JACOB, "--waits-on", APPROVAL, *ready)
+        self.assertNotIn("aa-1", self.todo("-C", self.a, "ready").stdout, "waiting: not ready")
+        out = self.todo("-C", self.a, "approve", "aa-1", "--source", "Jacob in chat").stdout
+        self.assertIn(f"; waits_on {APPROVAL} cleared: it is {OPEN} now", out)
+        it = self.store(self.a)["items"][0]
+        self.assertEqual((it["status"], it["waits_on"], it["approved"]["source"]), (OPEN, None, "Jacob in chat"))
+        self.assertIn("aa-1", self.todo("-C", self.a, "ready").stdout)
+        self.check(self.a)
+
+    def test_approve_leaves_an_item_waiting_on_anything_else_waiting_and_says_so(self):
+        others = [w for w in VOCAB.waits_on if w != APPROVAL and VOCAB.waits_on_arg[w] is None]
+        self.assertTrue(others, "a declared waits_on other than approval, taking no argument")
+        self.plant_bare_waiting()
+        out = self.todo("-C", self.a, "approve", "aa-1", "--source", "s").stdout
+        self.assertIn(f"; it stays {JACOB}: it names no waits_on", out)
+        self.assertEqual(self.store(self.a)["items"][0]["status"], JACOB)
+        for n, w in enumerate(others, 2):
+            with self.subTest(waits_on=w):
+                self.todo("-C", self.a, "add", w, "--kind", NOTE, "--status", JACOB, "--waits-on", w)
+                out = self.todo("-C", self.a, "approve", f"aa-{n}", "--source", "s").stdout
+                self.assertIn(f"; it stays {JACOB}: it waits on {w}, which an approval does not clear", out)
+                it = self.store(self.a)["items"][n - 1]
+                self.assertEqual((it["status"], it["waits_on"], it["approved"]["source"]), (JACOB, w, "s"))
+
     def plant_bare_waiting(self):
         """A waiting-jacob item written before waits_on existed: no key at all."""
         self.todo("-C", self.a, "add", "old", "--kind", NOTE, "--status", JACOB, "--waits-on", WAITS)
@@ -111,6 +140,12 @@ class Declared(Case):
                     {"nothing": {"doc": "x", "argument": None, "clears": ""}}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 self.load(dict(RAW, waits_on=dict(RAW["waits_on"], **bad)))
+
+    def test_the_value_approve_clears_is_the_one_whose_clears_names_approve(self):
+        # tl-540: the README's waits_on table (rendered from `clears`) says which wait
+        # `todo approve` ends; the code ends roles.approval_waits_on. Held equal here.
+        named = [w for w, spec in VOCAB.waits_on.items() if "todo approve" in spec["clears"]]
+        self.assertEqual(named, [APPROVAL])
 
     def test_the_jacob_status_role_names_a_declared_status(self):
         self.assertIn(VOCAB.jacob_status, VOCAB.statuses)
