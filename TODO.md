@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (51 open, 46 closed in todo-history.json; seal 2fc75fb128c9): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (52 open, 46 closed in todo-history.json; seal 24c94cb9923d): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -55,6 +55,7 @@
 
 - **td-94 · `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/tod...**
   reported from tools/research to tools/todo in dispatch toolu_019FsbVB8CsBmXLifZhcJL3k, filed from the dispatch ledger by the delegation layer's report filer: `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/todo -C /Users/Specter/Desktop/claudeTest history --json` -- expected: JSON (got exit 2, unrecognized arguments).
+  2026-10-23: fixed in the tree as top-level tl-560 (history --json), uncommitted until td-90 is decided; close this with tl-560.
   · parent: tl-559
   · added: 2026-10-22
 
@@ -133,12 +134,20 @@
   2026-10-20: tree holds uncommitted work no session committed: td-67 (closed in store) README.md hunk at line 206, two mutants practices-unchecked-*-not-exit-3 in devtools/mutants.json, tests/test_practices.py test_an_unchecked_block_leaves_the_exit_code_alone (mtime 00:58-00:59); .claude/settings.json (Oct 18) registering git-funnel.sh and store-guard.sh. Left untouched by td-82's dispatch (commits 6dc62a4, 21bb4df staged around them); the full ./dev.sh check passed 62 of 62 with them in the tree.
   2026-10-22 (td-92): README.md (the todo approve row) and devtools/mutants.json (mutants approve-keeps-approval-wait, approve-ends-any-wait) now also hold td-92's uncommitted hunks, gating commit 910405b; commit.sh stages whole files, so they wait on this item's decision. Both passed: ./dev.sh check 62 of 62 with them in the tree.
   2026-10-23 (td-93): README.md (Decisions paragraph, the untabled footer) and devtools/mutants.json (untabled-footer-bare-count, untabled-footer-repos-unordered, each 1 of 1 red) now also hold td-93's uncommitted hunks, gating commit 4b25289; ./dev.sh check 62 of 62 with them in the tree.
+  2026-10-23 (tl-560): README.md (the history row, --json) and devtools/mutants.json (history-json-ignored, history-json-last-ten, history-id-json-ignored, each 1 of 1 red; readme-command-drift re-anchored on the new row end) now hold tl-560's hunks; with todolib/cli.py and tests/test_history.py these are NOT committed: HEAD plus cli.py and the test alone fails tests.test_docs test_readme_command_table_equals_the_parser (ran on a git archive of HEAD), so no green commit of tl-560 exists without README.md whole, which carries td-67/td-92/td-93's hunks. ./dev.sh check 62 of 62 with all of them in the tree. Deciding this item unblocks tl-560's commit.
   · probe: ask the session or Jacob whether to commit them; settings.json is Jacob's to copy
   · work: code
   · size: S
   · files: README.md, devtools/mutants.json, tests/test_practices.py, .claude/settings.json
   · done when: the td-67 files are committed or dropped, and Jacob says whether settings.json's two registrations go in
   · added: 2026-10-20
+
+- **td-98 · unverified: history --repo naming a store the scan could not read says 'no store for repo' (exit 1), not UNCHECKED (exit 3)**
+  seen reading cmd_history while doing tl-560: it calls ws.by_repo(args.repo) and raises TodoError on None without consulting ws.errors, where list uses known_repo. Not run.
+  · probe: break b/todo.json as tests/test_list_json.py test_an_unreadable_store_is_unchecked_in_either_form does, then run todo -C a --root WS history --repo b and read the exit code
+  · work: code
+  · size: S
+  · added: 2026-10-23
 
 ## Reported to other owners
 
