@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (52 open, 45 closed in todo-history.json; seal 742c8b6837bf): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (51 open, 46 closed in todo-history.json; seal 2fc75fb128c9): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -52,12 +52,6 @@
   reported from .claude to tools/todo in dispatch toolu_01Nzpy2Hpfd9RyJ9kQ8hn1TB, filed from the dispatch ledger by the delegation layer's report filer: there is no CLI read for which dt-N row holds an item -- input: `todo -C /Users/Specter/Desktop/claudeTest get dt-36` gives exit 3 (UNCHECKED) -- expected: a verb (e.g. tl-461 resolve, or `get ID`) that returns that item's tabled rows as [{table,row}].
   · parent: tl-536
   · added: 2026-10-21
-
-- **td-93 · todo decisions: the footer '<N> open decision(s) not tabled' reads as Jacob's backlog (he asked whether he must answer 150)**
-  dt-35 (2026-10-20): 16 rows plus '140 open decision(s) not tabled, lacking a field'. Jacob read 156 questions for him. The 140 are owners' open kind:decision items without pointer/hinges_on/recommend: tools/setup 55, income 29 (28 wizard questions asked at a terminal), claudeTest 23, knowledge-base 14, scripts 10, tools/todo 3, tools/hub 3, tools/context-hygiene 3; none is a question to him until an owner tables it
-  · parent: tl-493
-  · done when: the footer says whose the untabled items are and that none is a question for Jacob, e.g. '140 decision items in owners' stores lack row fields (setup 55, income 29, ...): not questions for you until tabled'; a test renders a store with one tabled and one untabled item and checks the wording
-  · added: 2026-10-22
 
 - **td-94 · `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/tod...**
   reported from tools/research to tools/todo in dispatch toolu_019FsbVB8CsBmXLifZhcJL3k, filed from the dispatch ledger by the delegation layer's report filer: `todo history` has no --json, so the inventory cannot read closed items -- input: `tools/todo/todo -C /Users/Specter/Desktop/claudeTest history --json` -- expected: JSON (got exit 2, unrecognized arguments).
@@ -138,6 +132,7 @@
 - **td-90 · Uncommitted td-67 test, mutants and README text, and a settings.json registering two hooks, sit in the tree with no owner**
   2026-10-20: tree holds uncommitted work no session committed: td-67 (closed in store) README.md hunk at line 206, two mutants practices-unchecked-*-not-exit-3 in devtools/mutants.json, tests/test_practices.py test_an_unchecked_block_leaves_the_exit_code_alone (mtime 00:58-00:59); .claude/settings.json (Oct 18) registering git-funnel.sh and store-guard.sh. Left untouched by td-82's dispatch (commits 6dc62a4, 21bb4df staged around them); the full ./dev.sh check passed 62 of 62 with them in the tree.
   2026-10-22 (td-92): README.md (the todo approve row) and devtools/mutants.json (mutants approve-keeps-approval-wait, approve-ends-any-wait) now also hold td-92's uncommitted hunks, gating commit 910405b; commit.sh stages whole files, so they wait on this item's decision. Both passed: ./dev.sh check 62 of 62 with them in the tree.
+  2026-10-23 (td-93): README.md (Decisions paragraph, the untabled footer) and devtools/mutants.json (untabled-footer-bare-count, untabled-footer-repos-unordered, each 1 of 1 red) now also hold td-93's uncommitted hunks, gating commit 4b25289; ./dev.sh check 62 of 62 with them in the tree.
   · probe: ask the session or Jacob whether to commit them; settings.json is Jacob's to copy
   · work: code
   · size: S
