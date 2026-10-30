@@ -19,9 +19,11 @@ TEXT = "done: the parser; next: its tests; verify: ./dev.sh check"
 RUNNER = workspace_file("tools/checks/checkslib/parts.py")
 RUNNER_DEV = workspace_file("tools/checks/dev.sh")
 # The runner's `run` options the iterate rule is worded against: `parts.py usage
-# --json` run.options (parts.py 1.4.0, which added --jobs), flag -> the value it
-# takes, or None. IterateRule holds it equal to the runner's own when the runner is here.
-RUNNER_RUN_OPTIONS = {"--resume": None, "--only": "<name>", "--jobs": "<n>", "--json": None}
+# --json` run.options (parts.py 1.4.0, which added --jobs; 1.6.0 added --record, which
+# dev.sh passes on its full check and no brief iterates with, so the rule's wording
+# stands), flag -> the value it takes, or None. IterateRule holds it equal to the
+# runner's own when the runner is here.
+RUNNER_RUN_OPTIONS = {"--resume": None, "--only": "<name>", "--jobs": "<n>", "--json": None, "--record": None}
 COMMAND_HEADS = ("./dev.sh", "dev.sh", "check")
 
 
