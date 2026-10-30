@@ -240,7 +240,9 @@ class IterateRule(Case):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(run_options(json.loads(r.stdout)), RUNNER_RUN_OPTIONS, f"{RUNNER}: reword the iterate rule")
         dev = RUNNER_DEV.read_text()
-        self.assertRegex(dev, r'cmd_check\(\) \{ exec python3 [^\n]*parts\.py" run [^\n]*"\$@"; \}')
+        # the one-line `exec` form, or the body that records a green pass around the run
+        # (tools/checks dev.sh since d1f8ea0, remediation 2.3): either way "$@" reaches parts.py
+        self.assertRegex(dev, r'cmd_check\(\) \{(?: exec|[^}]*\n)\s*python3 [^\n]*parts\.py" run [^\n]*"\$@"')
         self.assertRegex(dev, r'only\+=\(--only "\$p"\)')
 
     @unittest.skipUnless(SMALL_TASKS_PLAN, "the plan lives in the workspace, not in a fresh clone")
