@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (52 open, 46 closed in todo-history.json; seal 24c94cb9923d): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (53 open, 46 closed in todo-history.json; seal f8a30bd3d1b7): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -68,6 +68,11 @@
   reported from tools/checks to tools/todo in dispatch toolu_01RpouMWQvN6PJd7mGUETsvk, filed from the dispatch ledger by the delegation layer's report filer: once tl-564 is pushed, todolib/practices.py can switch ARGS to ("practices", "--rows", "--json") with no stdin report (td-64) -- input: `tools/checks/checks practices --rows --json` -- expected: the same rows as today, without cells.
   · parent: tl-586
   · added: 2026-10-22
+
+- **td-99 · the todo CLI cannot read a decisions table: no table verb (exit 2), `get`/`show dt-N` find no sto...**
+  reported from .claude to tools/todo in dispatch toolu_01EcVpmLd195XE86t7vXdPzy, filed from the dispatch ledger by the delegation layer's report filer: the todo CLI cannot read a decisions table: no table verb (exit 2), `get`/`show dt-N` find no store -- input: tools/todo/todo --root /Users/Specter/Desktop/claudeTest table dt-40 --json -- expected: {"table":"dt-40","rows":[{"n":1,"item":"tl-551","answered":true|false},...]}, exit 1 for an unknown table
+  · parent: tl-638
+  · added: 2026-10-23
 
 ## Open decisions
 

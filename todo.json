@@ -2,7 +2,7 @@
   "format": 2,
   "repo": "todo",
   "prefix": "td",
-  "next": 99,
+  "next": 100,
   "render_gate_from": "2026-10-11",
   "hand_edits": [
     {
@@ -1872,7 +1872,44 @@
       "done": null,
       "resolution": null,
       "imported": null
+    },
+    {
+      "id": "td-99",
+      "title": "the todo CLI cannot read a decisions table: no table verb (exit 2), `get`/`show dt-N` find no sto...",
+      "kind": "bug",
+      "status": "open",
+      "evidence": "reported from .claude to tools/todo in dispatch toolu_01EcVpmLd195XE86t7vXdPzy, filed from the dispatch ledger by the delegation layer's report filer: the todo CLI cannot read a decisions table: no table verb (exit 2), `get`/`show dt-N` find no store -- input: tools/todo/todo --root /Users/Specter/Desktop/claudeTest table dt-40 --json -- expected: {\"table\":\"dt-40\",\"rows\":[{\"n\":1,\"item\":\"tl-551\",\"answered\":true|false},...]}, exit 1 for an unknown table",
+      "probe": null,
+      "reported_to": null,
+      "parent": "tl-638",
+      "blocked_by": null,
+      "waits_on": null,
+      "pointer": null,
+      "hinges_on": null,
+      "recommend": null,
+      "options": null,
+      "chosen": null,
+      "jacob_words": null,
+      "repo": "todo",
+      "work": null,
+      "size": null,
+      "files": null,
+      "research": null,
+      "done_when": null,
+      "done_check": null,
+      "handoff": null,
+      "approved": null,
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "detector": null,
+      "plan_step": null,
+      "added": "2026-10-23",
+      "done": null,
+      "resolution": null,
+      "imported": null
     }
   ],
-  "seal": "16b25287f2e51568"
+  "seal": "bb65e839cff9a4df"
 }

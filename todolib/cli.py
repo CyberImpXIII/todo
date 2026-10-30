@@ -1957,12 +1957,23 @@ def cmd_brief(args):
         sys.exit(1)
 
 
+def history_document(ws, s, items):
+    """`todo history --json` (tl-560): the closed items as data, the shape `list
+    --json` gives open ones (td-59), so a reader of either backing never opens
+    todo-history.json itself. Each record whole, in the text form's order."""
+    rows = [{"id": tagging.global_id(it["id"]), "local_id": it["id"], "store": str(s.dir), "record": it} for it in items]
+    return {"root": str(ws.root), "repo": s.repo, "items": rows, "count": len(rows)}
+
+
 def cmd_history(args):
     if args.id:
         ws = read_workspace(args)
         it, where, s = ws.find(args.id)
         if it is None or where != "history":
             raise TodoError(f"{args.id} is not in any scanned history" + (" (it is still open: todo show)" if it else ""))
+        if args.json:
+            print(json.dumps(history_document(ws, s, [it]), indent=1, ensure_ascii=False))
+            return
         print_item(it, where, s, ws)
         return
     store = open_store(args)
@@ -1979,6 +1990,11 @@ def cmd_history(args):
     if args.grep:
         needle = args.grep.lower()
         items = [it for it in items if needle in " ".join(str(it.get(f) or "") for f in ("title", "evidence", "resolution", "probe")).lower()]
+    if args.json:
+        # every match, never the text form's last ten: a reader taking the list as
+        # data would read a cut list as the whole history
+        print(json.dumps(history_document(ws, s, items), indent=1, ensure_ascii=False))
+        return
     if not filtered:
         items = items[:10]
     for it in items:
@@ -2228,6 +2244,7 @@ def build_parser():
     ps["history"].add_argument("--repo")
     ps["history"].add_argument("--kind", choices=list(VOCAB.kinds))
     ps["history"].add_argument("--grep")
+    ps["history"].add_argument("--json", action="store_true")
     ps["reseal"].add_argument("--reason", required=True)
     ps["split"].add_argument("id")
     ps["split"].add_argument("titles", nargs="+", metavar="TITLE", help="one child per title")

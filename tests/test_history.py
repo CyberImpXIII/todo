@@ -4,6 +4,7 @@ import json
 import os
 
 from tests.helpers import WAITS, Case, git_commit
+from tests.test_db import OnDb
 from todolib import decisions as decide
 from todolib.render import field_value
 from todolib.vocab import VOCAB
@@ -70,6 +71,66 @@ class RoundTrip(Case):
         self.todo("-C", a, "add", "x", "--kind", "note")
         self.todo("-C", a, "done", "aa-1", "--resolution", "ok")
         self.todo("-C", a, "edit", "aa-1", "--title", "y", ok=False)
+
+
+class HistoryJson(Case):
+    """`todo history --json` (tl-560): the closed items as data, as `list --json`
+    gives the open ones, so a reader (the names inventory) never opens the file."""
+    def setUp(self):
+        super().setUp()
+        self.a = self.repo("a", "aa")
+        for i in range(1, 13):
+            self.todo("-C", self.a, "add", f"item {i} ü", "--kind", "bug" if i % 2 else "note")
+            self.todo("-C", self.a, "done", f"aa-{i}", "--resolution", f"res {i}", today=f"2026-10-{i:02d}")
+
+    def doc(self, *extra):
+        return json.loads(self.todo("-C", self.a, "history", "--json", *extra).stdout)
+
+    def test_the_flag_changes_the_output_and_not_the_order(self):
+        text = self.todo("-C", self.a, "history", "--kind", "bug").stdout
+        with self.assertRaises(json.JSONDecodeError):
+            json.loads(text)  # without --json: lines, not a document
+        d = self.doc("--kind", "bug")
+        self.assertEqual(sorted(d), ["count", "items", "repo", "root"])
+        text_ids = [ln.split()[0] for ln in text.splitlines() if ln.startswith("aa-")]
+        self.assertEqual([r["local_id"] for r in d["items"]], text_ids)
+        self.assertEqual([r["id"] for r in d["items"]][:2], ["todo:aa-11", "todo:aa-9"])
+        self.assertEqual((d["count"], d["repo"]), (6, "a"))
+
+    def test_each_record_is_the_history_entry_whole(self):
+        d = self.doc()
+        by_id = {it["id"]: it for it in self.history(self.a)["items"]}
+        self.assertEqual({r["local_id"]: r["record"] for r in d["items"]}, by_id)
+        self.assertEqual({r["store"] for r in d["items"]}, {str(self.a.resolve())})
+
+    def test_every_closed_item_not_the_last_ten(self):
+        """The text form's ten is for reading; a document cut to ten reads as complete."""
+        text = self.todo("-C", self.a, "history").stdout
+        self.assertEqual(len([ln for ln in text.splitlines() if ln.startswith("aa-")]), 10)
+        self.assertEqual(self.doc()["count"], 12)
+
+    def test_the_filters_and_an_id_narrow_the_document(self):
+        self.assertEqual([r["local_id"] for r in self.doc("--since", "2026-10-11")["items"]], ["aa-12", "aa-11"])
+        self.assertEqual([r["local_id"] for r in self.doc("--grep", "RES 3")["items"]], ["aa-3"])
+        one = self.doc("aa-4")
+        self.assertEqual(([r["local_id"] for r in one["items"]], one["count"]), (["aa-4"], 1))
+        self.assertEqual(one["items"][0]["record"]["resolution"], "res 4")
+        b = self.repo("b", "bb")
+        there = json.loads(self.todo("-C", b, "history", "--repo", "a", "--json").stdout)
+        self.assertEqual((there["repo"], there["count"]), ("a", 12))
+        none = json.loads(self.todo("-C", b, "history", "--json").stdout)
+        self.assertEqual((none["items"], none["count"]), ([], 0))
+
+
+class HistoryJsonOnDb(OnDb):
+    def test_the_document_is_the_same_before_and_after_the_move(self):
+        """The seam a reader relies on: moving to todo.db changes no closed record it reads."""
+        d = self.a_store()
+        before = json.loads(self.todo("-C", d, "history", "--json").stdout)
+        self.assertEqual(before["count"], 1)
+        self.todo("-C", d, "migrate")
+        self.assertFalse((d / "todo-history.json").exists())
+        self.assertEqual(json.loads(self.todo("-C", d, "history", "--json").stdout), before)
 
 
 class AppendOnly(Case):

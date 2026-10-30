@@ -137,6 +137,22 @@ class Fixture(Case):
                 self.assertIn(says, first)
                 self.assertEqual(ids(r.stdout), [])
 
+    def test_an_unchecked_block_leaves_the_exit_code_alone(self):
+        # td-67, decided: an UNCHECKED practices block is not exit 3. The brief is
+        # still exit 0 when ready and exit 1 when NOT READY, so a caller that holds a
+        # dispatch to the brief's exact text keeps doing so (README "Practices in the brief")
+        absent = self.tmp / "absent"
+        iid = self.add(self.a, "a")
+        r = self.brief(self.a, iid, ok=None, cli=absent)
+        self.assertTrue(block(r.stdout)[0].startswith(f"{HEAD}: UNCHECKED: no checks CLI at"), r.stdout)
+        self.assertEqual(r.returncode, 0, "ready: UNCHECKED practices do not make it 3")
+        big = next(k for k in VOCAB.sizes if k not in VOCAB.ready_sizes)
+        self.todo("-C", self.a, "edit", iid, "--size", big)
+        r = self.brief(self.a, iid, ok=None, cli=absent)
+        self.assertIn(f"{HEAD}: UNCHECKED: no checks CLI at", r.stdout)
+        self.assertIn("NOT READY:", r.stdout, "the readiness verdict is still given after an UNCHECKED block")
+        self.assertEqual(r.returncode, 1, "NOT READY: the refusal, never 3")
+
     def test_an_item_naming_no_repo_is_unchecked(self):
         # `todo add` fills the repo from the store, so a repo-less item is only a
         # hand-edited store's; the reader says so rather than guessing the root

@@ -58,13 +58,13 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo repos [--status] [--json]` | every store the scan finds, with its counts. `--status`: every git repo under the root, with a store or not, sorted by path: its open items (null with no store), last commit (short sha, date, subject; null with none), uncommitted files (a count and the first ten), and `whose`, always null (who left them is the stamp ledger's to say, which todo never reads); `--json` gives `{root, repos}`. Needs no store of its own |
 | `todo ready [--repo R] [--work W] [--json]` | open items with `repo`, `work` and `done_when` set, size S or M, and every `blocked_by` id closed, across every scanned store: ready to hand to whoever does that work. One already handed out stays listed, flagged `[dispatched DATE]` before its title (`todo dispatchable` leaves it out). An item ready but for its size is refused by name, below the list: unsized (`todo edit ID --size`), or L (`todo split` it). Run from a folder with no store (the workspace root), it answers from every store scanned from there (the workspace form, PLAN-routing-tree.md §25 step 2). `--json` is one document `{root, ready, refused, unreadable, count}`: each `ready` row the text form's line, in its order (`id` as `todo:ID`, `local_id`, repo, work, size, title, `store`, `dispatched` as stored or null, `approved` as `todo dispatchable` judges it (Jacob's, rule TD-B1's with `by_rule` true, or null), and its `brief` command); ready is not approved: `todo dispatchable` is the approved, not-dispatched subset. Exit 3 (`UNCHECKED`) when a store could not be read, in either form |
 | `todo brief ID [--checks-cli P]` | an item as a work brief: what, why (its evidence), probe, files, done-when, parent, what it is blocked by, its last handoff and the commit it was written at (and `HEAD` when the repo has moved on since), the exact `todo edit --handoff` and `todo done` commands, the iterate rule, the stop rule and the practices that apply to its repo with the `practices:` line its report ends with (below; `--checks-cli` names the checks tool that reads them). With no `done_when` it writes no brief at all: exit 1, nothing on stdout, and a message naming the item and the field. Exit 1 also when it is not ready otherwise (a field missing, a status other than open, a `blocked_by` id still open, or its size), the brief printed and marked NOT READY |
-| `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT]` | closed items, newest first, with their resolutions; with no arguments the last ten |
+| `todo history [ID] [--since DATE] [--repo R] [--kind K] [--grep TEXT] [--json]` | closed items, newest first, with their resolutions; with no arguments the last ten. `--json` is the same rows as data, the shape `list --json` gives open ones: `{root, repo, items: [{id, local_id, store, record}], count}`, each record the history entry whole, on either backing (tl-560); it holds every match, never the last ten, since a document cut short reads as the whole history. With ID, `items` is that one entry (`todo get ID` is the same record outside a list) |
 | `todo get ID` | one record as JSON: `{id, closed, tags, record}`, `id` in the form `todo:td-3`, `tags` every tag it holds (derived and set). Exit 1 for an id no scanned store or history holds (dangling), exit 3 (`UNCHECKED`) for a prefix no scanned store holds or another service's id |
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
 | `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
 | `todo split ID TITLE ... --size SIZE` | one child per title under `parent`, each a checkpoint of its own: SIZE is S or M; it copies the parent's kind, repo, work, files, `blocked_by`, tags and any field its kind requires, and gets its own `done_when` with `todo edit`. The parent becomes L, so `ready` never lists it, and `todo done` on its last open child closes it too |
 | `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
-| `todo approve ID --source S [--date D] [--option NAME] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched. On a decision the approval is its answer: it closes `accepted`, or `option-chosen` on `--option NAME` (a plain yes to a decision recommending an option chooses that one), and what it blocked is free |
+| `todo approve ID --source S [--date D] [--option NAME] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched. On a `waiting-jacob` item waiting on `approval` it ends the wait: the item is `open`, its `waits_on` cleared, and the line says so; one waiting on anything else, or naming no `waits_on`, stays `waiting-jacob`, the line saying why (`--clear` does not put the wait back). On a decision the approval is its answer: it closes `accepted`, or `option-chosen` on `--option NAME` (a plain yes to a decision recommending an option chooses that one), and what it blocked is free |
 | `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`; an item approved by rule TD-B1 (Approval by rule, below) gets the rule's `approved` too. Refused on an item neither Jacob nor the rule approves, naming the rule's misses, or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
 | `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it; then, under their own heading (`by_rule` in `--json`), the ones approved by rule TD-B1 and not by him. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo blockers [--repo R] [--json]` | every open item, across every scanned store, that is not dispatchable, grouped by its root blocker (Blockers, below): one line per root, most items freed first, with what clears it, the count and the first ids; bounded, and `--json` gives every root and id. Exit 3 (`UNCHECKED`) when a store could not be read |
@@ -206,7 +206,19 @@ carries, else a folder of that name under the scan root. No checks tool, output
 that is not its rows, an item naming no repo or a repo that is no folder print
 `Practices: UNCHECKED: <why>` and still ask for the line; never "none apply",
 which is said only when the rows were read and none applies. The brief's exit
-code is unchanged by it. Flagging a report that lacks the line, and the ratchet,
+code is unchanged by it, by decision (td-67, 2026-10-20): 0 when ready, 1 when
+NOT READY, never 3 for an UNCHECKED block. Exit 3 means the item itself was not
+this scan's to judge; here the item was judged and the brief is whole, one part
+of it saying in its own text that it could not be read, and the report still
+answers for it (every id, or `unknown` with the question). A 3 would also weaken
+the dispatch it guards: the workspace's dispatch guard, outside this repo, holds
+a dispatch to the brief's exact text on 0 and refuses on 1, but reads any other
+code as "todo could not answer" and falls back to a looser grammar check, so a
+broken checks tool would let every prompt drift from its brief. Whether to
+dispatch with practices unread is that layer's call, read from the text; this
+repo cannot gate that seam, since it reads no file of that layer.
+`tests/test_practices.py` `test_an_unchecked_block_leaves_the_exit_code_alone`
+holds both codes (mutants `practices-unchecked-*-not-exit-3`). Flagging a report that lacks the line, and the ratchet,
 belong to the delegation layer, outside this repo (PLAN-services.md §4 step 7.4).
 `tests/test_practices.py` runs the real checks tool on a fixture registry
 (`tests/fixtures/practices-gates.json`, via `tests/fixtures/checks-registry.sh`)
@@ -408,8 +420,13 @@ through `blocked_by`, transitively, open items only) first. The table is recorde
 `todo-records.json` as `dt-N`, with its date, its rows (number to item id) and the
 answers it got; asking again with the same rows gives the same id, and
 `--from dt-N` tables only that table's rows still open, recording which old row
-each new row supersedes. A decision lacking a field is named under the table,
-never tabled, and `check` lists it (`INFO`).
+each new row supersedes. A decision lacking a field is never tabled, and
+`check` lists it (`INFO`). Under the table they are named as their owners'
+items, not questions for the reader (td-93: a bare count read as Jacob's
+backlog): `<N> decision item(s) in owners' stores lack row fields (setup 55,
+income 29, ...): not questions for you until an owner tables them`, a count per
+repo, most first, then the first `max_listed` ids with the fields each lacks
+(`tests/test_decisions.py`, mutants `untabled-footer-*`).
 
 Jacob replies `1) yes 2) no 3) b 4) after the move`; `todo answer` reads it
 against the table it names (`dt-N:` first in the reply, or `--table`), else the
