@@ -829,6 +829,15 @@ unpaired (`check` warns), and pairs when that store's owner pulls it from its ow
 `their_id`, as `todo report` would from this side. todo still never enters `.claude` on its
 own (external audit ra-21.1, Jacob 2026-10-31: "the owner pulls").
 
+**The names file** (PLAN-architecture.md §13.1 G4): the roster's owner renders one record per
+location from its manifest (its `names` verb: name, dir, store, remote, agent) and
+hands it to todo as `--names FILE` (before the command) or `TODO_NAMES`. With it, a report's
+target (`report --to`, `add`/`edit --reported-to`) must be a location's **name** there: a path
+(`tools/wizard`), a store key or a remote's name is refused and the refusal names the location.
+A file that cannot be read refuses too, never judging without it. todo never looks for the
+file itself: with none handed, the scan judges as before (external audit ra-19.3, Jacob
+2026-10-31: "hand todo the file").
+
 A report read by `todo import` from a hand-written `TODO.md` names its owner but
 no counterpart: the owner may hold it under any id, or never have had it. Its
 `their_id` stays null, and `check` warns (never fails) while the owner has a

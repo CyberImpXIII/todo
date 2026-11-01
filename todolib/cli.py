@@ -17,6 +17,7 @@ from . import practices as practicing
 from . import migrate as migrating
 from . import rename as renaming
 from . import pair as pairing
+from . import names as naming
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import syncplans
@@ -652,6 +653,8 @@ def reported_to_value(ws, store, item, value):
     repo, _, their = value.strip().partition(":")
     if not repo or repo == store.repo:
         raise TodoError(f"--reported-to {value!r}: name another repo (REPO or REPO:THEIR_ID)")
+    if naming.CURRENT is not None and naming.CURRENT.target_problem(repo):
+        raise TodoError(f"--reported-to {value!r}: {naming.CURRENT.target_problem(repo)}")
     if item.get("id") is None:
         # todo add: no counterpart can name an id not made yet, and a lookup by a
         # null parent would pair any parentless item.
@@ -866,6 +869,8 @@ def cmd_report(args):
     ws = workspace(args, store)
     if args.to == store.repo:
         raise TodoError("an item is reported to another repo, not to its own")
+    if naming.CURRENT is not None and naming.CURRENT.target_problem(args.to):
+        raise TodoError(f"--to {args.to}: {naming.CURRENT.target_problem(args.to)}")
     hidden = never_scanned(args.to)
     owner = None if hidden else ws.by_repo(args.to)
     stores = sorted([s for s in (store, owner) if s], key=lambda s: str(s.dir))
@@ -2313,6 +2318,8 @@ def build_parser():
     ap.add_argument("--by", metavar="NAME", help="who makes this write, for the write log (else TODO_BY; outside a "
                                                  "session `jacob`; inside one `unattributed`)")
     ap.add_argument("--why", metavar="TEXT", help="why, one line, for the write log (else TODO_WHY)")
+    ap.add_argument("--names", metavar="FILE", help="the roster owner's names file (its `names` verb renders it; else TODO_NAMES): with it, a report's "
+                                                   "target must be a location's name there, never a path or an old key (PLAN-architecture.md §13.1 G4)")
     sub = ap.add_subparsers(dest="command", metavar="command")
     ps = {name: sub.add_parser(name, help=help_) for name, (_, help_) in COMMANDS.items()}
     ps["init"].add_argument("--prefix", required=True)
@@ -2474,6 +2481,7 @@ def main(argv=None):
         return 0
     try:
         set_writer(args)
+        naming.CURRENT = naming.load(args.names)
         normalise_ids(args)
         COMMANDS[args.command][0](args)
     except Unchecked as e:

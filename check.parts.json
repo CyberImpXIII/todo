@@ -54,6 +54,7 @@
   {"name": "test.writes", "run": "python3 -m unittest tests.test_writes", "files": ["tests/test_writes.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.rename_repo", "run": "python3 -m unittest tests.test_rename_repo", "files": ["tests/test_rename_repo.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.pair", "run": "python3 -m unittest tests.test_pair", "files": ["tests/test_pair.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.names_file", "run": "python3 -m unittest tests.test_names_file", "files": ["tests/test_names_file.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.tags", "run": "python3 -m unittest tests.test_tags", "files": ["tests/test_tags.py"], "except": ["tests/", "TODO.md"],
    "always": "reads PLAN-services.md in the workspace"},
   {"name": "test.toplevel", "run": "python3 -m unittest tests.test_toplevel", "files": ["tests/test_toplevel.py"], "except": ["tests/", "TODO.md"]},

@@ -1129,6 +1129,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_decisions.RowFields.test_a_principle_that_is_no_registry_row_is_refused"]},
     {"id": "pair-leaves-reporter-unpaired", "gate": "todo pair records the pairing on the reporter's side too (their_id)",
      "file": "todolib/cli.py", "old": "            it[\"reported_to\"][\"their_id\"] = their\n            validate(it, require_waits=False)", "new": "            validate(it, require_waits=False)",
-     "run": ["python3", "-m", "unittest", "tests.test_pair.Pair.test_apply_writes_the_counterpart_here_and_pairs_both_sides"]}
+     "run": ["python3", "-m", "unittest", "tests.test_pair.Pair.test_apply_writes_the_counterpart_here_and_pairs_both_sides"]},
+    {"id": "names-file-ignored-on-report", "gate": "with a names file handed, todo report refuses a target that is no location name (G4)",
+     "file": "todolib/cli.py", "old": "    if naming.CURRENT is not None and naming.CURRENT.target_problem(args.to):", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_names_file.NamesFile.test_a_known_name_pairs_and_a_path_or_old_key_is_refused_by_name"]}
   ]
 }
