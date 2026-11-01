@@ -1120,6 +1120,12 @@
      "run": ["python3", "-m", "unittest", "tests.test_brief.NoDoneWhen.test_an_item_without_done_when_gets_no_brief"]},
     {"id": "rename-ignores-own-name", "gate": "rename-repo refuses a NEW that is not the repo's own services.json name (one name per location, PLAN-architecture.md §13.1)",
      "file": "todolib/rename.py", "old": "    if own is not None and own != new:", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_rename_repo.Rename.test_refused_when_the_repos_own_name_is_another"]}
+     "run": ["python3", "-m", "unittest", "tests.test_rename_repo.Rename.test_refused_when_the_repos_own_name_is_another"]},
+    {"id": "row-fields-not-required", "gate": "a decision added from decisions.row_fields_since on needs today and problem (ra-8.1)",
+     "file": "todolib/cli.py", "old": "    if require_decision and decide.is_decision(item) and decide.needs_row_fields(item):", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_decisions.RowFields.test_a_decision_added_from_the_date_on_needs_today_and_problem"]},
+    {"id": "principle-unresolved", "gate": "a --principle that is no row of the practices registry is refused",
+     "file": "todolib/cli.py", "old": "    if principle not in ids:", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_decisions.RowFields.test_a_principle_that_is_no_registry_row_is_refused"]}
   ]
 }

@@ -210,7 +210,7 @@ class Vocab:
         """vocab.json `decisions`, every key consumed and checked (todolib/decisions.py reads it)."""
         d = {k: v for k, v in d.items() if not k.startswith("_")}
         want = {"requires", "pointer", "option_name", "status", "waits_on", "verdicts", "table_prefix",
-                "max_listed", "generated_recommend"}
+                "max_listed", "generated_recommend", "row_fields", "row_fields_since", "principle"}
         if set(d) != want:
             raise ValueError(f"vocab.json: decisions holds {sorted(d)}, not {sorted(want)}")
         bad = [f for f in d["requires"] if f not in self.fields]
@@ -235,6 +235,12 @@ class Vocab:
             raise ValueError("vocab.json: decisions.max_listed is a positive whole number")
         if d["generated_recommend"] not in d["verdicts"]:
             raise ValueError("vocab.json: decisions.generated_recommend is yes or no")
+        rf = d["row_fields"]
+        if not (isinstance(rf, list) and rf and all(f in self.fields and f not in d["requires"] for f in rf)):
+            raise ValueError("vocab.json: decisions.row_fields names declared fields outside requires")
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(d["row_fields_since"])):
+            raise ValueError("vocab.json: decisions.row_fields_since is a date, YYYY-MM-DD")
+        out["principle"] = re.compile(d["principle"])
         return out
 
     def role(self, name):

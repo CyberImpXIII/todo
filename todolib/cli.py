@@ -132,6 +132,11 @@ def validate(item, where="store", require_waits=True, require_decision=False):
     if lacking:
         raise TodoError(f"a {item['kind']} needs {', '.join('--' + f.replace('_', '-') for f in lacking)} "
                         "(PLAN-todo-tool.md §10.3: what it hinges on, the plan section, the recommended answer)")
+    if require_decision and decide.is_decision(item) and decide.needs_row_fields(item):
+        rm = decide.row_missing(item)
+        if rm:
+            raise TodoError(f"a {item['kind']} added from {decide.D['row_fields_since']} on needs {', '.join('--' + f for f in rm)}: "
+                            "what is true now and what goes wrong for someone (the workspace's reply-sections rule)")
 
 
 def resolve_pointer(ws, args, pointer):
@@ -145,6 +150,21 @@ def resolve_pointer(ws, args, pointer):
         raise TodoError(f"--pointer {pointer}: {value}")
 
 
+def resolve_principle(args, principle):
+    """Refuse a --principle that is no row of the practices registry (checks practices,
+    the one reader of PRACTICES-rows.md): a recommendation names a recorded principle by
+    its id, or none, never a paraphrase. A registry that cannot be read refuses too."""
+    cli_path, why = practicing.resolve_cli(getattr(args, "checks_cli", None))
+    if why:
+        raise TodoError(f"--principle {principle}: the practices registry cannot be read ({why})")
+    rows, why = practicing.rows(cli_path, ".")
+    if why:
+        raise TodoError(f"--principle {principle}: the practices registry cannot be read ({why})")
+    ids = {r.get("id") for r in rows}
+    if principle not in ids:
+        raise TodoError(f"--principle {principle}: not a row of the practices registry ({len(ids)} rows; checks practices lists them)")
+
+
 def decision_args(args, item):
     """The decision fields given as flags, normalised: {field: value} ('' clears)."""
     out = {}
@@ -152,7 +172,7 @@ def decision_args(args, item):
         out["pointer"] = decide.normal_pointer(args.pointer) if args.pointer.strip() else ""
         if out["pointer"] is None:
             raise TodoError(f"--pointer {args.pointer!r}: FILE §n, e.g. 'PLAN-x.md §3'")
-    for f in ("hinges_on", "recommend"):
+    for f in ("hinges_on", "recommend", "today", "problem", "principle"):
         if getattr(args, f) is not None:
             out[f] = getattr(args, f).strip()
     if args.option is not None:
@@ -467,6 +487,8 @@ def cmd_add(args):
         validate(item, require_decision=True)
         if item.get("pointer"):
             resolve_pointer(ws, args, item["pointer"])
+        if item.get("principle"):
+            resolve_principle(args, item["principle"])
         item["id"] = store.allocate()
         item["blocked_by"] = resolve_blockers(ws, item["id"], args.blocked_by)
         item["tags"] = resolve_tags(ws, args.tags)
@@ -533,6 +555,8 @@ def cmd_edit(args):
                  require_decision=bool({"kind", *decide.FIELDS} & set(changes)))
         if changes.get("pointer"):
             resolve_pointer(workspace(args, store), args, updated["pointer"])
+        if changes.get("principle"):
+            resolve_principle(args, updated["principle"])
         check_reported_kind(updated)
         if "parent" in changes:
             resolve_parent(workspace(args, store), updated["parent"])
@@ -2201,6 +2225,14 @@ def add_item_fields(p, editing):
                    help=f"a {dk}'s recommended answer: {' or '.join(VOCAB.decisions['verdicts'])}, or an option's name")
     p.add_argument("--option", action="append", metavar="NAME=TEXT",
                    help=f"one of a {dk}'s options; repeat for each" + ("; replaces them all, --option '' clears" if editing else ""))
+    p.add_argument("--today", metavar="TEXT",
+                   help=f"what is true now, with a number or file:line; a {dk} added from {VOCAB.decisions['row_fields_since']} on needs it")
+    p.add_argument("--problem", metavar="TEXT", help="what goes wrong for someone, in plain words")
+    p.add_argument("--principle", metavar="ID",
+                   help="the practices row id the recommendation rests on (checks practices); omit when none applies, and the table says so")
+    p.add_argument("--checks-cli", dest="checks_cli", metavar="PATH",
+                   help="the checks tool whose `checks practices --json` lists the practice rows --principle is checked against "
+                        "(default: checks/checks in the first folder above this tool holding one)")
     if not editing:
         p.add_argument("--reported-to", dest="reported_to", metavar="REPO",
                        help="a report's owner; writes no other store (todo report does). A counterpart "

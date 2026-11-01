@@ -447,6 +447,8 @@ def decisions_needed(ws, here, steps_by_file, pin, date, notices):
                       evidence=f"made by todo sync-plans {date}: " + ", ".join(where(st) for st in steps)
                       + f" carry track needs-yes {ptr}")
         it.update(pointer=ptr, hinges_on=hinges, recommend=decide.D["generated_recommend"],
+                  today=f"{len(steps)} step(s) of {ref} carry track needs-yes, and no decision in any scanned store answers it",
+                  problem="until it is decided, every item made from those steps stays waiting-jacob and nothing starts",
                   tags=[f"{plans.namespace()}:{ref}"])
         out.append(_act(DECISION, here, it, None, f"{ptr}: {len(steps)} step(s) wait on it"))
     return out

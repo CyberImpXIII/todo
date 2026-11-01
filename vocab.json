@@ -114,8 +114,11 @@
     "detector_resolution": "done-detected"
   },
   "decisions": {
-    "_comment": "Decisions (PLAN-todo-tool.md §10.3, §10.3a, §10.3b): `todo add --kind decision` and `edit` refuse one without every field in `requires`, a `pointer` not matching `pointer` or naming a section the plans CLI cannot read, or a `recommend` not yes, no or one of its `options`; it is added `status` waiting on `waits_on`. check lists an open one lacking them (INFO) and never tables it. `todo decisions` numbers the complete ones 1..n in a table record `<table_prefix>-<n>` (the store's records file); `todo answer` reads a reply against it: a row's whole answer is a word of `verdicts` or an option's name, else it is kept as his words, applying nothing. `max_listed` bounds the incomplete ones named under the table. `generated_recommend` is what `todo sync-plans` recommends on a decision it makes from a plan step.",
+    "_comment": "Decisions (PLAN-todo-tool.md §10.3, §10.3a, §10.3b): `todo add --kind decision` and `edit` refuse one without every field in `requires`, a `pointer` not matching `pointer` or naming a section the plans CLI cannot read, or a `recommend` not yes, no or one of its `options`; it is added `status` waiting on `waits_on`. check lists an open one lacking them (INFO) and never tables it. `todo decisions` numbers the complete ones 1..n in a table record `<table_prefix>-<n>` (the store's records file); `todo answer` reads a reply against it: a row's whole answer is a word of `verdicts` or an option's name, else it is kept as his words, applying nothing. `max_listed` bounds the incomplete ones named under the table. `generated_recommend` is what `todo sync-plans` recommends on a decision it makes from a plan step. `row_fields` (today, problem) are required besides on a decision added from `row_fields_since` on; an older one is still tabled, its cell saying they are not recorded. `principle`, when given, is a row id of the practices registry (checks practices), and the recommend cell shows it or says none is cited (Jacob, 2026-10-31).",
     "requires": ["pointer", "hinges_on", "recommend"],
+    "row_fields": ["today", "problem"],
+    "row_fields_since": "2026-10-31",
+    "principle": "^[a-z][a-z0-9-]*$",
     "pointer": "^(?P<file>[A-Za-z0-9_./-]+\\.md) ?§(?P<section>[0-9]+[a-z]?(?:\\.[0-9]+[a-z]?)*)$",
     "option_name": "^[a-z0-9][a-z0-9_-]{0,23}$",
     "status": "waiting-jacob",
@@ -172,6 +175,9 @@
     "pointer":     {"doc": "a decision's plan section, `FILE §n` (decisions.pointer), read by the plans CLI when set; the table's decision cell starts with it", "label": "pointer", "optional": true},
     "hinges_on":   {"doc": "what a decision hinges on, one line; the table's hinges-on cell", "label": "hinges on", "optional": true},
     "recommend":   {"doc": "the answer recommended to Jacob: yes, no, or one of the decision's options by name", "label": "recommend", "optional": true},
+    "today":       {"doc": "what is true now, with a number or file:line; the table's decision cell says it after the title (a decision added from decisions.row_fields_since on carries it)", "label": "today", "optional": true},
+    "problem":     {"doc": "what goes wrong for someone, in plain words; the decision cell says it after today", "label": "problem", "optional": true},
+    "principle":   {"doc": "the practices row id the recommendation rests on (checks practices), or absent: a recommendation outside the recorded principles is valid, and the recommend cell says so", "label": "principle", "optional": true},
     "options":     {"doc": "[{name, text}]: a decision's options, each a short name (decisions.option_name) and one line; set by `--option NAME=TEXT`, repeated", "label": "options", "optional": true},
     "chosen":      {"doc": "the option Jacob chose, by name; set when a decision closes option-chosen", "label": "chosen", "optional": true},
     "jacob_words": {"doc": "[{date, table, row, text}]: what Jacob answered on a decision's row that was no yes, no or option: kept, applying nothing; appended by `todo answer` only", "label": "his words", "optional": true},

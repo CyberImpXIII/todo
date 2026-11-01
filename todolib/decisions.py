@@ -14,7 +14,7 @@ from .vocab import VOCAB
 
 D = VOCAB.decisions
 # The fields only a decision carries (a tuple of field names, read as fields).
-FIELDS = ("pointer", "hinges_on", "recommend", "options", "chosen", "jacob_words")
+FIELDS = ("pointer", "hinges_on", "recommend", "options", "chosen", "jacob_words", "today", "problem", "principle")
 YES, NO = "yes", "no"
 OPTION, WORDS = "option", "words"
 MARKER = re.compile(r"(?:(?<=\s)|^)(\d+)\)")
@@ -74,6 +74,12 @@ def field_problems(it):
         out.append(f"pointer {p!r} is not FILE §n ({D['pointer'].pattern})")
     if it.get("hinges_on") is not None and not _line(it["hinges_on"]):
         out.append("hinges_on must be one non-empty line")
+    for f in D["row_fields"]:
+        if it.get(f) is not None and not (isinstance(it[f], str) and it[f].strip()):
+            out.append(f"{f} must be non-empty text")
+    pr = it.get("principle")
+    if pr is not None and not (isinstance(pr, str) and D["principle"].match(pr)):
+        out.append(f"principle {pr!r} is not a practices row id ({D['principle'].pattern})")
     opts = it.get("options")
     names = []
     if opts is not None:
@@ -109,6 +115,17 @@ def field_problems(it):
 def missing(it):
     """The required decision fields this decision lacks (decisions.requires)."""
     return [f for f in D["requires"] if it.get(f) in (None, "", [])]
+
+
+def row_missing(it):
+    """The row fields (decisions.row_fields: today, problem) this decision lacks."""
+    return [f for f in D["row_fields"] if it.get(f) in (None, "", [])]
+
+
+def needs_row_fields(it):
+    """A decision added from decisions.row_fields_since on carries the row fields; an
+    older one is tabled without them, its cell saying so (external audit ra-8.1, 2026-10-31)."""
+    return str(it.get("added") or "") >= D["row_fields_since"]
 
 
 def is_complete(it):
@@ -194,7 +211,13 @@ def cells(it):
     hinges = it["hinges_on"]
     if it.get("options"):
         hinges += "; options: " + "; ".join(f"{o['name']} = {o['text']}" for o in it["options"])
-    return [esc(f"{it['pointer']}: {it['title']}"), esc(hinges), esc(it["recommend"])]
+    head = f"{it['pointer']}: {it['title']}"
+    if row_missing(it):
+        head += f" (today and problem not recorded: todo edit {it.get('id')} --today T --problem P)"
+    else:
+        head += f". Today: {it['today']} Problem: {it['problem']}"
+    rec = it["recommend"] + (f" ({it['principle']})" if it.get("principle") else " (no principle cited)")
+    return [esc(head), esc(hinges), esc(rec)]
 
 
 def open_rows(ws, repo=None):

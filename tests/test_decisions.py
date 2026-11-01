@@ -49,7 +49,8 @@ class Base(Case):
 
     def decide(self, title, section=1, recommend="yes", repo=None, options=(), ok=True, extra=()):
         args = ["add", title, "--kind", DECISION, "--pointer", f"PLAN-x.md §{section}",
-                "--hinges-on", f"whether {title}", "--recommend", recommend, *extra]
+                "--hinges-on", f"whether {title}", "--recommend", recommend,
+                "--today", f"today: {title} is not decided", "--problem", f"problem: {title} waits", *extra]
         for o in options:
             args += ["--option", o]
         return self.run_in(repo or self.a, *args, ok=ok)
@@ -102,10 +103,10 @@ class Add(Base):
 
     def test_each_missing_field_is_refused_by_name(self):
         base = ["add", "t", "--kind", DECISION]
-        full = {"--pointer": "PLAN-x.md §1", "--hinges-on": "h", "--recommend": "yes"}
+        full = {"--pointer": "PLAN-x.md §1", "--hinges-on": "h", "--recommend": "yes", "--today": "t", "--problem": "p"}
         for drop in full:
             args = base + [x for k, v in full.items() if k != drop for x in (k, v)]
-            err = self.run_in(self.a, *args, ok=False).stderr
+            err = self.run_in(self.a, *args, ok=False, today=D["row_fields_since"]).stderr
             self.assertIn(drop, err)
         self.assertEqual(self.store(self.a)["items"], [])
 
@@ -144,6 +145,45 @@ class Add(Base):
         self.run_in(self.a, "add", "n", "--kind", NOTE)
         self.run_in(self.a, "edit", "aa-2", "--kind", DECISION, "--status", D["status"], "--waits-on",
                     D["waits_on"], ok=False)
+
+
+class RowFields(Base):
+    """today, problem and principle (external audit ra-8.1, Jacob 2026-10-31): a new decision
+    says what is true now and what goes wrong; an older one is tabled and marked; a
+    principle is a row id of the practices registry, or absent and said so."""
+    SINCE = D["row_fields_since"]
+
+    def test_a_decision_added_from_the_date_on_needs_today_and_problem(self):
+        err = self.run_in(self.a, "add", "t", "--kind", DECISION, "--pointer", "PLAN-x.md §1", "--hinges-on", "h",
+                          "--recommend", "yes", ok=False, today=self.SINCE).stderr
+        self.assertIn("--today", err)
+        self.assertIn("--problem", err)
+        self.assertEqual(self.store(self.a)["items"], [])
+
+    def test_an_older_decision_is_tabled_with_its_cell_saying_what_it_lacks(self):
+        self.run_in(self.a, "add", "old one", "--kind", DECISION, "--pointer", "PLAN-x.md §1", "--hinges-on", "h",
+                    "--recommend", "yes", today="2026-10-01")
+        cells = self.table()["rows"][0]["cells"]
+        self.assertEqual(cells[0], "PLAN-x.md §1: old one (today and problem not recorded: todo edit aa-1 --today T --problem P)")
+        self.assertIn("carry no today/problem", self.check(self.a).stdout)
+
+    def test_the_cell_carries_today_problem_and_the_principle_or_says_none_is_cited(self):
+        self.decide("with principle", extra=["--principle", "root-one-source"])
+        self.decide("without", section=2)
+        rows = {r["cells"][0].split(":")[0]: r["cells"] for r in self.table()["rows"]}
+        self.assertEqual(rows["PLAN-x.md §1"], ["PLAN-x.md §1: with principle. Today: today: with principle is not decided Problem: problem: with principle waits", "whether with principle", "yes (root-one-source)"])
+        self.assertEqual(rows["PLAN-x.md §2"][2], "yes (no principle cited)")
+
+    def test_a_principle_that_is_no_registry_row_is_refused(self):
+        err = self.decide("x", extra=["--principle", "no-such-row"], ok=False).stderr
+        self.assertIn("not a row of the practices registry", err)
+        err = self.decide("y", extra=["--principle", "Not An Id"], ok=False).stderr
+        self.assertIn("not a practices row id", err)
+        self.assertEqual(self.store(self.a)["items"], [])
+
+    def test_a_registry_that_cannot_be_read_refuses_the_principle(self):
+        err = self.decide("x", extra=["--principle", "root-one-source", "--checks-cli", "/nonexistent/checks"], ok=False).stderr
+        self.assertIn("cannot be read", err)
 
 
 class Close(Base):
@@ -216,7 +256,7 @@ class Table(Base):
             cells = [c.strip() for c in row.strip("|").split(" | ")]
             self.assertEqual(cells[0], str(n))
             self.assertRegex(cells[1], POINTER_CELL)
-            self.assertIn(cells[3], D["verdicts"])
+            self.assertIn(cells[3].split(" (")[0], D["verdicts"])   # the answer word, then the principle clause
         self.assertIn("PLAN-x.md §2: big", rows[0])
         self.assertFalse([ln for ln in out if ln.rstrip().endswith("?")], "a line ending in ? is a stray question")
         view = self.table()
@@ -227,7 +267,7 @@ class Table(Base):
         self.decide("store", options=["a=sqlite", "b=json files"], recommend="b")
         row = self.table()["rows"][0]
         self.assertIn("options: a = sqlite; b = json files", row["cells"][1])
-        self.assertIn(row["cells"][2], row["cells"][1])
+        self.assertIn(row["cells"][2].split(" (")[0], row["cells"][1])   # the option named, then the principle clause
 
     def test_each_render_is_recorded_and_the_same_rows_return_the_same_id(self):
         self.decide("one")
@@ -269,7 +309,7 @@ class Table(Base):
         self.plant_legacy()                                   # aa-1, untabled
         self.decide("tabled")                                 # aa-2, a row
         out = self.run_in(self.a, "decisions").stdout
-        self.assertIn("| 1 | PLAN-x.md §1: tabled |", out)
+        self.assertIn("| 1 | PLAN-x.md §1: tabled. Today:", out)
         foot = out.split("\n\n")[-1].splitlines()
         self.assertEqual(foot[0], "1 decision item(s) in owners' stores lack row fields (a 1): "
                                   "not questions for you until an owner tables them", out)

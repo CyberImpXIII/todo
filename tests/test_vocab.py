@@ -125,7 +125,8 @@ class Handled(Case):
         (self.tmp / "dets.json").write_text(json.dumps(dets))
         self.todo("-C", a, "--root", self.ws, "detect", env={"TODO_DETECTORS": str(self.tmp / "dets.json")})
         extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"], "jacob-step": ["--done-check", "true"],
-                 VOCAB.role("decision_kind"): ["--pointer", "PLAN-h.md §1", "--hinges-on", "h", "--recommend", "o1", "--option", "o1=x"]}
+                 VOCAB.role("decision_kind"): ["--pointer", "PLAN-h.md §1", "--hinges-on", "h", "--recommend", "o1", "--option", "o1=x",
+                                                  "--today", "t", "--problem", "p", "--principle", "root-one-source"]}
         dk = VOCAB.role("decision_kind")
         for kind in [k for k in VOCAB.kinds if k != dk] + [dk]:  # the decision last: approving it closes it
             if kind == VOCAB.role("report_kind") or kind in VOCAB.made_by:

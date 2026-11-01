@@ -264,6 +264,13 @@ def check_waiting(store, out):
                                              f"`todo decisions` tables them by: {'; '.join(lacking[:n])}"
                                              + (f" (+{len(lacking) - n})" if len(lacking) > n else "")
                                              + " -- todo edit ID --pointer --hinges-on --recommend"))
+    rows_lacking = [it["id"] for it in store.items if decide.is_decision(it) and not decide.missing(it) and decide.row_missing(it)]
+    if rows_lacking:
+        n = decide.D["max_listed"]
+        out.append(("INFO", "required", "-", f"{len(rows_lacking)} open {VOCAB.role('decision_kind')}(s) carry no today/problem, so their "
+                                             f"table row says so: {', '.join(rows_lacking[:n])}"
+                                             + (f" (+{len(rows_lacking) - n})" if len(rows_lacking) > n else "")
+                                             + " -- todo edit ID --today T --problem P"))
 
 
 def git_show(top, path, sha="HEAD"):
