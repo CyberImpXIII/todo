@@ -67,6 +67,18 @@ class NamesFile(Case):
         self.assertIn("location #0 is not", r.stderr)
         self.assertIsNone(self.store(self.a)["items"][0]["reported_to"]["their_id"])
 
+    def test_check_keys_reads_fields_as_data_and_prose_as_quotation(self):
+        self.todo("-C", self.a, "report", "aa-1", "--to", "b", env=self.env())   # paired, so the reports gate is quiet
+        self.todo("-C", self.a, "add", "names the old key in prose: job-import-things was here", "--kind", NOTE, "--evidence", "see tools/wizard and b-repo", env=self.env())
+        self.todo("-C", self.a, "add", "keyed by a path", "--kind", NOTE, "--repo", "tools/wizard", env=self.env())
+        out = self.check(self.a, today="2026-11-01").stdout
+        self.assertNotIn("keys", out.replace("  ok    keys", ""), "without a names file the gate judges nothing")
+        r = self.todo("-C", self.a, "check", ok=False, env=self.env(TODO_NAMES=str(self.names)))
+        self.assertIn("FAIL  keys      aa-3     repo (store): 'tools/wizard' is not a location's name", r.stdout)
+        self.assertIn("the location is named 'wizard'", r.stdout)
+        self.assertNotIn("aa-2", "\n".join(ln for ln in r.stdout.splitlines() if "keys" in ln), "prose is never read")
+        self.assertEqual(sum(1 for ln in r.stdout.splitlines() if "FAIL  keys" in ln), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

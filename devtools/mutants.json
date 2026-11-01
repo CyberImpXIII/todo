@@ -1132,6 +1132,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_pair.Pair.test_apply_writes_the_counterpart_here_and_pairs_both_sides"]},
     {"id": "names-file-ignored-on-report", "gate": "with a names file handed, todo report refuses a target that is no location name (G4)",
      "file": "todolib/cli.py", "old": "    if naming.CURRENT is not None and naming.CURRENT.target_problem(args.to):", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_names_file.NamesFile.test_a_known_name_pairs_and_a_path_or_old_key_is_refused_by_name"]}
+     "run": ["python3", "-m", "unittest", "tests.test_names_file.NamesFile.test_a_known_name_pairs_and_a_path_or_old_key_is_refused_by_name"]},
+    {"id": "keys-gate-silent", "gate": "with a names file handed, check keys fails an item field that names a location by another spelling (G3)",
+     "file": "todolib/checks.py", "old": "            if value and nm.target_problem(value):", "new": "            if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_names_file.NamesFile.test_check_keys_reads_fields_as_data_and_prose_as_quotation"]}
   ]
 }

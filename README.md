@@ -870,6 +870,7 @@ gate that stopped running shows as a missing line:
 | records | `todo-records.json` is malformed, or a decision table committed was removed or changed, or an answer to it changed |
 | detectors | a detector's recorded run is malformed; a registered detector has not run within `stale_factor` times its cadence (or never) in a store where any detector has run; two open items hold one detector key |
 | writes | a row of `todo-writes.jsonl` does not parse or lacks a key, or `todo.json`'s seal is not the one the newest row left: it was replaced around the CLI (below) |
+| keys | only with a names file handed (`--names FILE` or `TODO_NAMES`): the store's key, or an item's `repo` or `reported_to.repo`, open or closed, names a location by a spelling other than its name (a path, an old key, a remote). Prose is never read here: fields are data, prose is a quotation (PLAN-architecture.md §13.1 G3) |
 
 ## Development
 

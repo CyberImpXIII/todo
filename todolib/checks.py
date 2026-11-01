@@ -13,13 +13,14 @@ from . import decisions as decide
 from . import detect, syncplans
 from . import migrate as migrating
 from . import rename as renaming
+from . import names as naming
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
                     HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today, WRITE_KEYS, WRITES_FILE)
 from .vocab import VOCAB
 
 GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports",
-         "workspace", "render", "history", "records", "detectors", "writes"]
+         "workspace", "render", "history", "records", "detectors", "writes", "keys"]
 SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolution", "parent", "repo",
                "pointer", "hinges_on", "recommend", "chosen"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
@@ -319,6 +320,24 @@ def table_problem(t):
     if not isinstance(t["supersedes"], list) or not isinstance(t["answers"], list):
         return "supersedes and answers must be lists"
     return None
+
+
+def check_keys(store, out):
+    """The names file, when handed (PLAN-architecture.md §13.1 G3; Jacob 2026-11-01: "fields
+    are data, prose is a quotation"): this store's key and every item's `repo` and
+    `reported_to.repo`, open or closed, is a location's name there; a spelling that names
+    a location otherwise (a path, an old key, a remote) is red. Prose (evidence, titles,
+    import records) is never read here. Without a file, nothing is judged."""
+    nm = naming.CURRENT
+    if nm is None:
+        return
+    why = nm.target_problem(store.repo)
+    if why:
+        out.append(("FAIL", "keys", "-", f"the store's key: {why}"))
+    for it, where in [(i, "store") for i in store.items] + [(i, "history") for i in store.closed]:
+        for field, value in (("repo", it.get("repo")), ("reported_to", (it.get("reported_to") or {}).get("repo") if isinstance(it.get("reported_to"), dict) else None)):
+            if value and nm.target_problem(value):
+                out.append(("FAIL", "keys", it.get("id"), f"{field} ({where}): {nm.target_problem(value)}"))
 
 
 def check_writes(store, out):
@@ -775,6 +794,7 @@ def check_store(store, ws):
     check_records(store, out)
     check_detectors(store, out)
     check_writes(store, out)
+    check_keys(store, out)
     return out
 
 
