@@ -1,7 +1,8 @@
 {
-  "store": ["todo.json", "todo-history.json", "todo-records.json",
+  "store": ["todo.json", "todo-history.json", "todo-records.json", "todo-writes.jsonl",
             "todo.db", "todo.meta.jsonl", "todo.items.jsonl", "todo.history.jsonl", "todo.records.jsonl"],
   "not_exported": {
+    "todo-writes.jsonl": "not exported (ELABORATION-2.4-2.6.md §2.3 part 1): the write log, committed beside the store it logs, which git holds; it is append-only and read by `todo check`, so no export to the data repo is verified",
     "todo.json": "not exported now (Jacob 2026-10-20, dt-36 row 12, not-exported-now; td-29): committed JSON that git holds, so no export to the data repo is verified today. PLAN-services.md §4 step 10.1 (the move to todo.db) adds `verify --json` and removes this not_exported in the same change",
     "todo-history.json": "not exported now (Jacob 2026-10-20, dt-36 row 12, not-exported-now; td-29): committed JSON that git holds, so no export to the data repo is verified today. PLAN-services.md §4 step 10.1 (the move to todo.db) adds `verify --json` and removes this not_exported in the same change",
     "todo-records.json": "not exported now (Jacob 2026-10-20, dt-36 row 12, not-exported-now; td-29): committed JSON that git holds, so no export to the data repo is verified today. PLAN-services.md §4 step 10.1 (the move to todo.db) adds `verify --json` and removes this not_exported in the same change",

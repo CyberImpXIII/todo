@@ -63,7 +63,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo find TAG ... [--open] [--json]` | `todo:<id>  title` of every record, open or closed (`(closed)`), in every scanned store, that holds every tag named; `--open` leaves history out. A tag outside the vocabulary is refused |
 | `todo refs ID [--open] [--json]` | the records whose `ref:` names ID: `todo:<id>` (as a parent, a `blocked_by` id, a report's counterpart or a `ref:` tag), or another service's id such as `kb:hooks#sessionstart`. Exit codes as for `get` for a todo id |
 | `todo split ID TITLE ... --size SIZE` | one child per title under `parent`, each a checkpoint of its own: SIZE is S or M; it copies the parent's kind, repo, work, files, `blocked_by`, tags and any field its kind requires, and gets its own `done_when` with `todo edit`. The parent becomes L, so `ready` never lists it, and `todo done` on its last open child closes it too |
-| `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken), after reading the diff: seals it again and records `{date, via: reseal, files, reason}` in `hand_edits`. The one way to write over a broken seal; refused when every seal matches |
+| `todo reseal --reason R` | accept a store file changed around the CLI (its seal broken, or `todo.json` not the version the write log's last row left), after reading the diff: seals it again, records `{date, via: reseal, files, reason}` in `hand_edits` and logs the write. The one way to write over either; refused when every seal and the log match |
 | `todo approve ID --source S [--date D] [--option NAME] [--clear]` | record Jacob's approval on an open item: `approved` `{by, date, source}`, `by` from `vocab.json` `approval`, `--date` (default today) no later than today, `--source` one line saying where he gave it. `--clear` removes it, refused while the item is dispatched. On a `waiting-jacob` item waiting on `approval` it ends the wait: the item is `open`, its `waits_on` cleared, and the line says so; one waiting on anything else, or naming no `waits_on`, stays `waiting-jacob`, the line saying why (`--clear` does not put the wait back). On a decision the approval is its answer: it closes `accepted`, or `option-chosen` on `--option NAME` (a plain yes to a decision recommending an option chooses that one), and what it blocked is free |
 | `todo dispatch ID [--note N] [--clear]` | mark an approved open item handed out: `dispatched` `{date, text}`; an item approved by rule TD-B1 (Approval by rule, below) gets the rule's `approved` too. Refused on an item neither Jacob nor the rule approves, naming the rule's misses, or one already dispatched; says so, but still marks it, when `todo brief` would call it NOT READY. `--clear` when it comes back unfinished, so it is listed again |
 | `todo dispatchable [--repo R] [--json]` | what can be dispatched now, across every scanned store (below): the open items Jacob approved, not dispatched, and ready as `todo brief` judges it, each with its `todo:` id, repo, work, size, approval, the brief command and the `dispatch` command that marks it; then, under their own heading (`by_rule` in `--json`), the ones approved by rule TD-B1 and not by him. Then the approved items held back and why, the dispatched ones, and the count of open items with no approval; with nothing dispatchable, the top roots of `todo blockers` (below) in place of that count. Exit 3 (`UNCHECKED`) when a store could not be read |
@@ -592,6 +592,18 @@ things hold every other writer off them:
   file beside it) is a `WARN` until the next CLI write seals it. Outside git, both
   files set back to format 1 together, with no records file, cannot be told from
   that: nothing there remembers them sealed.
+- **Each write is logged** (ELABORATION-2.4-2.6.md §2.3), in `todo-writes.jsonl`
+  beside the store, 0444 and append-only: one row per command that changed a file,
+  `{at, verb, ids, by, why, seal_before, seal_after}`. `ids` are the items whose
+  content changed. `by` is `--by NAME`, else `TODO_BY`, else `jacob` outside a
+  Claude Code session and `unattributed` inside one; `why` is `--why TEXT` or
+  `TODO_WHY` (both options go before the command: `todo --by x add ...`). A seal
+  only says a file is one the CLI wrote; the log says which one it wrote last. So a
+  checkout, a stash or a copy that brings back another sealed `todo.json` fails
+  `todo check` (gate `writes`), and every mutating command refuses to write over
+  it, as over a broken seal, until `todo reseal --reason R` accepts it (recorded and
+  logged). A command that changes nothing writes nothing: no file, no render, no
+  row (`todo detect` records only its run, in `todo-records.json`).
 
 ## The move to todo.db
 
@@ -820,6 +832,7 @@ gate that stopped running shows as a missing line:
 | history | the file is missing or malformed, or an entry was removed or changed since a commit |
 | records | `todo-records.json` is malformed, or a decision table committed was removed or changed, or an answer to it changed |
 | detectors | a detector's recorded run is malformed; a registered detector has not run within `stale_factor` times its cadence (or never) in a store where any detector has run; two open items hold one detector key |
+| writes | a row of `todo-writes.jsonl` does not parse or lacks a key, or `todo.json`'s seal is not the one the newest row left: it was replaced around the CLI (below) |
 
 ## Development
 

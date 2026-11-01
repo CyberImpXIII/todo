@@ -372,7 +372,7 @@
      "file": "todolib/cli.py", "old": "        store.data.setdefault(\"hand_edits\", []).append({\"date\": today(), \"via\": \"reseal\", \"files\": broken,\n                                                        \"reason\": args.reason})\n", "new": "",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Sealed.test_a_mutation_refuses_over_a_broken_seal_and_reseal_records_it"]},
     {"id": "store-left-writable", "gate": "every CLI write leaves the store read-only",
-     "file": "todolib/store.py", "old": "        write(self.path, dump(self.data), readonly=True)", "new": "        write(self.path, dump(self.data))",
+     "file": "todolib/store.py", "old": "            return write_if_changed(path, text, readonly=True)", "new": "            return write_if_changed(path, text)",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Sealed.test_every_cli_write_leaves_both_files_sealed_and_read_only"]},
     {"id": "seal-removal-passes", "gate": "removing the seal is a hand edit, not a store from before seals",
      "file": "todolib/store.py", "old": "    return \"legacy\" if data.get(\"format\") == LEGACY_FORMAT else \"missing\"", "new": "    return \"legacy\"",

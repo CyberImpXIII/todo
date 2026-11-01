@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from todolib.store import HISTORY_FILE, STORE_FILE, sealed
+from todolib.store import HISTORY_FILE, SEAL_KEY, STORE_FILE, WRITE_KEYS, WRITES_FILE, sealed
 from todolib.vocab import VOCAB
 
 # A declared waits_on that takes no argument: what a test's waiting-jacob item waits on.
@@ -103,7 +103,8 @@ class Case(unittest.TestCase):
 
     def write_json(self, path, data, seal=True):
         """Plant a fixture. A store file is written sealed and read-only, as the CLI
-        writes it, so the test exercises its own gate and not the seal gate;
+        writes it, so the test exercises its own gate and not the seal gate (nor the
+        write log's: a sealed todo.json gets the log row a CLI write would leave);
         seal=False writes it as a hand edit would leave it (tests/test_seal.py)."""
         path = Path(path)
         if path.exists():
@@ -114,3 +115,10 @@ class Case(unittest.TestCase):
         path.write_text(json.dumps(data, indent=2) + "\n")
         if is_store and seal:
             os.chmod(path, 0o444)
+        if is_store and seal and path.name == STORE_FILE and (path.parent / WRITES_FILE).exists():
+            log = path.parent / WRITES_FILE
+            row = {k: None for k in WRITE_KEYS}
+            row.update(at="2026-10-30T00:00:00Z", verb="fixture", ids=[], by="test", seal_after=data[SEAL_KEY])
+            os.chmod(log, 0o644)
+            log.write_text(log.read_text() + json.dumps(row) + "\n")
+            os.chmod(log, 0o444)

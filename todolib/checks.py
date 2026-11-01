@@ -14,11 +14,11 @@ from . import detect, syncplans
 from . import migrate as migrating
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
-                    HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today)
+                    HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today, WRITE_KEYS, WRITES_FILE)
 from .vocab import VOCAB
 
 GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports",
-         "workspace", "render", "history", "records", "detectors"]
+         "workspace", "render", "history", "records", "detectors", "writes"]
 SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolution", "parent", "repo",
                "pointer", "hinges_on", "recommend", "chosen"]
 # What an imported closed item may lack: its date (a Resolved bullet has none). Its
@@ -311,6 +311,36 @@ def table_problem(t):
     if not isinstance(t["supersedes"], list) or not isinstance(t["answers"], list):
         return "supersedes and answers must be lists"
     return None
+
+
+def check_writes(store, out):
+    """The write log (ELABORATION-2.4-2.6.md §2.3 part 1): every row whole, and todo.json's
+    seal the one the newest logged write left. A store with no log yet (no CLI write
+    since the log began) passes; on todo.db the log is not kept yet."""
+    if store.on_db:
+        return
+    path = store.dir / WRITES_FILE
+    if not path.is_file():
+        return
+    rows = []
+    for n, line in enumerate(path.read_text().splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError as e:
+            out.append(("FAIL", "writes", f"line {n}", f"{WRITES_FILE} line {n} does not parse ({e})"))
+            continue
+        if not isinstance(row, dict) or sorted(row) != sorted(WRITE_KEYS):
+            out.append(("FAIL", "writes", f"line {n}", f"{WRITES_FILE} line {n}: keys {sorted(row) if isinstance(row, dict) else type(row).__name__}, expected {WRITE_KEYS}"))
+            continue
+        rows.append(row)
+    if rows and rows[-1]["seal_after"] != store.data.get(SEAL_KEY):
+        out.append(("FAIL", "writes", "-",
+                    f"{store.where.name}'s seal {store.data.get(SEAL_KEY)} is not the one its last logged write left "
+                    f"({rows[-1]['seal_after']}, {rows[-1]['verb']} at {rows[-1]['at']}): it was replaced around the CLI "
+                    f"(a checkout, a stash, a copy). The CLI refuses to write over it: restore the logged version, or "
+                    f"`todo reseal --reason R` accepts it, recorded in hand_edits and logged"))
 
 
 def check_records(store, out):
@@ -722,6 +752,7 @@ def check_store(store, ws):
     check_history(store, out)
     check_records(store, out)
     check_detectors(store, out)
+    check_writes(store, out)
     return out
 
 

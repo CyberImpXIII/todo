@@ -12,6 +12,7 @@ from . import approval, checks, deps, importer, plans
 from . import blockers as rootlib
 from . import decisions as decide
 from . import detect, readers, repostatus
+from . import store as store_mod
 from . import practices as practicing
 from . import migrate as migrating
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
@@ -345,8 +346,10 @@ def cmd_reseal(args):
         store.load()
         require_clean(store)
         broken = store.unsealed()
+        if store.replaced():
+            broken = broken + [f"{store.where.name} (not the version its last logged write left)"]
         if not broken:
-            raise TodoError("nothing to reseal: every store file's seal matches its content")
+            raise TodoError("nothing to reseal: every store file's seal matches its content, and the write log's last row")
         store.data.setdefault("hand_edits", []).append({"date": today(), "via": "reseal", "files": broken,
                                                         "reason": args.reason})
         store.save(reseal=True)
@@ -2191,6 +2194,9 @@ def build_parser():
     ap = argparse.ArgumentParser(prog="todo", description="Structured TODO items per repo; TODO.md is rendered from todo.json.")
     ap.add_argument("-C", metavar="DIR", help="the repo whose store to use (default: the git repo holding the cwd)")
     ap.add_argument("--root", metavar="DIR", help="where to scan for other repos' stores")
+    ap.add_argument("--by", metavar="NAME", help="who makes this write, for the write log (else TODO_BY; outside a "
+                                                 "session `jacob`; inside one `unattributed`)")
+    ap.add_argument("--why", metavar="TEXT", help="why, one line, for the write log (else TODO_WHY)")
     sub = ap.add_subparsers(dest="command", metavar="command")
     ps = {name: sub.add_parser(name, help=help_) for name, (_, help_) in COMMANDS.items()}
     ps["init"].add_argument("--prefix", required=True)
@@ -2327,6 +2333,19 @@ def normalise_ids(args):
         args.research = [r[len(head):] if r.startswith(head) else r for r in args.research]
 
 
+def set_writer(args):
+    """Who and why, for the write log (store.WRITER; ELABORATION-2.4-2.6.md §2.3 part 3):
+    --by, else TODO_BY, else `jacob` outside a Claude Code session (as commit-msg does)
+    and `unattributed` inside one, where the hook input names the agent once the
+    hook that inserts --by is registered (a settings step, Jacob's). Recorded, not yet required."""
+    by = args.by or os.environ.get("TODO_BY") or ("unattributed" if os.environ.get("CLAUDECODE") else "jacob")
+    why = args.why or os.environ.get("TODO_WHY") or None
+    for name, v in (("--by", by), ("--why", why)):
+        if v is not None and (not v.strip() or "\n" in v):
+            raise TodoError(f"{name}: one non-empty line")
+    store_mod.WRITER.update(verb=args.command, by=by.strip(), why=why.strip() if why else None)
+
+
 def main(argv=None):
     ap = build_parser()
     args = ap.parse_args(argv)
@@ -2334,6 +2353,7 @@ def main(argv=None):
         ap.print_help()
         return 0
     try:
+        set_writer(args)
         normalise_ids(args)
         COMMANDS[args.command][0](args)
     except Unchecked as e:

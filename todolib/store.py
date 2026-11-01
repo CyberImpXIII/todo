@@ -38,6 +38,15 @@ HISTORY_KEYS = ["format", "repo", "items", SEAL_KEY]
 # 0444 like the other two; absent reads as empty.
 RECORDS_FILE = "todo-records.json"
 RECORDS_KEYS = ["format", "repo", "tables", "runs", SEAL_KEY]
+# The write log (ELABORATION-2.4-2.6.md §2.3 part 1): one JSON row per CLI write that
+# changed a file, appended under the store's lock, 0444 like the store:
+# {at, verb, ids, by, why, seal_before, seal_after}. `todo check` holds todo.json's seal
+# equal to the newest row's seal_after, so a checkout, a stash or a copy that brings
+# back another sealed version is red, which the seal alone cannot see. Absent until the
+# first logged write. `by` and `why` come from WRITER (cli.main sets it per command).
+WRITES_FILE = "todo-writes.jsonl"
+WRITE_KEYS = ["at", "verb", "ids", "by", "why", "seal_before", "seal_after"]
+WRITER = {"verb": None, "by": None, "why": None}
 # The move to todo.db (PLAN-todo-tool.md §10.6, todolib/migrate.py): one SQLite file,
 # gitignored, and one static export per table, committed, sealed and 0444, which a
 # fresh clone imports on its first command. A folder is on todo.db when either is
@@ -351,6 +360,7 @@ class Store:
                 self.records = json.loads(self.records_path.read_text())
             except ValueError as e:
                 raise TodoError(f"{self.records_path} does not parse: {e}")
+        self._snapshot()
         self.seals = {STORE_FILE: seal_state(self.data) if isinstance(self.data, dict) else "broken"}
         if self.history is not None:
             self.seals[HISTORY_FILE] = seal_state(self.history) if isinstance(self.history, dict) else "broken"
@@ -459,6 +469,51 @@ class Store:
         return bool(m) and m.group(1) == self.prefix
 
     # -- writing -----------------------------------------------------------
+    @property
+    def writes_path(self):
+        return self.dir / WRITES_FILE
+
+    def _snapshot(self):
+        """What the write log compares against: todo.json's seal and each item as loaded."""
+        data = self.data if isinstance(self.data, dict) else {}
+        hist = self.history if isinstance(self.history, dict) else {}
+        self._loaded_seal = data.get(SEAL_KEY)
+        self._loaded_items = {it.get("id"): json.dumps(it, sort_keys=True)
+                              for it in (data.get("items") or []) + (hist.get("items") or []) if isinstance(it, dict)}
+
+    def _changed_ids(self):
+        now = {it.get("id"): json.dumps(it, sort_keys=True) for it in self.items + self.closed if isinstance(it, dict)}
+        was = getattr(self, "_loaded_items", {})
+        return sorted((k for k in set(now) | set(was) if now.get(k) != was.get(k)), key=id_number)
+
+    def last_logged_seal(self):
+        """The seal the newest write log row left, or None (no log, or no row)."""
+        try:
+            lines = [ln for ln in self.writes_path.read_text().splitlines() if ln.strip()]
+        except FileNotFoundError:
+            return None
+        try:
+            return json.loads(lines[-1]).get("seal_after") if lines else None
+        except (ValueError, AttributeError):
+            return None
+
+    def replaced(self):
+        """True when todo.json was replaced around the CLI: a write log exists and its
+        newest row left another seal than the one loaded (a checkout, a stash, a copy)."""
+        last = self.last_logged_seal()
+        return self.backing == "json" and last is not None and last != getattr(self, "_loaded_seal", None)
+
+    def _log_write(self):
+        row = {"at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+               "verb": WRITER["verb"], "ids": self._changed_ids(), "by": WRITER["by"], "why": WRITER["why"],
+               "seal_before": getattr(self, "_loaded_seal", None), "seal_after": self.data.get(SEAL_KEY)}
+        try:
+            old = self.writes_path.read_text()
+        except FileNotFoundError:
+            old = ""
+        write_atomic(self.writes_path, old + json.dumps(row, ensure_ascii=False) + "\n", readonly=True)
+        self._snapshot()
+
     @contextlib.contextmanager
     def lock(self):
         fd = os.open(self.dir, os.O_RDONLY)
@@ -512,6 +567,11 @@ class Store:
         if self.history is None:
             raise TodoError(f"{self.history_where} is missing; refusing to write a store without its history")
         broken = self.unsealed()
+        if self.replaced() and not reseal and not broken:
+            raise TodoError(f"{self.where} in {self.dir} is not the version its last logged write left "
+                            f"({WRITES_FILE}: seal {self.last_logged_seal()}, loaded {self._loaded_seal}): it was "
+                            "replaced around the CLI (a checkout, a stash, a copy). Restore the logged version, or, having "
+                            "read the diff, `todo reseal --reason R` accepts this one, recorded in hand_edits and logged")
         if broken and not reseal:
             if self.backing == "db":
                 raise TodoError(f"{', '.join(broken)} in {self.dir}: " + "; ".join(
@@ -533,13 +593,18 @@ class Store:
         # unchanged one already holds that text, sealed, so "every CLI write leaves
         # every store file sealed" still holds. A file left writable by something
         # else (a stash) keeps its mode, for stores-readonly to see.
-        write = write_atomic if reseal else write_if_changed
-        write(self.history_path, dump(self.history), readonly=True)
-        write(self.path, dump(self.data), readonly=True)
+        def write(path, text):
+            if reseal:
+                write_atomic(path, text, readonly=True)
+                return True
+            return write_if_changed(path, text, readonly=True)
+        wrote = [write(self.history_path, dump(self.history)), write(self.path, dump(self.data))]
         self.seals = {STORE_FILE: "sealed", HISTORY_FILE: "sealed"}
         if self.records is not None:
-            write(self.records_path, dump(self.records), readonly=True)
+            wrote.append(write(self.records_path, dump(self.records)))
             self.seals[RECORDS_FILE] = "sealed"
+        if any(wrote):
+            self._log_write()
 
     def _save_db(self):
         from . import migrate

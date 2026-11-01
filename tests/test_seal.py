@@ -12,7 +12,7 @@ import unittest
 from tests.helpers import ROOT, Case, git_commit
 from todolib.cli import COMMANDS
 from todolib.migrate import PRODUCER, SCHEMA_VERSION
-from todolib.store import DB_FILE, EXPORT_FILES, FORMAT, HISTORY_FILE, LEGACY_FORMAT, RECORDS_FILE, SEAL_KEY, STORE_FILE, content_seal
+from todolib.store import DB_FILE, EXPORT_FILES, FORMAT, HISTORY_FILE, LEGACY_FORMAT, RECORDS_FILE, SEAL_KEY, STORE_FILE, content_seal, WRITES_FILE
 from todolib.vocab import VOCAB
 
 NOTE = VOCAB.role("default_kind")
@@ -119,6 +119,8 @@ class Legacy(Case):
             data.pop(SEAL_KEY)
             data["format"] = LEGACY_FORMAT
             self.write_json(a / name, data, seal=False)
+        os.chmod(a / WRITES_FILE, 0o644)
+        (a / WRITES_FILE).unlink()          # a store from before seals predates the write log too
         out = self.check(a).stdout
         self.assertEqual(sum(1 for ln in out.splitlines() if ln.split()[:2] == ["WARN", "seal"]), 2, out)
         self.todo("-C", a, "edit", "aa-1", "--title", "one, edited")
@@ -152,7 +154,7 @@ class Declared(unittest.TestCase):
         self.cli = json.loads((ROOT / "cli.json").read_text())
 
     def test_the_store_is_the_files_the_cli_writes(self):
-        self.assertEqual(self.cli["store"], [STORE_FILE, HISTORY_FILE, RECORDS_FILE, DB_FILE, *EXPORT_FILES.values()])
+        self.assertEqual(self.cli["store"], [STORE_FILE, HISTORY_FILE, RECORDS_FILE, WRITES_FILE, DB_FILE, *EXPORT_FILES.values()])
         self.assertEqual(self.cli["cli"], "todo")
 
     def test_the_kinds_are_what_the_code_writes(self):
