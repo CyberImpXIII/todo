@@ -595,10 +595,11 @@ things hold every other writer off them:
   that: nothing there remembers them sealed.
 - **Each write is logged** (ELABORATION-2.4-2.6.md §2.3), in `todo-writes.jsonl`
   beside the store, 0444 and append-only: one row per command that changed a file,
-  `{at, verb, ids, by, why, seal_before, seal_after}`. `ids` are the items whose
+  `{at, verb, ids, by, why, seal_before, seal_after, rename}`. `ids` are the items whose
   content changed. `by` is `--by NAME`, else `TODO_BY`, else `jacob` outside a
   Claude Code session and `unattributed` inside one; `why` is `--why TEXT` or
-  `TODO_WHY` (both options go before the command: `todo --by x add ...`). A seal
+  `TODO_WHY` (both options go before the command: `todo --by x add ...`); `rename` is
+  `{old, new}` on a `rename-repo` row and null otherwise. A seal
   only says a file is one the CLI wrote; the log says which one it wrote last. So a
   checkout, a stash or a copy that brings back another sealed `todo.json` fails
   `todo check` (gate `writes`), and every mutating command refuses to write over
@@ -728,7 +729,9 @@ Closed items leave `todo.json` and are appended to `todo-history.json`, so
   `todo done ID` finishes), never in neither.
 - History is **append-only**: no command edits or removes an entry, and `check`
   compares the file with every committed version of it (`git log`), failing when
-  an entry was removed or changed, committed or not.
+  an entry was removed or changed, committed or not. One change is admitted: an entry
+  that differs from a committed version only by a key rename a `rename-repo` row of the
+  write log recorded (`check` says so, `INFO`); any other difference still fails.
 - `todo history`, `todo show` and `todo tree` read it; `todo check` reads it to
   pair a report whose counterpart the owner already closed (an `INFO` line saying
   so, so it is closed here rather than reported again).

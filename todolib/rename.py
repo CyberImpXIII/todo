@@ -98,6 +98,19 @@ def apply(store, old, new):
         _rewrite(store.records.get("runs", {}).values() if isinstance(store.records.get("runs"), dict) else [], old, new)
 
 
+def renamed(item, renames):
+    """`item` with every logged key rename applied, oldest first: what a committed
+    history entry must now read as, and nothing else (checks.check_history)."""
+    it = json.loads(json.dumps(item))
+    for r in renames:
+        if it.get("repo") == r["old"]:
+            it["repo"] = r["new"]
+        rt = it.get("reported_to")
+        if isinstance(rt, dict) and rt.get("repo") == r["old"]:
+            rt["repo"] = r["new"]
+    return it
+
+
 def describe(store, c):
     parts = (["key"] if c["key"] else []) + [f"{c['items']} item field(s)"] * bool(c["items"]) \
         + [f"{c['history']} history field(s)"] * bool(c["history"])

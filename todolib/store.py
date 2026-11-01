@@ -45,8 +45,9 @@ RECORDS_KEYS = ["format", "repo", "tables", "runs", SEAL_KEY]
 # back another sealed version is red, which the seal alone cannot see. Absent until the
 # first logged write. `by` and `why` come from WRITER (cli.main sets it per command).
 WRITES_FILE = "todo-writes.jsonl"
-WRITE_KEYS = ["at", "verb", "ids", "by", "why", "seal_before", "seal_after"]
-WRITER = {"verb": None, "by": None, "why": None}
+WRITE_KEYS = ["at", "verb", "ids", "by", "why", "seal_before", "seal_after", "rename"]
+# rename: {old, new} on a rename-repo row, the one change check_history admits in history
+WRITER = {"verb": None, "by": None, "why": None, "rename": None}
 # The move to todo.db (PLAN-todo-tool.md §10.6, todolib/migrate.py): one SQLite file,
 # gitignored, and one static export per table, committed, sealed and 0444, which a
 # fresh clone imports on its first command. A folder is on todo.db when either is
@@ -497,6 +498,23 @@ class Store:
         except (ValueError, AttributeError):
             return None
 
+    def logged_renames(self):
+        """[{old, new}] from the write log's rename-repo rows, oldest first: the key
+        renames this store's records went through (check_history admits exactly these)."""
+        try:
+            lines = [ln for ln in self.writes_path.read_text().splitlines() if ln.strip()]
+        except FileNotFoundError:
+            return []
+        out = []
+        for ln in lines:
+            try:
+                r = json.loads(ln).get("rename")
+            except (ValueError, AttributeError):
+                continue
+            if isinstance(r, dict) and isinstance(r.get("old"), str) and isinstance(r.get("new"), str):
+                out.append({"old": r["old"], "new": r["new"]})
+        return out
+
     def replaced(self):
         """True when todo.json was replaced around the CLI: a write log exists and its
         newest row left another seal than the one loaded (a checkout, a stash, a copy)."""
@@ -506,7 +524,8 @@ class Store:
     def _log_write(self):
         row = {"at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                "verb": WRITER["verb"], "ids": self._changed_ids(), "by": WRITER["by"], "why": WRITER["why"],
-               "seal_before": getattr(self, "_loaded_seal", None), "seal_after": self.data.get(SEAL_KEY)}
+               "seal_before": getattr(self, "_loaded_seal", None), "seal_after": self.data.get(SEAL_KEY),
+               "rename": WRITER.get("rename")}
         try:
             old = self.writes_path.read_text()
         except FileNotFoundError:

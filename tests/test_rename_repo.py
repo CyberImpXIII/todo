@@ -5,7 +5,7 @@ import json
 import os
 import unittest
 
-from tests.helpers import Case, git_repo
+from tests.helpers import Case, git_commit, git_repo
 
 NOTE = "note"
 REPORT = "report"
@@ -96,6 +96,22 @@ class Rename(Case):
         self.assertIn("in 3 store(s)", r.stdout)
         self.assertEqual(grep(self.ws, "oldname"), [])
         self.assertEqual(self.store(h)["items"][0]["repo"], "newname")
+
+    def test_a_committed_history_passes_check_after_the_rename_and_a_hand_edit_still_fails(self):
+        """The history gate admits exactly one change since a commit: a key rename the
+        write log recorded. Anything else in a history entry still fails it."""
+        git_commit(self.a, "before the rename")
+        self.todo("-C", self.a, "rename-repo", "oldname", "newname", "--apply")
+        out = self.check(self.a).stdout
+        self.assertIn("1 history entr(ies) differ from a committed version only by a key rename the write log recorded (oldname -> newname)", out)
+        hist = self.history(self.a)
+        hist["items"][0]["title"] = "closed one, reworded by hand"
+        self.write_json(self.a / "todo-history.json", hist)
+        self.assertFails(self.a, "history", "never edited")
+
+    def test_an_ordinary_write_logs_no_rename(self):
+        rows = [json.loads(ln) for ln in (self.a / "todo-writes.jsonl").read_text().splitlines() if ln.strip()]
+        self.assertTrue(rows and all("rename" in r and r["rename"] is None for r in rows))
 
 
 if __name__ == "__main__":

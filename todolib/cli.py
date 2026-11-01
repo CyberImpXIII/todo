@@ -351,6 +351,7 @@ def cmd_rename_repo(args):
     if not args.apply:
         print(f"rename-repo: would rename {args.old} -> {args.new} in {len(changes)} store(s); --apply writes it")
         return
+    store_mod.WRITER["rename"] = {"old": args.old, "new": args.new}   # the row check_history reads
     for s, _ in changes:
         with s.lock():
             s.load()

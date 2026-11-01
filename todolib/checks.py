@@ -12,6 +12,7 @@ from . import approval, deps, plans, tags
 from . import decisions as decide
 from . import detect, syncplans
 from . import migrate as migrating
+from . import rename as renaming
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
                     HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today, WRITE_KEYS, WRITES_FILE)
@@ -686,6 +687,8 @@ def check_history(store, out):
         out.append(("INFO", "history", "-", "not a git repo: the append-only audit against the git log is skipped here"))
         return
     now = {it.get("id"): it for it in store.closed}
+    renames = store.logged_renames()   # the one admitted change: a key rename the write log recorded
+    admitted = set()
     for sha, name, items in versions:
         if items is None:
             out.append(("FAIL", "history", "-", f"{name} at {sha} does not parse"))
@@ -694,7 +697,13 @@ def check_history(store, out):
             if iid not in now:
                 out.append(("FAIL", "history", iid, f"was in {name} at {sha} and is gone: history is append-only"))
             elif now[iid] != it:
-                out.append(("FAIL", "history", iid, f"changed since {sha}: history entries are never edited"))
+                if renames and now[iid] == renaming.renamed(it, renames):
+                    admitted.add(iid)
+                else:
+                    out.append(("FAIL", "history", iid, f"changed since {sha}: history entries are never edited"))
+    if admitted:
+        out.append(("INFO", "history", "-", f"{len(admitted)} history entr(ies) differ from a committed version only by a key "
+                                            f"rename the write log recorded ({', '.join(r['old'] + ' -> ' + r['new'] for r in renames)})"))
 
 
 def expected_keys(data, keys):
