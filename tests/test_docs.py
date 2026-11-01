@@ -23,6 +23,7 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                "sync-plans": "PLAN-services.md §3 G6, §4 step 6.3: plans generate their items",
                "detect": "PLAN-todo-tool.md §10.5: detectors file and close stall and lag items",
                "migrate": "PLAN-todo-tool.md §10.6: the move to todo.db, its dry run and its readers",
+               "rename-repo": "PLAN-architecture.md §13.1 step 3: one store's key renamed everywhere, no old spelling kept",
                "export": "PLAN-services.md §3 ST5: todo.db's static exports, the `export` verb cli.json names",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 # A command name may hold a hyphen (stale-plans); `[a-z]+` read it as "stale".

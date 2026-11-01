@@ -15,6 +15,7 @@ from . import detect, readers, repostatus
 from . import store as store_mod
 from . import practices as practicing
 from . import migrate as migrating
+from . import rename as renaming
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import syncplans
@@ -334,6 +335,30 @@ def cmd_refs(args):
     else:
         raise TodoError(f"{args.id} is not an id (<service>:<id>)")
     print_records(matching(ws, [f"ref:{target}"], args.open), args.json, f"(no record here refers to {target})")
+
+
+def cmd_rename_repo(args):
+    """`todo rename-repo OLD NEW [--apply]` (PLAN-architecture.md §13.1 step 3): the one
+    store keyed OLD takes the key NEW, and every record naming OLD, in this store and
+    every scanned one, open or closed, is rewritten in the same pass; no old spelling
+    is kept. Refused whole before any write (rename.plan); each store is then saved
+    under its lock, so its write log holds the row. Without --apply it says what would."""
+    store = open_store(args)
+    ws = workspace(args, store)
+    changes = renaming.plan(ws, args.old, args.new)
+    for s, c in changes:
+        print(renaming.describe(s, c))
+    if not args.apply:
+        print(f"rename-repo: would rename {args.old} -> {args.new} in {len(changes)} store(s); --apply writes it")
+        return
+    for s, _ in changes:
+        with s.lock():
+            s.load()
+            require_clean(s)
+            renaming.apply(s, args.old, args.new)
+            s.save()
+            write_render(s)
+    print(f"rename-repo: renamed {args.old} -> {args.new} in {len(changes)} store(s)")
 
 
 def cmd_reseal(args):
@@ -2133,6 +2158,7 @@ COMMANDS = {
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
     "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run"),
+    "rename-repo": (cmd_rename_repo, "one store's key, and every record naming it in every scanned store, renamed in one pass; --apply writes it"),
     "migrate": (cmd_migrate, "the move to todo.db: moves this store once no reader names the JSON files; --dry-run says per repo whether it would; --readers lists those readers"),
     "export": (cmd_export, "rewrite todo.db's static exports (todo.*.jsonl) from it"),
     "help": (cmd_help, "this list of commands"),
@@ -2292,6 +2318,9 @@ def build_parser():
                                   "findings (JSON); with --run, closes them first and reports only those it could not")
     ps["detect"].add_argument("--id", metavar="D", help="run this detector alone (its items alone are judged)")
     ps["detect"].add_argument("--json", action="store_true")
+    ps["rename-repo"].add_argument("old", metavar="OLD")
+    ps["rename-repo"].add_argument("new", metavar="NEW", help="the repo's own name (services.json) where it has one")
+    ps["rename-repo"].add_argument("--apply", action="store_true", help="write it; without this, only say what would change")
     ps["migrate"].add_argument("--dry-run", dest="dry_run", action="store_true",
                                help="into a throwaway todo.db and back; write nothing in any repo")
     ps["migrate"].add_argument("--all", action="store_true", help="with --dry-run: every scanned store (a move is one repo at a time)")

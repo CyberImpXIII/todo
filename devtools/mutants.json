@@ -1117,6 +1117,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_list_json.ListJson.test_an_unreadable_store_is_unchecked_in_either_form"]},
     {"id": "brief-without-done-when", "gate": "todo brief writes no brief for an item without done_when",
      "file": "todolib/cli.py", "old": "    if not it.get(BRIEF_REFUSES_WITHOUT):", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_brief.NoDoneWhen.test_an_item_without_done_when_gets_no_brief"]}
+     "run": ["python3", "-m", "unittest", "tests.test_brief.NoDoneWhen.test_an_item_without_done_when_gets_no_brief"]},
+    {"id": "rename-ignores-own-name", "gate": "rename-repo refuses a NEW that is not the repo's own services.json name (one name per location, PLAN-architecture.md §13.1)",
+     "file": "todolib/rename.py", "old": "    if own is not None and own != new:", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_rename_repo.Rename.test_refused_when_the_repos_own_name_is_another"]}
   ]
 }
