@@ -16,6 +16,7 @@ from . import store as store_mod
 from . import practices as practicing
 from . import migrate as migrating
 from . import rename as renaming
+from . import pair as pairing
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import syncplans
@@ -380,6 +381,61 @@ def cmd_rename_repo(args):
             s.save()
             write_render(s)
     print(f"rename-repo: renamed {args.old} -> {args.new} in {len(changes)} store(s)")
+
+
+def cmd_pair(args):
+    """`todo pair [--apply]`: the owner pulls (todolib/pair.py). Every open report in the
+    scanned stores addressed to this store's key with no counterpart yet gets one here,
+    parent pointing back, and the reporter's their_id is set, as `todo report` does
+    from the other side; both stores under their locks, both write logs. Without
+    --apply it says what would pair."""
+    store = open_store(args)
+    ws = workspace(args, store)
+    found = pairing.candidates(ws, store)
+    if not found:
+        print(f"pair: no open report addressed to {store.repo} waits for a counterpart")
+        return
+    for s, it in found:
+        prior = pairing.counterpart_of(store, it)
+        print(f"  {s.repo}:{it['id']}  {it['title'][:70]}" + (f"  (already here as {prior['id']})" if prior else ""))
+    if not args.apply:
+        print(f"pair: would pair {len(found)} report(s) into {store.repo}; --apply writes it")
+        return
+    stores = sorted({str(x.dir): x for x in [store] + [s for s, _ in found]}.values(), key=lambda s: str(s.dir))
+    locks = [s.lock() for s in stores]
+    for lk in locks:
+        lk.__enter__()
+    try:
+        for s in stores:
+            s.load()
+            require_clean(s)
+        paired = []
+        for s, it in pairing.candidates(ws, store):   # read again under the locks
+            prior = pairing.counterpart_of(store, it)
+            if prior:
+                their = prior["id"]
+            else:
+                ckind = it["kind"] if it["kind"] != VOCAB.role("report_kind") else VOCAB.role("default_kind")
+                counterpart = new_item(title=it["title"], kind=ckind, status=VOCAB.role("default_status"),
+                                       evidence=it.get("evidence"), probe=it.get("probe"), parent=it["id"],
+                                       repo=store.repo, work=it.get("work"), files=it.get("files"),
+                                       done_when=it.get("done_when"), retire=it.get("retire"), added=today())
+                validate(counterpart)
+                counterpart["id"] = store.allocate()
+                store.items.append(counterpart)
+                their = counterpart["id"]
+            it["reported_to"]["their_id"] = their
+            validate(it, require_waits=False)
+            paired.append((s, it["id"], their))
+        for s in stores:
+            commit(s)
+            write_render(s)
+    finally:
+        for lk in reversed(locks):
+            lk.__exit__(None, None, None)
+    for s, theirs, mine in paired:
+        print(f"paired {s.repo}:{theirs} -> {mine}")
+    print(f"pair: {len(paired)} report(s) paired into {store.repo}")
 
 
 def cmd_reseal(args):
@@ -2183,6 +2239,7 @@ COMMANDS = {
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
     "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run"),
+    "pair": (cmd_pair, "the owner pulls: a counterpart here for every open report addressed to this store with none yet; --apply writes them"),
     "rename-repo": (cmd_rename_repo, "one store's key, and every record naming it in every scanned store, renamed in one pass; --apply writes it"),
     "migrate": (cmd_migrate, "the move to todo.db: moves this store once no reader names the JSON files; --dry-run says per repo whether it would; --readers lists those readers"),
     "export": (cmd_export, "rewrite todo.db's static exports (todo.*.jsonl) from it"),
@@ -2351,6 +2408,7 @@ def build_parser():
                                   "findings (JSON); with --run, closes them first and reports only those it could not")
     ps["detect"].add_argument("--id", metavar="D", help="run this detector alone (its items alone are judged)")
     ps["detect"].add_argument("--json", action="store_true")
+    ps["pair"].add_argument("--apply", action="store_true", help="write the counterparts and the pairings; without this, only say what would pair")
     ps["rename-repo"].add_argument("old", metavar="OLD")
     ps["rename-repo"].add_argument("new", metavar="NEW", help="the repo's own name (services.json) where it has one")
     ps["rename-repo"].add_argument("--apply", action="store_true", help="write it; without this, only say what would change")

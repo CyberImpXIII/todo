@@ -572,6 +572,12 @@ def check_reports(store, ws, out):
             out.append(("INFO", "reports", it["id"], f"relayed by hand: {rt.get('repo')!r} is a hidden folder, which the scan never enters, so this report never pairs; close it by its done_when"))
             continue
         owner = ws.by_repo(rt.get("repo"))
+        if owner is None and rt.get("their_id"):
+            # paired by the owner's `todo pair`, run from a store the scan never enters
+            # (ra-21.1): that store's own check verifies the counterpart; this side says so
+            out.append(("INFO", "reports", it["id"], f"paired as {rt['their_id']} with {rt.get('repo')!r}, a store outside the scan "
+                                                     f"(its owner pulled it with `todo pair`; its own check verifies the counterpart)"))
+            continue
         if owner is None:
             out.append(("WARN", "reports", it["id"], f"unpaired: no store for repo {rt.get('repo')!r} in the scan (not migrated yet?); pair it later with `todo report {it['id']} --to {rt.get('repo')}`"))
             continue

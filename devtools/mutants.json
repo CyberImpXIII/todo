@@ -1126,6 +1126,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_decisions.RowFields.test_a_decision_added_from_the_date_on_needs_today_and_problem"]},
     {"id": "principle-unresolved", "gate": "a --principle that is no row of the practices registry is refused",
      "file": "todolib/cli.py", "old": "    if principle not in ids:", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_decisions.RowFields.test_a_principle_that_is_no_registry_row_is_refused"]}
+     "run": ["python3", "-m", "unittest", "tests.test_decisions.RowFields.test_a_principle_that_is_no_registry_row_is_refused"]},
+    {"id": "pair-leaves-reporter-unpaired", "gate": "todo pair records the pairing on the reporter's side too (their_id)",
+     "file": "todolib/cli.py", "old": "            it[\"reported_to\"][\"their_id\"] = their\n            validate(it, require_waits=False)", "new": "            validate(it, require_waits=False)",
+     "run": ["python3", "-m", "unittest", "tests.test_pair.Pair.test_apply_writes_the_counterpart_here_and_pairs_both_sides"]}
   ]
 }
