@@ -11,6 +11,7 @@ each store under its lock and saves it, so every write is in its write log."""
 import json
 import re
 
+from . import names as naming
 from .store import TodoError
 
 KEY = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
@@ -49,9 +50,12 @@ def count(store, old):
 
 def plan(ws, old, new):
     """[(store, counts)] for every store that would change, or a TodoError naming
-    why nothing may: an unreadable store, no (or more than one) store keyed OLD, a
-    store already keyed NEW, or a `services.json` whose name is not NEW (one name
-    per location: the key is the repo's own name)."""
+    why nothing may: an unreadable store, more than one store keyed OLD, a store
+    already keyed NEW, or a `services.json` whose name is not NEW (one name per
+    location: the key is the repo's own name). With no store keyed OLD the rename is
+    of fields alone (an item's `repo` or `reported_to.repo` that names a location by
+    a path or an old key, PLAN-architecture.md §13.1 G3): then NEW must be a
+    location's name in the names file handed, and something must name OLD."""
     if old == new:
         raise TodoError("OLD and NEW are the same name")
     if not KEY.match(new):
@@ -59,20 +63,31 @@ def plan(ws, old, new):
     if ws.errors:
         raise TodoError("a store could not be read, so nothing is renamed: " + "; ".join(ws.errors))
     owners = [s for s in ws.stores if s.data and s.repo == old]
-    if len(owners) != 1:
-        raise TodoError(f"{len(owners)} store(s) have the key {old!r}; rename-repo renames exactly one store's key "
+    if len(owners) > 1:
+        raise TodoError(f"{len(owners)} stores have the key {old!r}; rename-repo renames one store's key "
                         "(todo repos lists the stores and their keys)")
-    if any(s.data and s.repo == new for s in ws.stores):
-        raise TodoError(f"a store already has the key {new!r}")
-    own = services_name(owners[0].dir)
-    if own is not None and own != new:
-        raise TodoError(f"{owners[0].dir / 'services.json'} names this repo {own!r}, so its key is {own!r} "
-                        f"(one name per location, PLAN-architecture.md §13.1), not {new!r}")
+    if owners:
+        if any(s.data and s.repo == new for s in ws.stores):
+            raise TodoError(f"a store already has the key {new!r}")
+        own = services_name(owners[0].dir)
+        if own is not None and own != new:
+            raise TodoError(f"{owners[0].dir / 'services.json'} names this repo {own!r}, so its key is {own!r} "
+                            f"(one name per location, PLAN-architecture.md §13.1), not {new!r}")
+    else:
+        nm = naming.CURRENT
+        if nm is None:
+            raise TodoError(f"no store is keyed {old!r}: a rename of fields alone needs the names file "
+                            "(--names FILE or TODO_NAMES), so that NEW is a location's name")
+        why = nm.target_problem(new)
+        if why:
+            raise TodoError(f"NEW {new!r}: {why}")
     out = []
     for s in ws.stores:
         c = count(s, old)
         if any(c.values()):
             out.append((s, c))
+    if not owners and not out:
+        raise TodoError(f"nothing names {old!r}: no store is keyed so, and no item field holds it")
     return out
 
 

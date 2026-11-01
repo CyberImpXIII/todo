@@ -78,7 +78,7 @@ class Rename(Case):
 
     def test_refused_for_an_unknown_old_or_a_taken_new(self):
         r = self.todo("-C", self.a, "rename-repo", "nobody", "newname", "--apply", ok=False)
-        self.assertIn("0 store(s) have the key 'nobody'", r.stderr + r.stdout)
+        self.assertIn("no store is keyed 'nobody'", r.stderr + r.stdout)
         r = self.todo("-C", self.a, "rename-repo", "oldname", "b", "--apply", ok=False)
         self.assertIn("already has the key 'b'", r.stderr + r.stdout)
         r = self.todo("-C", self.a, "rename-repo", "oldname", ".hidden", "--apply", ok=False)
@@ -112,6 +112,48 @@ class Rename(Case):
     def test_an_ordinary_write_logs_no_rename(self):
         rows = [json.loads(ln) for ln in (self.a / "todo-writes.jsonl").read_text().splitlines() if ln.strip()]
         self.assertTrue(rows and all("rename" in r and r["rename"] is None for r in rows))
+
+
+class FieldsOnly(Case):
+    """No store is keyed OLD: the rename is of fields alone (PLAN-architecture.md §13.1
+    G3), and needs the names file so that NEW is a location's name."""
+
+    def setUp(self):
+        super().setUp()
+        self.a = self.repo("a", "aa")
+        self.b = self.repo("b", "bb")
+        self.names = self.ws / "names.json"
+        self.names.write_text(json.dumps({"locations": [
+            {"name": "a", "dir": "a", "store": "a", "remote": None, "agent": "a"},
+            {"name": "b", "dir": "b", "store": "b", "remote": None, "agent": "b"},
+            {"name": "zeta", "dir": "tools/zeta", "store": None, "remote": None, "agent": "zeta"}]}) + "\n")
+        self.todo("-C", self.a, "add", "keyed by a path", "--kind", NOTE, "--repo", "tools/zeta")
+        self.todo("-C", self.b, "add", "about it", "--kind", REPORT, "--reported-to", "tools/zeta")
+        self.todo("-C", self.a, "add", "closed one", "--kind", NOTE, "--repo", "tools/zeta")
+        self.todo("-C", self.a, "done", "aa-2", "--resolution", "done")
+
+    def test_with_the_names_file_the_fields_are_renamed_across_stores_and_history(self):
+        r = self.todo("-C", self.a, "--names", self.names, "rename-repo", "tools/zeta", "zeta", "--apply")
+        self.assertIn("renamed tools/zeta -> zeta in 2 store(s)", r.stdout)
+        self.assertEqual(self.store(self.a)["items"][0]["repo"], "zeta")
+        self.assertEqual(self.history(self.a)["items"][0]["repo"], "zeta")
+        self.assertEqual(self.store(self.b)["items"][0]["reported_to"]["repo"], "zeta")
+        self.assertEqual(self.store(self.a)["repo"], "a", "no store was keyed tools/zeta, so no key changed")
+        self.assertEqual(grep(self.ws, "tools/zeta"), [])
+        rows = [json.loads(ln) for ln in (self.a / "todo-writes.jsonl").read_text().splitlines() if ln.strip()]
+        self.assertEqual(rows[-1]["rename"], {"old": "tools/zeta", "new": "zeta"})
+
+    def test_without_the_names_file_a_fields_only_rename_is_refused_saying_why(self):
+        r = self.todo("-C", self.a, "rename-repo", "tools/zeta", "zeta", "--apply", ok=False)
+        self.assertIn("no store is keyed 'tools/zeta': a rename of fields alone needs the names file", r.stderr)
+        self.assertEqual(self.store(self.a)["items"][0]["repo"], "tools/zeta")
+
+    def test_new_must_be_a_location_and_old_must_be_named_somewhere(self):
+        r = self.todo("-C", self.a, "--names", self.names, "rename-repo", "tools/zeta", "nowhere", "--apply", ok=False)
+        self.assertIn("NEW 'nowhere': 'nowhere' is no location", r.stderr)
+        r = self.todo("-C", self.a, "--names", self.names, "rename-repo", "nobody", "zeta", "--apply", ok=False)
+        self.assertIn("nothing names 'nobody'", r.stderr)
+        self.assertEqual(self.store(self.a)["items"][0]["repo"], "tools/zeta")
 
 
 if __name__ == "__main__":
