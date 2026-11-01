@@ -147,6 +147,20 @@ def dump(data):
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
+def write_if_changed(path, text, readonly=False):
+    """write_atomic, unless the file already holds exactly `text`: a command that
+    changes nothing writes nothing (no new mtime, no rewritten mode, no dirty tree;
+    ELABORATION-2.4-2.6.md §2.3 part 4, INCIDENTS.md I-1). True when it wrote."""
+    path = Path(path)
+    try:
+        if path.read_text() == text:
+            return False
+    except (OSError, UnicodeDecodeError):
+        pass
+    write_atomic(path, text, readonly)
+    return True
+
+
 def write_atomic(path, text, readonly=False):
     """A temp file, then a rename: the target's own mode never matters, so a
     read-only (0444) file is replaced as easily as a writable one, and a reader
@@ -515,11 +529,16 @@ class Store:
         if self.backing == "db":
             self._save_db()
             return
-        write_atomic(self.history_path, dump(self.history), readonly=True)
-        write_atomic(self.path, dump(self.data), readonly=True)
+        # Only a file whose sealed text changed is written (reseal writes all): an
+        # unchanged one already holds that text, sealed, so "every CLI write leaves
+        # every store file sealed" still holds. A file left writable by something
+        # else (a stash) keeps its mode, for stores-readonly to see.
+        write = write_atomic if reseal else write_if_changed
+        write(self.history_path, dump(self.history), readonly=True)
+        write(self.path, dump(self.data), readonly=True)
         self.seals = {STORE_FILE: "sealed", HISTORY_FILE: "sealed"}
         if self.records is not None:
-            write_atomic(self.records_path, dump(self.records), readonly=True)
+            write(self.records_path, dump(self.records), readonly=True)
             self.seals[RECORDS_FILE] = "sealed"
 
     def _save_db(self):

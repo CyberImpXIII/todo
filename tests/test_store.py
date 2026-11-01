@@ -1,5 +1,7 @@
 """The store: ids, parents, one file per id, and the one way to write a store file."""
 import ast
+import json
+import os
 import re
 
 from tests.helpers import ROOT, Case, git_repo
@@ -170,3 +172,58 @@ class OneWayIn(Case):
                 if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "open":
                     hits.append(f"{f.name}:{node.lineno}: open()")
         self.assertEqual(hits, [], "write through Store.save / write_atomic only")
+
+
+class NoWriteOnNoChange(Case):
+    """ELABORATION-2.4-2.6.md §2.3 part 4 (INCIDENTS.md I-1: `todo detect` with "no change"
+    rewrote the top store and TODO.md): a command that changes no item rewrites none of
+    the store files, nor TODO.md; a run record alone writes only the records file."""
+
+    def stamp(self, d):
+        return {n: (os.stat(d / n).st_mtime_ns, os.stat(d / n).st_ino, (d / n).read_bytes())
+                for n in ("todo.json", "todo-history.json", "TODO.md") if (d / n).exists()}
+
+    def test_a_save_that_changes_nothing_writes_nothing(self):
+        from todolib import cli
+        from todolib.store import Store
+        a = self.repo("a", "aa")
+        self.todo("-C", a, "add", "one", "--kind", "bug")
+        before = self.stamp(a)
+        s = Store(a).load()
+        cli.commit(s)
+        self.assertEqual(self.stamp(a), before)
+
+    def test_a_writable_file_keeps_its_mode_for_stores_readonly_to_see(self):
+        from todolib import cli
+        from todolib.store import Store
+        a = self.repo("a", "aa")
+        self.todo("-C", a, "add", "one", "--kind", "bug")
+        os.chmod(a / "todo.json", 0o644)            # what a stash leaves (INCIDENTS.md I-3)
+        cli.commit(Store(a).load())
+        self.assertEqual(os.stat(a / "todo.json").st_mode & 0o777, 0o644)
+
+    def test_a_run_record_alone_writes_only_the_records_file(self):
+        from todolib import cli
+        from todolib.store import Store
+        a = self.repo("a", "aa")
+        self.todo("-C", a, "add", "one", "--kind", "bug")
+        before = self.stamp(a)
+        s = Store(a).load()
+        s.ensure_records().setdefault("runs", {})["S7"] = {"at": "2026-10-30T00:00:00Z", "exit": 0, "ok": True,
+                                                          "findings": 0, "why": None}
+        cli.commit(s)
+        self.assertEqual(self.stamp(a), before)
+        self.assertEqual(json.loads((a / "todo-records.json").read_text())["runs"]["S7"]["exit"], 0)
+        self.check(a)
+
+    def test_a_change_still_writes_and_seals(self):
+        a = self.repo("a", "aa")
+        self.todo("-C", a, "add", "one", "--kind", "bug")
+        before = self.stamp(a)
+        self.todo("-C", a, "add", "two", "--kind", "bug")
+        after = self.stamp(a)
+        self.assertNotEqual(after["todo.json"][2], before["todo.json"][2])
+        self.assertNotEqual(after["TODO.md"][2], before["TODO.md"][2])
+        self.assertEqual(after["todo-history.json"], before["todo-history.json"])   # no close: history untouched
+        self.assertEqual(os.stat(a / "todo.json").st_mode & 0o777, 0o444)
+        self.check(a)

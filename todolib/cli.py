@@ -21,7 +21,7 @@ from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (DB_FILE, EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
                     fallback_lead, file_report_bullet, id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today,
-                    git_ignores, has_store, write_atomic)
+                    git_ignores, has_store, write_atomic, write_if_changed)
 from .vocab import VOCAB
 
 HAND_EDIT_DIFF_MAX = 4000
@@ -78,8 +78,11 @@ def require_clean(store):
         raise TodoError(f"{store.render_path} is hand-written: `todo import TODO.md` turns it into items first.")
 
 
-def write_render(store):
-    write_atomic(store.render_path, render_store(store), readonly=True)
+def write_render(store, always=False):
+    """TODO.md from the store. A command's own render (always=False) writes only when the
+    text differs: a command that changes no item rewrites nothing. `todo render`,
+    reseal and init pass always=True, as asked for."""
+    (write_atomic if always else write_if_changed)(store.render_path, render_store(store), readonly=True)
 
 
 def commit(store):
@@ -347,7 +350,7 @@ def cmd_reseal(args):
         store.data.setdefault("hand_edits", []).append({"date": today(), "via": "reseal", "files": broken,
                                                         "reason": args.reason})
         store.save(reseal=True)
-        write_render(store)
+        write_render(store, always=True)
     print(f"resealed {', '.join(broken)}; recorded in {store.where.name} hand_edits" + (f" (rewritten from {DB_FILE}: an edit to them is undone)" if store.on_db else "") + ". `todo check` judges the content.")
 
 
@@ -400,7 +403,7 @@ def cmd_init(args):
     if store.render_path.exists():
         print(msg + f"; {store.render_path.name} exists: next, `todo import TODO.md`")
     else:
-        write_render(store)
+        write_render(store, always=True)
         print(msg + f"; rendered {store.render_path.name}")
 
 
@@ -922,7 +925,7 @@ def cmd_render(args):
                     s.data["hand_edits"].append({"date": today(), "via": "render --force",
                                                  "diff": diff[:HAND_EDIT_DIFF_MAX]})
                     s.save()
-                write_render(s)
+                write_render(s, always=True)
                 print(f"  {state if state != 'clean' else 'unchanged':<10} {s.render_path}" + (" (diff kept in todo.json hand_edits)" if hand else ""))
         except TodoError as e:
             failed += 1
