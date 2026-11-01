@@ -18,5 +18,5 @@
      "why": "td-89's resolution (6dc62a4), text given verbatim by the dispatch, names the roster agent that relayed Jacob's answer; committed and pushed before the audit ran, and history is append-only, so the line stays (2026-10-20)"}
   ],
   "_accepted": "single lines that hit a term and cannot be changed (an append-only history entry): file and exact stripped text; audit.py fails an entry that matches no line, or a line that hits no term",
-  "roster_names": ["dispatcher", "planner", "harness", "deep-work", "email-tools", "job-import-scripts", "cron-scheduler"]
+  "roster_names": ["dispatcher", "planner", "harness", "deep-work"]
 }
