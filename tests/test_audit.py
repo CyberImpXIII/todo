@@ -61,8 +61,8 @@ class Direction(unittest.TestCase):
         `impl` is the package that holds the one writer (todolib/store.py) and must
         match it. Two exclusions, each because the file must name a store file as data:
         devtools/mutants.json, whose self-gate-quiet mutant plants a hand edit in
-        todo.json on purpose, and devtools/audit.json, whose `accepted` entries name the
-        append-only history file's line they exempt. Anything wider would let a second
+        todo.json on purpose, and devtools/audit.json, whose skip list names the store
+        files (ra-27.1: store files are data). Anything wider would let a second
         writer through unseen. A third, .gitignore, names todo.db only to keep git
         off it (the exports are committed, the database never is): every line of it
         naming the store is that ignore and nothing else."""
@@ -74,9 +74,9 @@ class Direction(unittest.TestCase):
         self.assertEqual(naming, ["todo.db", "todo.db-*", ".todo.db.tmp-*"])
         mutants = json.loads((ROOT / "devtools" / "mutants.json").read_text())["mutants"]
         self.assertIn("todo.json", [m.get("file") for m in mutants])
-        accepted = json.loads((ROOT / "devtools" / "audit.json").read_text()).get("accepted", [])
-        self.assertIn("todo-history.json", [a["file"] for a in accepted],
-                      "audit.json is excluded from accessor for an accepted history line it no longer holds")
+        skip = json.loads((ROOT / "devtools" / "audit.json").read_text())["skip"]
+        self.assertIn("todo-history.json", skip,
+                      "audit.json is excluded from accessor because its skip list names the store files")
 
     def test_installed_shared_copies_are_skipped_and_nothing_else_is(self):
         """td-16 (Jacob, 2026-10-05): the copies setup's hooks component installs in
@@ -105,32 +105,36 @@ class Direction(unittest.TestCase):
         self.assertEqual(len(audit.audit(self.root)[0]), 1)
 
     def test_an_accepted_line_is_exempt_alone_and_never_outlives_its_line(self):
-        """`accepted` in audit.json: one exact line of one file (an append-only history
-        entry that cannot be edited). The same term on another line of that file, or the
-        same line in another file, still fails; an entry whose line is gone, or whose line
-        hits no term, fails as a stale exemption."""
-        accepted = json.loads((ROOT / "devtools" / "audit.json").read_text())["accepted"]
-        self.assertTrue(accepted)
-        for a in accepted:
-            with self.subTest(a["file"], line=a["line"][:40]):
-                self.assertTrue(a["why"])
-                line = a["line"]
-                # the file's other accepted lines stay present, so only this entry is judged
-                rest = "".join(f"  {b['line']}\n" for b in accepted if b["file"] == a["file"] and b is not a)
-                self.write(a["file"], f"{rest}  {line}\n")
-                self.assertEqual(audit.audit(self.root)[0], [])
-                self.write(a["file"], f"{rest}  {line}\n  open('.claude/agents/x')\n")
-                self.assertEqual(len(audit.audit(self.root)[0]), 1)
-                self.write("other.json", f"  {line}\n")
-                self.write(a["file"], f"{rest}  {line}\n")
-                self.assertEqual([h.split()[2].rsplit(":", 2)[0] for h in audit.audit(self.root)[0]], ["other.json"])
-                (self.root / "other.json").unlink()
-                self.write(a["file"], f"{rest}nothing here\n")
-                hits = audit.audit(self.root)[0]
-                self.assertEqual(len(hits), 1)
-                self.assertIn("stale exemption", hits[0])
-        for a in accepted:  # the planted config below accepts none of these lines
-            (self.root / a["file"]).unlink(missing_ok=True)
+        """`accepted` in audit.json: one exact line of one file that hits a term and cannot
+        be changed. The same term on another line of that file, or the same line in another
+        file, still fails; an entry whose line is gone, or whose line hits no term, fails as
+        a stale exemption. The real config accepts none since the store files are skipped
+        (ra-27.1), so a planted config carries one."""
+        line = '"note": "it read .claude/agents/x once"'
+        cfg = json.loads((ROOT / "devtools" / "audit.json").read_text())
+        cfg["accepted"] = [{"file": "notes.json", "line": line, "why": "test"}]
+        fake = self.root / "devtools"
+        fake.mkdir(exist_ok=True)
+        (fake / "audit.json").write_text(json.dumps(cfg))
+        old = audit.HERE
+        audit.HERE = fake
+        try:
+            self.write("notes.json", f"  {line}\n")
+            self.assertEqual(audit.audit(self.root)[0], [])
+            self.write("notes.json", f"  {line}\n  open('.claude/agents/x')\n")
+            self.assertEqual(len(audit.audit(self.root)[0]), 1)
+            self.write("other.json", f"  {line}\n")
+            self.write("notes.json", f"  {line}\n")
+            self.assertEqual([h.split()[2].rsplit(":", 2)[0] for h in audit.audit(self.root)[0]], ["other.json"])
+            (self.root / "other.json").unlink()
+            self.write("notes.json", "nothing here\n")
+            hits = audit.audit(self.root)[0]
+            self.assertEqual(len(hits), 1)
+            self.assertIn("stale exemption", hits[0])
+            (self.root / "notes.json").unlink()
+        finally:
+            audit.HERE = old
+        (fake / "audit.json").unlink()
         # an entry whose line hits no term: audit.json is the real one, so plant a config
         cfg = json.loads((ROOT / "devtools" / "audit.json").read_text())
         clean = "a line with no term in it"
@@ -147,6 +151,17 @@ class Direction(unittest.TestCase):
             audit.HERE = old
         self.assertEqual(len(hits), 1, hits)
         self.assertIn("needless exemption", hits[0])
+
+    def test_the_store_files_are_data_and_a_code_file_is_not(self):
+        """ra-27.1 (Jacob, 2026-11-02: store files are data): a roster name in a field of the
+        store files at the root is a location's name, not the repo speaking; the same text in
+        a code file, or in a store-named file one folder down, still fails."""
+        for f in ("todo.json", "todo-history.json", "todo-records.json", "todo-writes.jsonl", "TODO.md"):
+            self.write(f, '{"repo": "harness"}\n')
+        self.assertEqual(audit.audit(self.root)[0], [])
+        self.write("x.py", 'WHO = "harness"\n')
+        self.write("sub/todo.json", '{"repo": "harness"}\n')
+        self.assertEqual(sorted(h.split()[2].split(":")[0] for h in audit.audit(self.root)[0]), ["sub/todo.json", "x.py"])
 
     def test_lookalike_words_and_fixtures_pass(self):
         self.write("a.md", "harnessing the planner-free design; a harness-like rig\n")

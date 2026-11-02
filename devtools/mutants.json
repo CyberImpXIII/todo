@@ -121,7 +121,7 @@
      "file": "devtools/audit.py", "old": "            if (rel, line.strip()) in accepted:", "new": "            if True:",
      "run": ["python3", "-m", "unittest", "tests.test_audit.Direction.test_an_accepted_line_is_exempt_alone_and_never_outlives_its_line"]},
     {"id": "audit-progress-logs-scanned", "gate": "audit: the runner's gitignored .progress/ logs are skipped",
-     "file": "devtools/audit.json", "old": "\".claude/lib/\", \".progress/\"]", "new": "\".claude/lib/\"]",
+     "file": "devtools/audit.json", "old": "\".claude/lib/\", \".progress/\", ", "new": "\".claude/lib/\", ",
      "run": ["python3", "-m", "unittest", "tests.test_audit.Direction.test_the_runners_logs_are_skipped_only_because_git_never_holds_them"]},
     {"id": "audit-stale-exemption-quiet", "gate": "audit: an accepted entry whose line is gone fails",
      "file": "devtools/audit.py", "old": "accepted - used if (root / a[0]).is_file()", "new": "accepted - used if False",
@@ -1141,6 +1141,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_rename_repo.FieldsOnly.test_new_must_be_a_location_and_old_must_be_named_somewhere"]},
     {"id": "tabled-not-left-out", "gate": "with the names file handed, a tabled location's items are left out of blockers (ra-26.1)",
      "file": "todolib/blockers.py", "old": "            if naming.tabled(it.get(\"repo\")):   # a tabled location's items are left out, counted", "new": "            if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_tabled.Tabled.test_blockers_leave_a_tabled_locations_items_out"]}
+     "run": ["python3", "-m", "unittest", "tests.test_tabled.Tabled.test_blockers_leave_a_tabled_locations_items_out"]},
+    {"id": "audit-store-scanned", "gate": "the direction audit reads the store files as data, never as the repo speaking (ra-27.1); a code file still fails",
+     "file": "devtools/audit.json", "old": "\"todo.json\", \"todo-history.json\", \"todo-records.json\", \"todo-writes.jsonl\", \"TODO.md\"", "new": "\"todo-history.json\", \"todo-records.json\", \"todo-writes.jsonl\", \"TODO.md\"",
+     "run": ["python3", "-m", "unittest", "tests.test_audit.Direction.test_the_store_files_are_data_and_a_code_file_is_not"]}
   ]
 }

@@ -903,7 +903,10 @@ The parts are: the unit tests, the hook copies,
 the files the tool needs, the direction audit (`devtools/audit.py`: no file here
 reads the delegation layer's files or names a roster agent; the shared copies
 installed in `.claude/hooks/` and its sibling `lib/` are skipped, being the hooks
-tool's files gated by its `hooks copies`, td-16), `todo check` on this
+tool's files gated by its `hooks copies`, td-16; so are the store files at the root,
+`todo.json`, `todo-history.json`, `todo-records.json`, `todo-writes.jsonl` and their render
+`TODO.md`: data the CLI writes, where a location is named by its one name even when an agent
+shares it, as tools/checks' `no-roster` already treats them, ra-27.1), `todo check` on this
 repo's own store, tools/checks' `checks run .` (below), and the mutants (`devtools/mutate.py`: each gate broken once
 in a throwaway copy, which must turn its test red). The copies live under
 `.mutants/run-*/` (gitignored) and are removed however the run ends, SIGTERM
