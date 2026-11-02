@@ -1255,8 +1255,11 @@ def ready_view(ws, repo=None, work=None):
     approves it (Jacob, rule TD-B1, or nobody: null). Ready is not dispatchable:
     `todo dispatchable` is the approved, not-dispatched subset."""
     view = {"root": str(ws.root), "ready": [], "refused": [], "unreadable": list(ws.errors)}
-    refused = []
+    refused, tabled = [], {}
     for it, s in ready_items(ws, repo, work, refused):
+        if naming.tabled(it.get("repo")):   # a tabled location's items are left out, counted below
+            tabled[it["repo"]] = tabled.get(it["repo"], 0) + 1
+            continue
         appr, by_rule = approval.effective(it, s.repo)
         gid = tagging.global_id(it["id"])
         view["ready"].append({"id": gid, "local_id": it["id"], "repo": it["repo"], "work": it["work"],
@@ -1265,6 +1268,7 @@ def ready_view(ws, repo=None, work=None):
                               "brief": f"todo brief {gid}"})
     view["refused"] = [{"id": tagging.global_id(it["id"]), "local_id": it["id"], "why": why} for it, why in refused]
     view["count"] = len(view["ready"])
+    view["tabled_out"] = naming.tabled_out(tabled)
     return view
 
 
@@ -1290,6 +1294,8 @@ def cmd_ready(args):
             print(f"refused, ready but for their size ({len(view['refused'])}):")
             for r in view["refused"]:
                 print(f"  {r['local_id']:<8} {r['why']}")
+        if naming.tabled_line(view):
+            print(naming.tabled_line(view))
         for e in view["unreadable"]:
             print(f"UNREADABLE  {e}")
     if view["unreadable"]:
@@ -1554,12 +1560,16 @@ def dispatch_view(ws, repo=None):
     items with no approval are counted, never silently dropped."""
     view = {"dispatchable": [], "by_rule": [], "held": [], "dispatched": [], "unapproved": 0,
             "unreadable": list(ws.errors)}
+    tabled = {}
     for s in ws.stores:
         for it in s.items:
             if repo and it.get("repo") != repo:
                 continue
             if it.get("kind") == VOCAB.role("report_kind"):
                 continue  # its work lives in the owner's store, under the counterpart's id
+            if naming.tabled(it.get("repo")):   # the location is tabled (names file): left out, counted
+                tabled[it["repo"]] = tabled.get(it["repo"], 0) + 1
+                continue
             # Jacob's own yes, or rule TD-B1's (todolib/approval.py), never mistaken for his.
             appr, by_rule = approval.effective(it, s.repo)
             if appr is None:
@@ -1584,6 +1594,7 @@ def dispatch_view(ws, repo=None):
                 {"id": gid, "repo": it["repo"], "work": it["work"], "size": it["size"],
                  "title": it["title"], "approved": appr, "store": str(s.dir),
                  "brief": f"todo brief {gid}", "mark": f"todo -C {s.dir} dispatch {it['id']}"})
+    view["tabled_out"] = naming.tabled_out(tabled)
     return view
 
 
@@ -1605,6 +1616,8 @@ def cmd_dispatchable(args):
             print(f"approved by rule {rule['id']}, not by Jacob ({len(view['by_rule'])}): {rule['source']}")
             for r in view["by_rule"]:
                 row(r, f"rule {rule['id']}")
+        if naming.tabled_line(view):
+            print(naming.tabled_line(view))
         if not view["dispatchable"] and not view["by_rule"]:
             # PLAN-todo-tool.md §10.2 step 3: what holds the rest, not a bare count.
             n = VOCAB.blocker_bounds["dispatchable_lines"]
@@ -1643,6 +1656,8 @@ def cmd_blockers(args):
         print(f"todo blockers: {v['items']} open item(s) not dispatchable, under {len(v['roots'])} root(s)")
         for line in rootlib.lines(v):
             print(line)
+        if naming.tabled_line(v):
+            print(naming.tabled_line(v))
         for e in v["unreadable"]:
             print(f"UNREADABLE  {e}")
     if v["unreadable"]:

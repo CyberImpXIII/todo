@@ -28,6 +28,13 @@ class Names:
     def location(self, name):
         return self.by_name.get(name)
 
+    def tabled(self, name):
+        """The record's `tabled` text ("<date>: <why>") for a location, or None: not
+        tabled, no such key, or no such location (external audit ra-26.1)."""
+        loc = self.by_name.get(name)
+        v = loc.get("tabled") if isinstance(loc, dict) else None
+        return v if isinstance(v, str) and v.strip() else None
+
     def target_problem(self, name):
         """Why `name` is no report target under this file, or None."""
         if name in self.by_name:
@@ -39,6 +46,25 @@ class Names:
             return (f"{name!r} is not a location's name in {self.path}: the location is named {hit[0]!r} "
                     "(one name per location; a path, a store key or a remote is not the name)")
         return f"{name!r} is no location in {self.path} ({len(self.locations)} location(s); the roster owner's `names` verb lists them)"
+
+
+def tabled(repo):
+    """Why `repo` is tabled under the names file handed, or None (no file: nothing is)."""
+    return CURRENT.tabled(repo) if CURRENT is not None and repo else None
+
+
+def tabled_out(counts):
+    """The `tabled_out` list of a view: [{repo, why, count}], from {repo: count}."""
+    return [{"repo": r, "why": CURRENT.tabled(r), "count": n} for r, n in sorted(counts.items())]
+
+
+def tabled_line(view):
+    """The one count line a command prints for the items it left out, or None."""
+    out = view.get("tabled_out") or []
+    if not out:
+        return None
+    n = sum(o["count"] for o in out)
+    return f"{n} item(s) of tabled location(s) left out: " + ", ".join(f"{o['repo']} ({o['why']})" for o in out)
 
 
 def load(given):

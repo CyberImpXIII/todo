@@ -17,6 +17,7 @@ holds every open item to exactly one of the two.
 import os
 
 from . import approval, checks, deps, steps
+from . import names as naming
 from .store import never_scanned
 from .vocab import VOCAB
 
@@ -154,10 +155,13 @@ def root_kind(ws, it, store_repo):
 def view(ws, repo=None):
     """{items, roots: [{kind, what, clears, count, ids, detail}], unreadable}: every
     root, ranked by count, then by vocab.json's order of kinds, then by what it is."""
-    groups = {}
+    groups, tabled = {}, {}
     for s in ws.stores:
         for it in s.items:
             if repo and it.get("repo") != repo:
+                continue
+            if naming.tabled(it.get("repo")):   # a tabled location's items are left out, counted
+                tabled[it["repo"]] = tabled.get(it["repo"], 0) + 1
                 continue
             kind = root_kind(ws, it, s.repo)
             if kind is None:
@@ -182,7 +186,8 @@ def view(ws, repo=None):
             g["what"] += ": lacks " + ", ".join(f"{w} ({n})" for w, n in tally.items())
         elif g["kind"] == "owner" and g["detail"]:
             g["clears"] += " (counterparts " + ", ".join(g["detail"]) + ")"
-    return {"items": sum(g["count"] for g in roots), "roots": roots, "unreadable": list(ws.errors)}
+    return {"items": sum(g["count"] for g in roots), "roots": roots, "unreadable": list(ws.errors),
+            "tabled_out": naming.tabled_out(tabled)}
 
 
 def lines(v, max_roots=None, max_ids=None):

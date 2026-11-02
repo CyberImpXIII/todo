@@ -346,6 +346,12 @@ the workspace root and scans from there (tests/test_dispatch.py).
 Items in a hand-kept `TODO.md` are not in any store, so this command cannot see
 them until that file is imported (`todo import`).
 
+A **tabled** location (its record in the names file carries `tabled: "<date>: <why>"`;
+PLAN-architecture.md §13.1, external audit ra-26.1) is left out of `ready`, `dispatchable`
+and `blockers` when the names file is handed, with one count line saying so (`tabled_out`
+in `--json`: `[{repo, why, count}]`), and `sync-plans` makes no item for it (a notice).
+Without the file nothing changes: the fact lives on the record, and the record is handed.
+
 ### Approval by rule (TD-B1)
 
 Jacob approved one rule in place of a yes per item (PLAN-todo-tool.md §10.1 cause 1,
@@ -840,7 +846,8 @@ target (`report --to`, `add`/`edit --reported-to`) must be a location's **name**
 (`tools/wizard`), a store key or a remote's name is refused and the refusal names the location.
 A file that cannot be read refuses too, never judging without it. todo never looks for the
 file itself: with none handed, the scan judges as before (external audit ra-19.3, Jacob
-2026-10-31: "hand todo the file").
+2026-10-31: "hand todo the file"). A record's `tabled` text takes that location's items out of the
+dispatch views (Dispatch, above).
 
 A report read by `todo import` from a hand-written `TODO.md` names its owner but
 no counterpart: the owner may hold it under any id, or never have had it. Its

@@ -26,6 +26,7 @@ import subprocess
 from pathlib import Path
 
 from . import decisions as decide
+from . import names as naming
 from . import plans
 from .store import new_item
 from .vocab import VOCAB
@@ -351,6 +352,9 @@ def plan(ws, here, steps_by_file, judged, pin, date):
             pairs, rest = match(mine, [it for it, _ in items])
             for st, it, how in pairs:
                 if it is None:
+                    if makes_item(st) and naming.tabled(s.repo):
+                        notices.append(f"{s.repo}: tabled ({naming.tabled(s.repo)}); no item made for {where(st)}")
+                        continue
                     made_now = new_step_item(st, s, by_step, pin, date, notices) if makes_item(st) else None
                     if made_now is not None:
                         actions.append(_act(NEW, s, made_now, st, state_line(made_now)))

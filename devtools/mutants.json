@@ -1104,7 +1104,7 @@
      "file": "todolib/cli.py", "old": "        print(\"todo: UNCHECKED: a store could not be read, so ready may be missing its items\", file=sys.stderr)\n        sys.exit(3)", "new": "        pass",
      "run": ["python3", "-m", "unittest", "tests.test_ready.ReadyJson.test_an_unreadable_store_is_unchecked_in_either_form"]},
     {"id": "ready-approval-own-judgement", "gate": "ready's approved is dispatchable's judgement (approval.effective), not the stored field",
-     "file": "todolib/cli.py", "old": "    for it, s in ready_items(ws, repo, work, refused):\n        appr, by_rule = approval.effective(it, s.repo)", "new": "    for it, s in ready_items(ws, repo, work, refused):\n        appr, by_rule = it.get(\"approved\"), False",
+     "file": "todolib/cli.py", "old": "            continue\n        appr, by_rule = approval.effective(it, s.repo)", "new": "            continue\n        appr, by_rule = it.get(\"approved\"), False",
      "run": ["python3", "-m", "unittest", "tests.test_ready.ReadyJson.test_approved_and_not_dispatched_rows_are_exactly_what_dispatchable_lists"]},
     {"id": "list-json-ignored", "gate": "todo list --json prints one document, not the text form (td-59)",
      "file": "todolib/cli.py", "old": "    view[\"count\"] = len(view[\"items\"])\n    if args.json:", "new": "    view[\"count\"] = len(view[\"items\"])\n    if False:",
@@ -1138,6 +1138,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_names_file.NamesFile.test_check_keys_reads_fields_as_data_and_prose_as_quotation"]},
     {"id": "rename-nothing-named", "gate": "a fields-only rename-repo of a spelling nothing names is refused, never a silent no-op",
      "file": "todolib/rename.py", "old": "    if not owners and not out:", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_rename_repo.FieldsOnly.test_new_must_be_a_location_and_old_must_be_named_somewhere"]}
+     "run": ["python3", "-m", "unittest", "tests.test_rename_repo.FieldsOnly.test_new_must_be_a_location_and_old_must_be_named_somewhere"]},
+    {"id": "tabled-not-left-out", "gate": "with the names file handed, a tabled location's items are left out of blockers (ra-26.1)",
+     "file": "todolib/blockers.py", "old": "            if naming.tabled(it.get(\"repo\")):   # a tabled location's items are left out, counted", "new": "            if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_tabled.Tabled.test_blockers_leave_a_tabled_locations_items_out"]}
   ]
 }
