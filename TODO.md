@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (53 open, 46 closed in todo-history.json; seal 6998a12e714e): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (52 open, 47 closed in todo-history.json; seal 511370ebc341): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -62,11 +62,6 @@
 - **td-96 · todo decisions --json records a new dt-N table whenever the open rows change, and todo answer wit...**
   reported from tools/context-hygiene to tools/todo in dispatch toolu_01RMPEvSWQxt1HAVrsA96WMf, filed from the dispatch ledger by the delegation layer's report filer: todo decisions --json records a new dt-N table whenever the open rows change, and todo answer with no dt-N answers the latest table, so a read-only caller (the status line) risks putting Jacob's next answer under a table he never saw -- input: todo decisions --json -- expected: a read-only form (e.g. --no-record) that prints the same rows without recording
   · parent: tl-567
-  · added: 2026-10-22
-
-- **td-97 · once tl-564 is pushed, todolib/practices.py can switch ARGS to ("practices", "--rows", "--json") ...**
-  reported from tools/checks to tools/todo in dispatch toolu_01RpouMWQvN6PJd7mGUETsvk, filed from the dispatch ledger by the delegation layer's report filer: once tl-564 is pushed, todolib/practices.py can switch ARGS to ("practices", "--rows", "--json") with no stdin report (td-64) -- input: `tools/checks/checks practices --rows --json` -- expected: the same rows as today, without cells.
-  · parent: tl-586
   · added: 2026-10-22
 
 - **td-99 · the todo CLI cannot read a decisions table: no table verb (exit 2), `get`/`show dt-N` find no sto...**

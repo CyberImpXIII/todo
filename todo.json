@@ -1800,43 +1800,6 @@
       "imported": null
     },
     {
-      "id": "td-97",
-      "title": "once tl-564 is pushed, todolib/practices.py can switch ARGS to (\"practices\", \"--rows\", \"--json\") ...",
-      "kind": "bug",
-      "status": "open",
-      "evidence": "reported from tools/checks to tools/todo in dispatch toolu_01RpouMWQvN6PJd7mGUETsvk, filed from the dispatch ledger by the delegation layer's report filer: once tl-564 is pushed, todolib/practices.py can switch ARGS to (\"practices\", \"--rows\", \"--json\") with no stdin report (td-64) -- input: `tools/checks/checks practices --rows --json` -- expected: the same rows as today, without cells.",
-      "probe": null,
-      "reported_to": null,
-      "parent": "tl-586",
-      "blocked_by": null,
-      "waits_on": null,
-      "pointer": null,
-      "hinges_on": null,
-      "recommend": null,
-      "options": null,
-      "chosen": null,
-      "jacob_words": null,
-      "repo": "todo",
-      "work": null,
-      "size": null,
-      "files": null,
-      "research": null,
-      "done_when": null,
-      "done_check": null,
-      "handoff": null,
-      "approved": null,
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "detector": null,
-      "plan_step": null,
-      "added": "2026-10-22",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-98",
       "title": "unverified: history --repo naming a store the scan could not read says 'no store for repo' (exit 1), not UNCHECKED (exit 3)",
       "kind": "suspicion",
@@ -1911,5 +1874,5 @@
       "imported": null
     }
   ],
-  "seal": "633e21ae1b613fad"
+  "seal": "02da83122283685a"
 }

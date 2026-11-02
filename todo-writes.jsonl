@@ -1,1 +1,2 @@
 {"at": "2026-11-02T00:28:51Z", "verb": "rename-repo", "ids": ["td-4", "td-8", "td-69"], "by": "external-audit", "why": "13.1-step-3:field-keys-to-names(ra-22.1)", "seal_before": "bb65e839cff9a4df", "seal_after": "633e21ae1b613fad", "rename": {"old": ".claude", "new": "harness"}}
+{"at": "2026-11-02T14:55:38Z", "verb": "done", "ids": ["td-97"], "by": "external-audit", "why": "PLAN-O27 landed (external audit ra-5.1 practices only, ra-5.2 warning)", "seal_before": "633e21ae1b613fad", "seal_after": "02da83122283685a", "rename": null}
