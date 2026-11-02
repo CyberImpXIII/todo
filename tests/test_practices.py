@@ -1,7 +1,7 @@
 """`todo brief` carries the practices (PLAN-services.md §3 A3, §4 step 7.4; README
 "Practices in the brief"): the prose rows of the practice registry that apply to
 the item's repo, by id, one line each, and the `practices:` line the report must
-end with. Read through the real checks tool (`checks practices --json`), with a
+end with. Read through the real checks tool (`checks practices --rows --json`), with a
 fixture registry handed to it by tests/fixtures/checks-registry.sh: a stub would
 agree with todolib/practices.py by construction, so the seam with that tool's
 output is what is tested. A registry that cannot be read is UNCHECKED, never
@@ -107,7 +107,7 @@ class Fixture(Case):
         self.env["CHECKS_REGISTRY"] = str(reg)
         r = self.brief(self.a, self.add(self.a, "a"))
         self.assertEqual(r.returncode, 0, "the brief itself still stands")
-        self.assertTrue(block(r.stdout)[0].startswith(f"{HEAD}: UNCHECKED: `checks practices --json` gave no rows"))
+        self.assertTrue(block(r.stdout)[0].startswith(f"{HEAD}: UNCHECKED: `checks practices --rows --json` gave no rows"))
         self.assertNotIn("no prose row", r.stdout)
         self.assertIn(WORDS["unchecked"], r.stdout)
 
@@ -120,9 +120,9 @@ class Fixture(Case):
         reg.write_text(json.dumps(doc))
         self.env["CHECKS_REGISTRY"] = str(reg)
         iid = self.add(self.a, "a")
-        self.assertIn(f"{HEAD}: UNCHECKED: `checks practices --json` gave no rows", self.brief(self.a, iid).stdout)
+        self.assertIn(f"{HEAD}: UNCHECKED: `checks practices --rows --json` gave no rows", self.brief(self.a, iid).stdout)
         out = self.brief(self.a, iid, cli=FIXTURES / "checks-no-rows.sh").stdout
-        self.assertTrue(block(out)[0].startswith(f"{HEAD}: UNCHECKED: `checks practices --json` printed no rows"),
+        self.assertTrue(block(out)[0].startswith(f"{HEAD}: UNCHECKED: `checks practices --rows --json` printed no rows"),
                         block(out)[0])
 
     def test_no_checks_cli_or_one_that_prints_no_json_is_unchecked(self):
@@ -136,6 +136,14 @@ class Fixture(Case):
                 self.assertTrue(first.startswith(f"{HEAD}: UNCHECKED:"), first)
                 self.assertIn(says, first)
                 self.assertEqual(ids(r.stdout), [])
+
+    def test_an_answer_carrying_measured_cells_is_refused(self):
+        # PLAN-O27 step 4 (td-97): the rows view measures nothing; the measured run's
+        # output (cells, a ratchet) answering in its place is no reading of the rows
+        iid = self.add(self.a, "a")
+        first = block(self.brief(self.a, iid, cli=FIXTURES / "checks-measured.sh").stdout)[0]
+        self.assertTrue(first.startswith(f"{HEAD}: UNCHECKED: `checks practices --rows --json` printed measured cells"),
+                        first)
 
     def test_an_unchecked_block_leaves_the_exit_code_alone(self):
         # td-67, decided: an UNCHECKED practices block is not exit 3. The brief is
@@ -167,10 +175,10 @@ class RealRegistry(Case):
 
     def test_the_real_rows_parse_and_the_brief_lists_the_prose_ones(self):
         cli = real_cli(self)
-        rows, why = practices.rows(cli, "a")
+        rows, why = practices.rows(cli)
         self.assertIsNone(why)
-        r = subprocess.run([str(cli), "practices", "--json", "--from", "/dev/stdin"], capture_output=True, text=True,
-                           input=json.dumps({"repos": [{"rel": "a", "results": []}]}))
+        r = subprocess.run([str(cli), "practices", "--rows", "--json"], capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL)
         expect = [x["id"] for x in json.loads(r.stdout)["rows"] if x.get("status") == "live"
                   and x["held"]["kind"] == "prose" and (x["applies"] == "all" or "a" in x["applies"])]
         self.assertTrue(expect, "the registry has prose rows for every repo (applies all); none would test nothing")

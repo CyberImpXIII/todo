@@ -159,7 +159,7 @@ def resolve_principle(args, principle):
     cli_path, why = practicing.resolve_cli(getattr(args, "checks_cli", None))
     if why:
         raise TodoError(f"--principle {principle}: the practices registry cannot be read ({why})")
-    rows, why = practicing.rows(cli_path, ".")
+    rows, why = practicing.rows(cli_path)
     if why:
         raise TodoError(f"--principle {principle}: the practices registry cannot be read ({why})")
     ids = {r.get("id") for r in rows}
@@ -2308,7 +2308,7 @@ def add_item_fields(p, editing):
     p.add_argument("--principle", metavar="ID",
                    help="the practices row id the recommendation rests on (checks practices); omit when none applies, and the table says so")
     p.add_argument("--checks-cli", dest="checks_cli", metavar="PATH",
-                   help="the checks tool whose `checks practices --json` lists the practice rows --principle is checked against "
+                   help="the checks tool whose `checks practices --rows --json` lists the practice rows --principle is checked against "
                         "(default: checks/checks in the first folder above this tool holding one)")
     if not editing:
         p.add_argument("--reported-to", dest="reported_to", metavar="REPO",
@@ -2384,7 +2384,7 @@ def build_parser():
                              help="one document: {root, ready, refused, unreadable, count}")
     ps["brief"].add_argument("id")
     ps["brief"].add_argument("--checks-cli", dest="checks_cli", metavar="PATH",
-                             help="the checks tool whose `checks practices --json` lists the practice rows (default: "
+                             help="the checks tool whose `checks practices --rows --json` lists the practice rows (default: "
                                   "checks/checks in the first folder above this tool holding one)")
     ps["history"].add_argument("id", nargs="?")
     ps["history"].add_argument("--since")

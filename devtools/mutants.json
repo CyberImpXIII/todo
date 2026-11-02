@@ -1080,7 +1080,7 @@
      "file": "todolib/practices.py", "old": "    return a == ALL or (isinstance(a, list) and loc in a)", "new": "    return True",
      "run": ["python3", "-m", "unittest", "tests.test_practices.Fixture.test_counterfactual_the_repo_changes_which_rows"]},
     {"id": "practices-unreadable-is-unchecked", "gate": "checks output that is not its rows is UNCHECKED, never read as no row applying",
-     "file": "todolib/practices.py", "old": "        return None, f\"`checks {' '.join(ARGS[:2])}` gave no rows (exit {r.returncode}): {first}\"", "new": "        return [], None",
+     "file": "todolib/practices.py", "old": "        return None, f\"`{VERB}` gave no rows (exit {r.returncode}): {first}\"", "new": "        return [], None",
      "run": ["python3", "-m", "unittest", "tests.test_practices.Fixture.test_no_checks_cli_or_one_that_prints_no_json_is_unchecked"]},
     {"id": "practices-unchecked-ready-not-exit-3", "gate": "a ready brief whose practices block is UNCHECKED still exits 0, not 3 (td-67)",
      "file": "todolib/cli.py", "old": "        print(ln)\n    why = not_ready_reasons(ws, it)\n", "new": "        print(ln)\n        if ': UNCHECKED: ' in ln and not not_ready_reasons(ws, it):\n            sys.exit(3)\n    why = not_ready_reasons(ws, it)\n",
@@ -1144,6 +1144,9 @@
      "run": ["python3", "-m", "unittest", "tests.test_tabled.Tabled.test_blockers_leave_a_tabled_locations_items_out"]},
     {"id": "audit-store-scanned", "gate": "the direction audit reads the store files as data, never as the repo speaking (ra-27.1); a code file still fails",
      "file": "devtools/audit.json", "old": "\"todo.json\", \"todo-history.json\", \"todo-records.json\", \"todo-writes.jsonl\", \"TODO.md\"", "new": "\"todo-history.json\", \"todo-records.json\", \"todo-writes.jsonl\", \"TODO.md\"",
-     "run": ["python3", "-m", "unittest", "tests.test_audit.Direction.test_the_store_files_are_data_and_a_code_file_is_not"]}
+     "run": ["python3", "-m", "unittest", "tests.test_audit.Direction.test_the_store_files_are_data_and_a_code_file_is_not"]},
+    {"id": "practices-measured-read-as-rows", "gate": "brief: an answer carrying measured cells is refused, never read as the rows view (PLAN-O27 step 4, td-97)",
+     "file": "todolib/practices.py", "old": "    if any(k in doc for k in (\"ratchet\", \"measured\", \"locations\")) or any(isinstance(x, dict) and \"cells\" in x for x in got):", "new": "    if False:",
+     "run": ["python3", "-m", "unittest", "tests.test_practices.Fixture.test_an_answer_carrying_measured_cells_is_refused"]}
   ]
 }

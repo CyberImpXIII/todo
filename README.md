@@ -201,9 +201,9 @@ report line the agent's report must end with: `practices: <id> justified: ... |
 <id> unjustified: ... | <id> unknown: <the question>`, every id once; a bare
 "held" reads as unjustified. Gate, unbuilt and principle rows are left out: a
 check holds them, or nothing yet does. The rows are read through the checks
-tool's one reader, `checks practices --json` (`--checks-cli P` names it, else the
-first `checks/checks` above this repo), fed a one-location report on stdin so no
-check runs; the location is the folder of the store whose repo name the item
+tool's one reader, `checks practices --rows --json` (`--checks-cli P` names it, else the
+first `checks/checks` above this repo), the rows view, which runs no check (an answer
+carrying measured cells is refused); the location is the folder of the store whose repo name the item
 carries, else a folder of that name under the scan root. No checks tool, output
 that is not its rows, an item naming no repo or a repo that is no folder print
 `Practices: UNCHECKED: <why>` and still ask for the line; never "none apply",

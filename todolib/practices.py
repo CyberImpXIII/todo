@@ -3,13 +3,11 @@
 the item's repo, by id, one line each, and the `practices:` line the agent's
 report ends with (vocab.json brief.practices).
 
-The rows are read through the checks tool's `checks practices --json`, never from
-its gates.json: that tool's checkslib/practices.py is the registry's one reader.
-That verb measures cells; asked for rows alone, it is handed (`--from`, on stdin)
-a report of one location with no results, so it runs no check, and only its
-`rows` are read. The cells and ratchet of such a report mean nothing and are
-never read. Interim until the checks tool serves the rows by a verb of their own
-(this repo's TODO.md says which item waits on it).
+The rows are read through the checks tool's `checks practices --rows --json`, never
+from its gates.json: that tool's checkslib/practices.py is the registry's one reader,
+and the rows view runs no check and measures nothing (PLAN-O27 step 4, td-97). An
+answer carrying measured cells (the measured run's output, not the rows view) is
+refused, never read as rows.
 
 Every answer is (rows, None) or (None, why). An answer that cannot be read is
 never read as "no practice applies": the brief says UNCHECKED instead."""
@@ -20,7 +18,8 @@ from pathlib import Path
 from . import plans
 
 CHECKS_CLI_NAME = ("checks", "checks")   # <dir>/checks/checks: the checks tool, a sibling of this one
-ARGS = ("practices", "--json", "--from", "/dev/stdin")
+ARGS = ("practices", "--rows", "--json")
+VERB = "checks " + " ".join(ARGS)
 TIMEOUT = 60
 PROSE = "prose"
 LIVE = "live"
@@ -53,30 +52,33 @@ def location(root, work_dir, repo):
     return str(rel), None
 
 
-def rows(cli, loc):
-    """(the registry's rows as `checks practices --json` prints them, None) or
+def rows(cli):
+    """(the registry's rows as `checks practices --rows --json` prints them, None) or
     (None, why)."""
-    report = json.dumps({"repos": [{"rel": loc, "results": []}]})
     try:
-        r = subprocess.run([str(cli), *ARGS], input=report, capture_output=True, text=True, timeout=TIMEOUT)
+        r = subprocess.run([str(cli), *ARGS], capture_output=True, text=True, timeout=TIMEOUT,
+                           stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired) as e:
-        return None, f"{cli} {' '.join(ARGS[:2])} could not run: {e}"
+        return None, f"{cli} {' '.join(ARGS)} could not run: {e}"
     try:
-        got = json.loads(r.stdout)["rows"]
+        doc = json.loads(r.stdout)
+        got = doc["rows"]
     except (ValueError, KeyError, TypeError):
         first = (r.stderr.strip().splitlines() or ["(no stderr)"])[0][:200]
-        return None, f"`checks {' '.join(ARGS[:2])}` gave no rows (exit {r.returncode}): {first}"
+        return None, f"`{VERB}` gave no rows (exit {r.returncode}): {first}"
     if not isinstance(got, list) or not got:
-        return None, f"`checks {' '.join(ARGS[:2])}` printed no rows (exit {r.returncode})"
+        return None, f"`{VERB}` printed no rows (exit {r.returncode})"
+    if any(k in doc for k in ("ratchet", "measured", "locations")) or any(isinstance(x, dict) and "cells" in x for x in got):
+        return None, f"`{VERB}` printed measured cells, not the rows view: refused, never read as rows"
     for i, row in enumerate(got):
         if not isinstance(row, dict):
-            return None, f"`checks {' '.join(ARGS[:2])}` row #{i} is not an object"
+            return None, f"`{VERB}` row #{i} is not an object"
         need = ROW_NEEDS + (LIVE_NEEDS if row.get("status") == LIVE else ())
         missing = [k for k in need if k not in row]
         if missing:
-            return None, f"`checks {' '.join(ARGS[:2])}` row #{i} lacks {', '.join(missing)}"
+            return None, f"`{VERB}` row #{i} lacks {', '.join(missing)}"
         if "held" in row and not isinstance(row["held"], dict):
-            return None, f"`checks {' '.join(ARGS[:2])}` row #{i}: held is not an object"
+            return None, f"`{VERB}` row #{i}: held is not an object"
     return got, None
 
 
@@ -109,7 +111,7 @@ def brief_lines(given_cli, root, work_dir, repo, words):
         cli, why = resolve_cli(given_cli)
     got = None
     if cli is not None:
-        got, why = rows(cli, loc)
+        got, why = rows(cli)
     if got is None:
         return [f"{head}: UNCHECKED: {why}. {words['unchecked']}"]
     mine = prose_for(got, loc)
