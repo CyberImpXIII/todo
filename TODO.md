@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (52 open, 47 closed in todo-history.json; seal 511370ebc341): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (56 open, 49 closed in todo-history.json; seal 78af6c8e3795): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -69,20 +69,33 @@
   · parent: tl-638
   · added: 2026-10-23
 
-## Open decisions
+- **td-100 · the CLI fails to load vocab.json on the uncommitted tree -- input: `todo -C /Users/Specter/Deskto...**
+  reported from an unlisted folder to tools/todo in dispatch toolu_01EGR4GDYnkFrAQagBaciLdr, filed from the dispatch ledger by the delegation layer's report filer: the CLI fails to load vocab.json on the uncommitted tree -- input: `todo -C /Users/Specter/Desktop/claudeTest edit tl-677 --handoff "..."` -- expected: the handoff is written
+  · parent: tl-682
+  · added: 2026-11-03
 
-- **td-2 · The shared hooks setup installed are not registered in settings.json**
-  settings.json is tracked since 8523dd8 but predates the 2026-10-05 setup run (tools/setup 32aeaa9), which installed ask-first, git-stamp, no-secrets, primary-guard, push-gate, settings-guard and write-ledger. settings.proposed.json registers all seven, settings.json none, so ./dev.sh hooks fails 7 registrations (each hook's own test passes) and the mutants gate is BASELINE-RED from it. settings.json is Jacob's: he applies the proposal himself (setup prints the step).
-  2026-10-12, after Jacob's wiring --apply (all 62 requirements in the top-level settings.json): ./dev.sh hooks in tools/todo still prints 'FAIL  store-guard.sh is not registered in .claude/settings.json', exit 1; this repo's .claude/settings.json (uncommitted, not this tool's to edit) registers the other seven. Not closed.
-  2026-10-15: .claude/settings.json is byte-equal to .claude/settings.proposed.json, and neither registers store-guard.sh (installed in .claude/hooks/), so ./dev.sh hooks stays red on 'store-guard.sh is not registered' even once Jacob applies the proposal; the proposal gap is setup's (reported 2026-10-15).
-  · status: waiting-jacob
-  · waits on: settings
-  · work: decision
-  · done when: ./dev.sh hooks prints 'registered'
-  · added: 2026-10-04
+- **td-101 · `todo check --all` does not scan the harness store -- input: `todo check --all` vs `todo -C .clau...**
+  reported from an unlisted folder to tools/todo in dispatch toolu_01EGR4GDYnkFrAQagBaciLdr, filed from the dispatch ledger by the delegation layer's report filer: `todo check --all` does not scan the harness store -- input: `todo check --all` vs `todo -C .claude check` -- expected: `.claude/todo.json`'s 3 FAIL lines show up, or the scan says it skipped that store
+  · parent: tl-683
+  · added: 2026-11-03
+
+- **td-104 · `todo done --resolution` accepts a home-folder path that the leak audit then fails on, and a clos...**
+  reported from tools/hub to tools/todo in dispatch toolu_01QeceaiAtk3FPtKHdzH6msC, filed from the dispatch ledger by the delegation layer's report filer: `todo done --resolution` accepts a home-folder path that the leak audit then fails on, and a closed entry can't be corrected afterwards -- input: `todo -C tools/hub done hb-2 --resolution "...githooks.checks=/Users/<home>/.../tools/checks/checks..."` -- expected: done refuses home-folder paths, or a recorded verb amends a closed item's resolution.
+  · parent: tl-687
+  · added: 2026-11-03
+
+## Open decisions
 
 - **td-44 · report fallback leaves a foreign TODO.md uncommitted, in tension with S2**
   e0f6e71: todo report --to a storeless repo appends a bullet to that repo's TODO.md and does not commit it (another owner's tree). PLAN-architecture.md §11 S2 reads a foreign uncommitted file as someone mid-task. Options: commit it there in the same run (S2's renderer rule), or leave it for the owner (now). Also unguarded: a read-modify-write race with the owner editing that TODO.md at the same moment.
+  · status: waiting-jacob
+  · waits on: approval
+  · pointer: PLAN-architecture.md §11
+  · hinges on: whether todo may commit one file in a repo it does not own, or must write nothing there (S2: a renderer commits what it renders, in the same run, or writes nothing)
+  · recommend: commit
+  · today: todo report --to a git repo with no store appends a bullet to that repo's TODO.md and leaves it uncommitted (todolib/cli.py file_without_store, since e0f6e71)
+  · problem: that repo's next session finds its TODO.md changed by nobody it knows, reads it as another session mid-task and stops (S2's freeze); and two writers editing that file at once can lose a line
+  · options: commit = commit the bullet in that repo in the same run, that one TODO.md only, and only when it was clean before; leave = leave the bullet uncommitted for that repo's owner, as now; nowrite = write nothing there: the report stays unpaired here and travels by the dispatch report instead
   · tags: plan:PLAN-architecture.md§11
   · added: 2026-10-15
 
@@ -148,6 +161,18 @@
   · work: code
   · size: S
   · added: 2026-10-23
+
+- **td-102 · unverified: the size-L-needs-children rule is FAIL in check (checks.py:504) but add/edit do not r...**
+  reported from an unlisted folder to tools/todo in dispatch toolu_01EGR4GDYnkFrAQagBaciLdr, filed from the dispatch ledger by the delegation layer's report filer: unverified: the size-L-needs-children rule is FAIL in check (checks.py:504) but add/edit do not refuse it -- input: tl-678, created 2026-11-03 at size L -- settle: `todo add` a size L item with no children in a scratch store
+  · probe: `todo add` a size L item with no children in a scratch store
+  · parent: tl-684
+  · added: 2026-11-03
+
+- **td-103 · unverified: whether a decision pointer resolves depends on the scan root -- input: hb-81 `PLAN-hu...**
+  reported from an unlisted folder to tools/todo in dispatch toolu_01EGR4GDYnkFrAQagBaciLdr, filed from the dispatch ledger by the delegation layer's report filer: unverified: whether a decision pointer resolves depends on the scan root -- input: hb-81 `PLAN-hub.md §5` -- settle: `setup plans show PLAN-hub.md §5`, run from the top and from tools/hub
+  · probe: `setup plans show PLAN-hub.md §5`, run from the top and from tools/hub
+  · parent: tl-685
+  · added: 2026-11-03
 
 ## Reported to other owners
 

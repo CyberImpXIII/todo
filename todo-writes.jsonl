@@ -1,2 +1,11 @@
 {"at": "2026-11-02T00:28:51Z", "verb": "rename-repo", "ids": ["td-4", "td-8", "td-69"], "by": "external-audit", "why": "13.1-step-3:field-keys-to-names(ra-22.1)", "seal_before": "bb65e839cff9a4df", "seal_after": "633e21ae1b613fad", "rename": {"old": ".claude", "new": "harness"}}
 {"at": "2026-11-02T14:55:38Z", "verb": "done", "ids": ["td-97"], "by": "external-audit", "why": "PLAN-O27 landed (external audit ra-5.1 practices only, ra-5.2 warning)", "seal_before": "633e21ae1b613fad", "seal_after": "02da83122283685a", "rename": null}
+{"at": "2026-11-03T14:43:01Z", "verb": "edit", "ids": ["td-44"], "by": "unattributed", "why": null, "seal_before": "02da83122283685a", "seal_after": "6b0756b69c772be1", "rename": null}
+{"at": "2026-11-03T15:06:01Z", "verb": "done", "ids": ["td-2"], "by": "unattributed", "why": null, "seal_before": "6b0756b69c772be1", "seal_after": "1fe8d620b02b6abd", "rename": null}
+{"at": "2026-11-03T15:06:18Z", "verb": "report", "ids": ["td-100"], "by": "unattributed", "why": null, "seal_before": "1fe8d620b02b6abd", "seal_after": "eeb5d363efbbb7a4", "rename": null}
+{"at": "2026-11-03T15:06:24Z", "verb": "report", "ids": ["td-101"], "by": "unattributed", "why": null, "seal_before": "eeb5d363efbbb7a4", "seal_after": "f4fb825d0a3d7f1a", "rename": null}
+{"at": "2026-11-03T15:06:30Z", "verb": "report", "ids": ["td-102"], "by": "unattributed", "why": null, "seal_before": "f4fb825d0a3d7f1a", "seal_after": "187c70ee767a4da9", "rename": null}
+{"at": "2026-11-03T15:06:36Z", "verb": "report", "ids": ["td-103"], "by": "unattributed", "why": null, "seal_before": "187c70ee767a4da9", "seal_after": "cfe1385f87664492", "rename": null}
+{"at": "2026-11-03T15:07:56Z", "verb": "report", "ids": ["td-104"], "by": "unattributed", "why": null, "seal_before": "cfe1385f87664492", "seal_after": "8a95d9141d074302", "rename": null}
+{"at": "2026-11-03T15:09:04Z", "verb": "add", "ids": ["td-105"], "by": "unattributed", "why": null, "seal_before": "8a95d9141d074302", "seal_after": "0f45a7220719de38", "rename": null}
+{"at": "2026-11-03T15:09:27Z", "verb": "done", "ids": ["td-105"], "by": "unattributed", "why": null, "seal_before": "0f45a7220719de38", "seal_after": "7a9796f6124271fa", "rename": null}
