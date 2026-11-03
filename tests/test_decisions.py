@@ -98,7 +98,7 @@ class Add(Base):
 
     def test_the_pointer_is_stored_with_a_space_however_given(self):
         self.run_in(self.a, "add", "t", "--kind", DECISION, "--pointer", "PLAN-x.md§2", "--hinges-on", "h",
-                    "--recommend", "no")
+                    "--recommend", "no", "--today", "t", "--problem", "p")
         self.assertEqual(self.item(self.a, "aa-1")["pointer"], "PLAN-x.md §2")
 
     def test_each_missing_field_is_refused_by_name(self):
@@ -160,12 +160,23 @@ class RowFields(Base):
         self.assertIn("--problem", err)
         self.assertEqual(self.store(self.a)["items"], [])
 
-    def test_an_older_decision_is_tabled_with_its_cell_saying_what_it_lacks(self):
-        self.run_in(self.a, "add", "old one", "--kind", DECISION, "--pointer", "PLAN-x.md §1", "--hinges-on", "h",
-                    "--recommend", "yes", today="2026-10-01")
-        cells = self.table()["rows"][0]["cells"]
-        self.assertEqual(cells[0], "PLAN-x.md §1: old one (today and problem not recorded: todo edit aa-1 --today T --problem P)")
-        self.assertIn("carry no today/problem", self.check(self.a).stdout)
+    def test_an_older_decision_is_refused_too_and_one_already_there_is_never_tabled(self):
+        # PLAN-todo-tool.md §10.3c: the date exemption is gone. add refuses one dated
+        # before row_fields_since; one already there (planted) is listed, never tabled,
+        # its cell never says "not recorded" (tests/test_audits.py: the audit and check).
+        err = self.run_in(self.a, "add", "old one", "--kind", DECISION, "--pointer", "PLAN-x.md §1", "--hinges-on", "h",
+                          "--recommend", "yes", today="2026-10-01", ok=False).stderr
+        self.assertIn("--today", err)
+        self.decide("old one")
+        data = self.store(self.a)
+        for f in D["row_fields"]:
+            data["items"][0].pop(f)
+        self.write_json(self.a / "todo.json", data)
+        self.run_in(self.a, "render", "--force")
+        view = self.table()
+        self.assertEqual(view["rows"], [])
+        self.assertEqual(view["incomplete"][0]["missing"], D["row_fields"])
+        self.assertNotIn("not recorded", self.run_in(self.a, "decisions").stdout)
 
     def test_the_cell_carries_today_problem_and_the_principle_or_says_none_is_cited(self):
         self.decide("with principle", extra=["--principle", "root-one-source"])
@@ -299,7 +310,7 @@ class Table(Base):
         self.assertEqual((view["rows"], view["table"]), ([], None))
         self.assertEqual([r["id"] for r in view["incomplete"]], ["todo:aa-1"])
         out = self.run_in(self.a, "decisions").stdout
-        self.assertIn("todo:aa-1 (pointer, hinges_on, recommend)", out)
+        self.assertIn("todo:aa-1 (pointer, hinges_on, recommend, today, problem)", out)
         self.assertFalse((self.a / RECORDS_FILE).exists())
 
     def test_the_untabled_footer_says_whose_they_are_and_that_none_asks_the_reader(self):
@@ -313,8 +324,9 @@ class Table(Base):
         foot = out.split("\n\n")[-1].splitlines()
         self.assertEqual(foot[0], "1 decision item(s) in owners' stores lack row fields (a 1): "
                                   "not questions for you until an owner tables them", out)
-        self.assertEqual(foot[1], "for their owners (todo edit ID --pointer --hinges-on --recommend): "
-                                  "todo:aa-1 (pointer, hinges_on, recommend)", out)
+        self.assertEqual(foot[1], f"for their owners ({decide.FILL_HINT}): "
+                                  "todo:aa-1 (pointer, hinges_on, recommend, today, problem)", out)
+        self.assertIn("--today --problem", decide.FILL_HINT)
         self.assertNotIn("not tabled", out, "the old wording, read as the reader's backlog")
         # The counts follow the stores: two more in b put b first, the total 3.
         self.plant_legacy(self.b, ("bb-1", "bb-2"))
@@ -422,6 +434,7 @@ class Checks(Base):
         self.assertFails(self.a, "vocab", f"closes a {DECISION} only")
 
     def test_check_lists_an_open_decision_lacking_the_fields(self):
+        # held, before the D1 detector first runs, as one INFO line naming it (tests/test_audits.py: the FAILs)
         self.plant_legacy()
         out = self.check(self.a).stdout
-        self.assertIn("aa-1 (pointer, hinges_on, recommend)", out)
+        self.assertIn("1 open decision(s) incomplete, held until detector D1 first runs (todo detect): aa-1", out)

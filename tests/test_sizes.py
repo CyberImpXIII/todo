@@ -2,6 +2,8 @@
 lists only the sizes one checkpoint holds and refuses the rest by name; `todo
 split` breaks a big item into children under `parent`, and the parent closes
 with its last child; `todo check` fails a big open item with no children."""
+import json
+
 from tests.helpers import Case
 from todolib.vocab import VOCAB
 
@@ -111,7 +113,9 @@ class Gate(Case):
         a = self.repo("a", "aa")
         self.todo("-C", a, "add", "one", "--kind", NOTE, "--size", "XL", ok=False)
         self.todo("-C", a, "add", "one", "--kind", NOTE)
-        self.assertIn("1 open item(s) unsized", self.check(a).stdout)
+        # unsized is D2's to count (tests/test_audits.py), no longer a check INFO line
+        self.assertNotIn("unsized", self.check(a).stdout)
+        self.assertEqual(json.loads(self.todo("-C", a, "audit", "sizes").stdout)[0]["count"], 1)
         data = self.store(a)
         data["items"][0]["size"] = "XL"
         self.write_json(a / "todo.json", data)

@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import approval, checks, deps, importer, plans
+from . import approval, audits, checks, deps, importer, plans
 from . import blockers as rootlib
 from . import decisions as decide
 from . import detect, readers, repostatus
@@ -23,7 +23,7 @@ from . import steps as stepping
 from . import syncplans
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
-from .store import (DB_FILE, EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
+from .store import (AUDITS_FILE, DB_FILE,EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
                     fallback_lead, file_report_bullet, id_number, never_scanned, new_item, scan_root, scan_stores, store_dir_for, today,
                     git_ignores, has_store, write_atomic, write_if_changed)
 from .vocab import VOCAB
@@ -127,18 +127,14 @@ def validate(item, where="store", require_waits=True, require_decision=False):
     bad = decide.field_problems(item) + detect.field_problems(item)
     if bad:
         raise TodoError("; ".join(bad))
-    lacking = decide.missing(item) if require_decision and decide.is_decision(item) else []
+    lacking = decide.lacking(item) if require_decision and decide.is_decision(item) else []
     if require_decision and decide.is_decision(item) and item["status"] not in (decide.D["status"], VOCAB.closed):
         raise TodoError(f"a {item['kind']} is {decide.D['status']} until Jacob answers it: "
                         f"--status {decide.D['status']} (todo approve, todo done --as, todo answer close it)")
     if lacking:
         raise TodoError(f"a {item['kind']} needs {', '.join('--' + f.replace('_', '-') for f in lacking)} "
-                        "(PLAN-todo-tool.md §10.3: what it hinges on, the plan section, the recommended answer)")
-    if require_decision and decide.is_decision(item) and decide.needs_row_fields(item):
-        rm = decide.row_missing(item)
-        if rm:
-            raise TodoError(f"a {item['kind']} added from {decide.D['row_fields_since']} on needs {', '.join('--' + f for f in rm)}: "
-                            "what is true now and what goes wrong for someone (the workspace's reply-sections rule)")
+                        "(PLAN-todo-tool.md §10.3, §10.3c: the plan section, what it hinges on, the recommended "
+                        "answer, what is true now and what goes wrong for someone)")
 
 
 def resolve_pointer(ws, args, pointer):
@@ -1437,6 +1433,21 @@ def cmd_decisions(args):
         sys.exit(3)
 
 
+def cmd_audit(args):
+    """`todo audit RULE` (PLAN-hard-gates.md §9): the rule a write refuses, run over
+    what every scanned store already holds, as a detector's findings (one per store,
+    with its count; todolib/audits.py). The D1 and D2 detectors' command. Prints the
+    JSON list, nothing else; exit 3 when a store could not be read, so the run is a
+    failure detect files, never a clean zero."""
+    store = open_store(args)
+    ws = workspace(args, store)
+    print(json.dumps(audits.findings(ws, args.rule), indent=1, ensure_ascii=False))
+    if ws.errors:
+        print("todo: UNCHECKED: a store could not be read, so its offenders are missing: "
+              + "; ".join(ws.errors), file=sys.stderr)
+        sys.exit(3)
+
+
 def cmd_answer(args):
     """Jacob's reply to a decisions table (PLAN-todo-tool.md §10.3a): `1) yes 2) no
     3) b 4) <words>`, read against the table named (`dt-N:` leading the reply, or
@@ -2001,6 +2012,9 @@ def cmd_detect(args):
         for det, _, rec in results:
             runs[det["id"]] = rec
         commit_all([store, *(a["store"] for a in done)])
+        # AUDITS.md, after every run and whatever failed: a failed run is a row (§9)
+        write_atomic(store.dir / AUDITS_FILE, audits.render(ws, store, detect.registered()[0], store.runs, at),
+                     readonly=True)
     notices += [f"a store could not be read: {e}" for e in ws.errors]
     rows = [{"action": a["action"], "id": tagging.global_id(a["item"]["id"]), "repo": a["store"].repo,
              "detector": a["detector"], "title": a["item"]["title"], "detail": a["detail"]} for a in done]
@@ -2258,7 +2272,8 @@ COMMANDS = {
     "decisions": (cmd_decisions, "open decisions as a numbered table for Jacob, most items freed first; recorded as dt-N"),
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
-    "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run"),
+    "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run; render AUDITS.md"),
+    "audit": (cmd_audit, "a rule add and edit refuse by, run over every store's items: detector findings (JSON), one per store"),
     "pair": (cmd_pair, "the owner pulls: a counterpart here for every open report addressed to this store with none yet; --apply writes them"),
     "rename-repo": (cmd_rename_repo, "one store's key, and every record naming it in every scanned store, renamed in one pass; --apply writes it"),
     "migrate": (cmd_migrate, "the move to todo.db: moves this store once no reader names the JSON files; --dry-run says per repo whether it would; --readers lists those readers"),
@@ -2303,7 +2318,7 @@ def add_item_fields(p, editing):
     p.add_argument("--option", action="append", metavar="NAME=TEXT",
                    help=f"one of a {dk}'s options; repeat for each" + ("; replaces them all, --option '' clears" if editing else ""))
     p.add_argument("--today", metavar="TEXT",
-                   help=f"what is true now, with a number or file:line; a {dk} added from {VOCAB.decisions['row_fields_since']} on needs it")
+                   help=f"what is true now, with a number or file:line; every {dk} needs it")
     p.add_argument("--problem", metavar="TEXT", help="what goes wrong for someone, in plain words")
     p.add_argument("--principle", metavar="ID",
                    help="the practices row id the recommendation rests on (checks practices); omit when none applies, and the table says so")
@@ -2430,6 +2445,8 @@ def build_parser():
                                   "findings (JSON); with --run, closes them first and reports only those it could not")
     ps["detect"].add_argument("--id", metavar="D", help="run this detector alone (its items alone are judged)")
     ps["detect"].add_argument("--json", action="store_true")
+    ps["audit"].add_argument("rule", choices=sorted(audits.RULES),
+                             help="decisions: open decisions lacking a field; sizes: unsized open items")
     ps["pair"].add_argument("--apply", action="store_true", help="write the counterparts and the pairings; without this, only say what would pair")
     ps["rename-repo"].add_argument("old", metavar="OLD")
     ps["rename-repo"].add_argument("new", metavar="NEW", help="the repo's own name (services.json) where it has one")

@@ -3,6 +3,7 @@
  "defaults": {"files": [".", "tests/__init__.py", "tests/helpers.py", "tests/fixtures"], "timeout_s": 900, "role": "code"},
  "parts": [
   {"name": "test.audit", "run": "python3 -m unittest tests.test_audit", "files": ["tests/test_audit.py"], "except": ["tests/", "TODO.md"]},
+  {"name": "test.audits", "run": "python3 -m unittest tests.test_audits", "files": ["tests/test_audits.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.blocked", "run": "python3 -m unittest tests.test_blocked", "files": ["tests/test_blocked.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.approval_rule", "run": "python3 -m unittest tests.test_approval_rule", "files": ["tests/test_approval_rule.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.report_fallback", "run": "python3 -m unittest tests.test_report_fallback", "files": ["tests/test_report_fallback.py"], "except": ["tests/", "TODO.md"]},

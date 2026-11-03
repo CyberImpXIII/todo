@@ -209,8 +209,10 @@ class NoWriteOnNoChange(Case):
         self.todo("-C", a, "add", "one", "--kind", "bug")
         before = self.stamp(a)
         s = Store(a).load()
-        s.ensure_records().setdefault("runs", {})["S7"] = {"at": "2026-10-30T00:00:00Z", "exit": 0, "ok": True,
-                                                          "findings": 0, "why": None}
+        from todolib import detect
+        for d in detect.registered()[0]:  # every one: one run alone makes the others' absence a FAIL
+            s.ensure_records().setdefault("runs", {})[d["id"]] = {"at": "2026-10-30T00:00:00Z", "exit": 0, "ok": True,
+                                                                  "findings": 0, "why": None}
         cli.commit(s)
         self.assertEqual(self.stamp(a), before)
         self.assertEqual(json.loads((a / "todo-records.json").read_text())["runs"]["S7"]["exit"], 0)

@@ -195,7 +195,7 @@ class NeedsYes(Sync):
         self.write("1. `a`: first part. track: needs-yes PLAN-x.md §1")
         b = self.repo("b", "bb")
         self.todo("-C", b, "--root", self.ws, "add", "held", "--kind", DECISION,
-                  "--pointer", "PLAN-x.md §1", "--hinges-on", "h", "--recommend", "yes")
+                  "--pointer", "PLAN-x.md §1", "--hinges-on", "h", "--recommend", "yes", "--today", "t", "--problem", "p")
         out, _ = self.sync()
         self.assertEqual(self.items(kind=DECISION), [])
         self.assertEqual(self.acts(out, syncplans.DECISION), [])

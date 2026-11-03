@@ -73,7 +73,8 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo decisions [--from TABLE] [--json]` | the open, complete decisions of every scanned store as a `## Decisions` table, `\| # \| decision \| hinges on \| recommend \|`, numbered 1..n, the one freeing most items first; recorded in this store as table `dt-N` (the same rows as an earlier table give its id). `--from dt-N` tables only that table's rows still open, recording which row each supersedes. Incomplete decisions are named under it, never tabled. Exit 3 (`UNCHECKED`) when a store could not be read |
 | `todo answer REPLY [--table TABLE]` | apply Jacob's reply to a decisions table, `"1) yes 2) no 3) b 4) <words>"`, read against the table named (`dt-N:` leading the reply, or `--table`), else the latest: a yes approves, a no rejects, an option's name chooses it; any other answer is kept in `jacob_words`, status unchanged. Refused whole, nothing applied, on a row the table lacks, a row named twice, or a row whose decision is closed |
 | `todo sync-plans [FILE ...] [--dry-run] [--json] [--plans-dir D] [--plans-cli P]` | make and keep the `plan-step` items of each plan's steps (Plan steps, below): `new`, `new-decision`, `updated`, `renumbered`, `stale`, `flagged` (dispatched, so unchanged), `gone`, `listed` (a step it gives no item). No FILE reads every `PLAN-*.md` in the plans folder and also judges the items of a plan file no longer there. `--dry-run` writes nothing. Each kind of change names at most `sync_plans.max_listed` steps; `--json` gives `{dry_run, plans, steps, actions, notices, counts}`, every action. Fails open: no plans CLI, an unreadable plan or store, a hand-edited `TODO.md` is a `NOTICE` line on stderr, exit 0 |
-| `todo detect [--id D] [--json]` | run the detectors (Detectors, below), each outside any lock, then file, update and close their `stall` and `lag` items under the lock of every scanned store, and record each run in this store's `todo-records.json`: `new`, `seen` (count, evidence or last-seen changed), `cleared` (closed `done-detected`). `--id D` runs one detector and judges its items alone. `--json` gives `{runs, actions, notices}`. Exit 1 when a detector failed (filed as a stall, its items unjudged) |
+| `todo detect [--id D] [--json]` | run the detectors (Detectors, below), each outside any lock, then file, update and close their `stall` and `lag` items under the lock of every scanned store, and record each run in this store's `todo-records.json`: `new`, `seen` (count, evidence or last-seen changed), `cleared` (closed `done-detected`). `--id D` runs one detector and judges its items alone. `--json` gives `{runs, actions, notices}`. Exit 1 when a detector failed (filed as a stall, its items unjudged). Every run rewrites `AUDITS.md` (Detectors) |
+| `todo audit RULE` | a rule `add` and `edit` refuse by, run over every scanned store's open items (PLAN-hard-gates.md §9): `decisions` (open decisions lacking a field, `decisions.incomplete`) or `sizes` (unsized open items, a detector's own left out). Prints detector findings, one per store with its count and `oldest YYYY-MM-DD:` evidence: the D1 and D2 detectors' command. Exit 3 when a store could not be read |
 | `todo pair [--apply]` | the owner pulls: from this store (`-C DIR`), every open report in the scanned stores addressed to its key with no counterpart yet gets one here, `parent` pointing back, and the reporter's `reported_to.their_id` is set, as `todo report` does from the other side; both stores under their locks and in their write logs. A store the scan never enters (`.claude`) pairs its reports this way and only this way: todo opens it only when run from it (PLAN-todo-tool.md §8 decision 4 stands). Without `--apply` it says what would pair |
 | `todo rename-repo OLD NEW [--apply]` | the store keyed OLD, if one is, takes the key NEW, and every record naming OLD (an item's `repo`, a report's `reported_to`), open or closed, in this store and every scanned one, is rewritten in the same pass, each store under its lock and in its write log; no old spelling is kept (PLAN-architecture.md §13.1 step 3). NEW is the repo's own `services.json` name where it has one. With no store keyed OLD the rename is of fields alone (a path or an old key naming a location), and needs the names file (`--names FILE` or `TODO_NAMES`) so that NEW is a location's name. Refused whole before any write; without `--apply` it only says what would change |
 | `todo migrate [--dry-run] [--all] [--readers] [--json]` | the move to `todo.db` (The move to todo.db, below). `--dry-run`: this store (`--all`: every scanned one) into a throwaway `todo.db`, its exports, and a second `todo.db` made from them; one line per repo, `ok` or `NOT` with why; exit 1 when any would not migrate; writes nothing in any repo. `--readers`: every line outside this tool naming the JSON files. Neither: moves this store to `todo.db` (`--all` is refused: one repo at a time), and only while that list is empty and git ignores `todo.db`; else refused (exit 1), nothing changed. `--json` gives `{ok, root, repos, unreadable, readers}`, with `--readers` `{root, hits, skipped, files}`, and for a move `{ok, repo, dir, exports, open_items, closed_items}` |
@@ -255,7 +256,7 @@ each have one setter and are refused everywhere else:
 | `pointer` | a decision's plan section, `FILE §n` (stored with the space), read by the plans CLI when set; the table's decision cell starts with it |
 | `hinges_on` | what a decision hinges on, one line: the table's hinges-on cell |
 | `recommend` | the answer recommended to Jacob: yes, no, or one of the decision's options by name |
-| `today` | what is true now, with a number or `file:line`; the table's decision cell says it after the title (a decision added from `decisions.row_fields_since` on carries it) |
+| `today` | what is true now, with a number or `file:line`; the table's decision cell says it after the title (every decision carries it: `decisions.row_fields`) |
 | `problem` | what goes wrong for someone, in plain words; the decision cell says it after today |
 | `principle` | the practices row id the recommendation rests on (`checks practices`), or absent: a recommendation outside the recorded principles is valid, and the recommend cell says so |
 | `options` | `[{name, text}]`: a decision's options, a short name (`decisions.option_name`, never an answer word) and one line each; set by `--option NAME=TEXT`, repeated |
@@ -413,11 +414,19 @@ plans CLI as `--pin-plan` reads one; refused when it cannot be read), `hinges_on
 and `recommend` (yes, no, or one of its `--option NAME=TEXT` by name). It is added
 `waiting-jacob` on `approval`, and the items it holds name it in `blocked_by`.
 
-From 2026-10-31 (`decisions.row_fields_since`) a new one also carries `today` (what is true
-now, with a number or `file:line`) and `problem` (what goes wrong for someone), so Jacob
-answers from the row alone (external audit ra-8.1): the decision cell reads `FILE §n: title.
-Today: ... Problem: ...`. An older decision without them is still tabled, its cell saying
-so, and `check` lists it (`INFO`). `principle` is optional: the practices row id the
+Every decision also carries `today` (what is true now, with a number or `file:line`) and
+`problem` (what goes wrong for someone), `decisions.row_fields`, so Jacob answers from the
+row alone (external audit ra-8.1): the decision cell reads `FILE §n: title. Today: ...
+Problem: ...`. There is no date exemption (PLAN-todo-tool.md §10.3c): `add` and `edit`
+refuse a decision lacking any of the five fields, whatever its date, by one predicate
+(`decisions.incomplete`), and the same predicate is an audit over what is already there
+(PLAN-hard-gates.md §9): `todo decisions` never tables such a decision but names it under
+the table as its owner's; detector D1 (`todo audit decisions`, Detectors below) counts them
+in one item per store; and `todo check` holds them under that item until
+`decisions.row_fields_until` (2026-11-03), failing them past it. A store with no D1 item
+once D1 has run (at zero) fails on each one at once; before D1's first run, `check` says so
+in one `INFO` line. `decisions.row_fields_since` stays as the day the fields began, and
+`vocab.json` refuses a `*_since` without its `*_until`. `principle` is optional: the practices row id the
 recommendation rests on (`--principle ID`, checked against `checks practices`; `--checks-cli`
 names the tool), shown in the recommend cell, which otherwise says `(no principle cited)`: a
 signal to reassess, not a bar (Jacob, 2026-10-31).
@@ -441,7 +450,7 @@ through `blocked_by`, transitively, open items only) first. The table is recorde
 answers it got; asking again with the same rows gives the same id, and
 `--from dt-N` tables only that table's rows still open, recording which old row
 each new row supersedes. A decision lacking a field is never tabled, and
-`check` lists it (`INFO`). Under the table they are named as their owners'
+`check` holds or fails it (above). Under the table they are named as their owners'
 items, not questions for the reader (td-93: a bare count read as Jacob's
 backlog): `<N> decision item(s) in owners' stores lack row fields (setup 55,
 income 29, ...): not questions for you until an owner tables them`, a count per
@@ -547,7 +556,9 @@ one failing case per kind of change.
 
 A stall becomes an item without anyone finding it (PLAN-todo-tool.md §10.5,
 approved by Jacob 2026-10-12). A detector is data: `vocab.json` `detectors.list`,
-each `{id, doc, command, kind, waits_on, cadence_hours}`. The command is an argv
+each `{id, doc, command, kind, waits_on, cadence_hours, audits}`; `audits` names the
+`vocab.json` block whose rule it runs over existing data, and a block holding a
+write-time refusal names its detector back as `audited_by` (both checked on load). The command is an argv
 whose `{todo}` is this tool's `todo`, `{store}` the folder of the store detect runs
 from and `{root}` the scan root; it prints a JSON list of findings, one per repo and
 cause, each `{repo, subject, count, evidence, clears_with}`. todo reads no roster:
@@ -577,8 +588,18 @@ findings name repos.
 - **`TODO_DETECTORS=FILE`** replaces the list with the one in FILE, checked the same
   way, and says so on stderr every time: for fixtures and trial runs.
 
+- **AUDITS.md** (PLAN-hard-gates.md §9): after every run, whatever failed, `todo detect`
+  rewrites `AUDITS.md` (read-only) in the store it ran from: one row per detector and
+  repo, `| rule | detector | repo | count | oldest | ends | last run | outcome |`, the
+  count held by that repo's open items, `oldest` the earliest offender's `added`, `ends`
+  the end date of the exemption the rule enforces, and a failed or missing run said on
+  its rows, never a gap.
+
 Registered now: S7 (`todo steps --run --findings`: a `jacob-step` whose
-`done_check` passes is closed, and only one that could not be closed is a stall).
+`done_check` passes is closed, and only one that could not be closed is a stall);
+D1 (`todo audit decisions`: open decisions lacking a field, one item per store with
+its count) and D2 (`todo audit sizes`: unsized open items, never ready until sized; a
+detector's own items are not counted).
 S2-S5 join when their commands exist, and S1/S6 as `lag` detectors from a
 practices list; nothing here runs `todo detect` on a schedule yet. The
 `vocab.json` section is checked both ways on load (todolib/vocab.py), and
@@ -867,10 +888,10 @@ gate that stopped running shows as a missing line:
 | schema | a key or field differs from `vocab.json`, a date is not `YYYY-MM-DD`, a one-line field spans lines, a closed item sits in the store, a `handoff` is not `{date, text, commit}` |
 | seal | a store file's seal does not match its content, or was removed: changed around the CLI (above). A file written before seals is a `WARN` until the next CLI write |
 | vocab | a kind, status or work is not declared, or a reserved resolution is on an item its setter did not write |
-| required | an item lacks a field its kind or status requires (an imported closed item may lack only its date) |
+| required | an item lacks a field its kind or status requires (an imported closed item may lack only its date); an open decision lacking a field, held by its store's D1 item until `decisions.row_fields_until` and failed past it, or failed at once in a store at zero (Decisions, above) |
 | ids | an id lacks the repo's prefix, appears twice (or in both files), or is not below the counter |
 | parents | a parent resolves in no scanned store or history, or the chain loops. A well-formed parent whose prefix no scanned store holds is a `WARN` (unchecked), not a failure: that scan cannot judge it, as with an unpaired report (td-15) |
-| sizes | an open L item has no children (`todo split` it); an unsized open item is counted (`INFO`), since it is never ready |
+| sizes | an open L item has no children (`todo split` it). Unsized open items are detector D2's, one item per store, not a check line |
 | blockers | a `blocked_by` that is not a non-empty list of ids (`schema`), an id that resolves in no scanned store or history, or a chain of `blocked_by` that leads an open item back to itself (nothing in a cycle can ever be ready). A prefix no scanned store holds is a `WARN`, as for parents |
 | tags | a stored tag outside the vocabulary, in a namespace derived from a field, with a value a closed namespace does not hold, or of the wrong form; a `ref:todo:<id>` that resolves nowhere (dangling). A `ref:` to another service's record is counted (`INFO`), unchecked until a registry resolves it; a `ref:todo:` prefix no scanned store holds is a `WARN`, as for parents |
 | groups | a `WARN`, never red: an open item with no `work` (split or not), not a report, that open items use as a group (as their `parent`, or by a `todo.group:<its id>` tag). A heading is not an item (PLAN-todo-tool.md §10.2 step 4): tag its children `todo.group:<name>` and close it |

@@ -122,14 +122,24 @@ def row_missing(it):
     return [f for f in D["row_fields"] if it.get(f) in (None, "", [])]
 
 
-def needs_row_fields(it):
-    """A decision added from decisions.row_fields_since on carries the row fields; an
-    older one is tabled without them, its cell saying so (external audit ra-8.1, 2026-10-31)."""
-    return str(it.get("added") or "") >= D["row_fields_since"]
+def lacking(it):
+    """The decision fields this decision lacks, requires then row fields."""
+    return missing(it) + row_missing(it)
+
+
+def incomplete(it):
+    """Why this decision cannot stand, as phrases: each field it lacks
+    (decisions.requires, decisions.row_fields), then each malformed one; [] when
+    it is complete. The one predicate (PLAN-hard-gates.md §9 rule 1): add and edit
+    refuse by it, `todo decisions` never tables by it, `todo check` fails by it and
+    the audit (`todo audit decisions`, detector decisions.audited_by) finds by it. The
+    row fields' exemption for decisions older than decisions.row_fields_since ended
+    at decisions.row_fields_until (PLAN-todo-tool.md §10.3c)."""
+    return lacking(it) + field_problems(it) if is_decision(it) else []
 
 
 def is_complete(it):
-    return is_decision(it) and not missing(it) and not field_problems(it)
+    return is_decision(it) and not incomplete(it)
 
 
 def resolution_problems(it):
@@ -211,11 +221,7 @@ def cells(it):
     hinges = it["hinges_on"]
     if it.get("options"):
         hinges += "; options: " + "; ".join(f"{o['name']} = {o['text']}" for o in it["options"])
-    head = f"{it['pointer']}: {it['title']}"
-    if row_missing(it):
-        head += f" (today and problem not recorded: todo edit {it.get('id')} --today T --problem P)"
-    else:
-        head += f". Today: {it['today']} Problem: {it['problem']}"
+    head = f"{it['pointer']}: {it['title']}. Today: {it['today']} Problem: {it['problem']}"
     rec = it["recommend"] + (f" ({it['principle']})" if it.get("principle") else " (no principle cited)")
     return [esc(head), esc(hinges), esc(rec)]
 
@@ -225,19 +231,19 @@ def open_rows(ws, repo=None):
     complete ones as (item, store) most items freed first, then by repo and id;
     the others as (item, store, why)."""
     counts = frees(ws)
-    complete, incomplete = [], []
+    complete, lacking_rows = [], []
     for s in ws.stores:
         for it in s.items:
             if not is_decision(it) or (repo and it.get("repo") != repo):
                 continue
-            why = missing(it) + field_problems(it)
+            why = incomplete(it)
             if why:
-                incomplete.append((it, s, why))
+                lacking_rows.append((it, s, why))
             else:
                 complete.append((it, s))
     complete.sort(key=lambda r: (-counts.get(r[0]["id"], 0), r[1].repo, id_number(r[0]["id"])))
-    incomplete.sort(key=lambda r: (r[1].repo, id_number(r[0]["id"])))
-    return complete, incomplete, counts
+    lacking_rows.sort(key=lambda r: (r[1].repo, id_number(r[0]["id"])))
+    return complete, lacking_rows, counts
 
 
 def record_rows(found):
@@ -295,7 +301,11 @@ def untabled_lines(listed, n=None):
     more = f"; +{len(listed) - n} more (--json lists them)" if len(listed) > n else ""
     return [f"{len(listed)} decision item(s) in owners' stores lack row fields ({shown}): "
             f"not questions for you until an owner tables them",
-            f"for their owners (todo edit ID --pointer --hinges-on --recommend): {ids}{more}"]
+            f"for their owners ({FILL_HINT}): {ids}{more}"]
+
+
+FILL_HINT = (f"todo edit ID {' '.join('--' + f.replace('_', '-') for f in D['requires'] + D['row_fields'])}, "
+             "or close it: todo done ID --resolution R")
 
 
 # -- the reply -----------------------------------------------------------------

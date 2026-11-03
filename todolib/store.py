@@ -37,6 +37,9 @@ HISTORY_KEYS = ["format", "repo", "items", SEAL_KEY]
 # (append-only), and each detector's last run. Written on first use, sealed and
 # 0444 like the other two; absent reads as empty.
 RECORDS_FILE = "todo-records.json"
+# Every detector's count, oldest offender, end date and last run (PLAN-hard-gates.md
+# §9), rendered read-only by `todo detect` in the store it ran from, after every run.
+AUDITS_FILE = "AUDITS.md"
 RECORDS_KEYS = ["format", "repo", "tables", "runs", SEAL_KEY]
 # The write log (ELABORATION-2.4-2.6.md §2.3 part 1): one JSON row per CLI write that
 # changed a file, appended under the store's lock, 0444 like the store:

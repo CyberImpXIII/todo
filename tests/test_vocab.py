@@ -121,7 +121,7 @@ class Handled(Case):
         (self.tmp / "found.json").write_text(json.dumps([{"repo": "a", "subject": "s", "count": 1, "evidence": "e",
                                                           "clears_with": "c"}]))
         dets = [{"id": f"F{n}", "doc": "d", "command": ["cat", str(self.tmp / "found.json")], "kind": k,
-                 "waits_on": None, "cadence_hours": 1} for n, k in enumerate(VOCAB.detector_kinds)]
+                 "waits_on": None, "cadence_hours": 1, "audits": "steps"} for n, k in enumerate(VOCAB.detector_kinds)]
         (self.tmp / "dets.json").write_text(json.dumps(dets))
         self.todo("-C", a, "--root", self.ws, "detect", env={"TODO_DETECTORS": str(self.tmp / "dets.json")})
         extra = {"suspicion": ["--probe", "p"], "temp": ["--retire", "r"], "research": ["--research", "rs-1"], "jacob-step": ["--done-check", "true"],

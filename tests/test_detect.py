@@ -28,7 +28,7 @@ def finding(repo="a", subject="3 uncommitted files", count=3, evidence="x.py y.p
 
 def det(id_="D1", command=None, kind=None, waits_on=None, cadence=1):
     return {"id": id_, "doc": "a fixture", "command": command or ["cat", "{store}/cause.json"],
-            "kind": kind or STALL, "waits_on": waits_on, "cadence_hours": cadence}
+            "kind": kind or STALL, "waits_on": waits_on, "cadence_hours": cadence, "audits": "steps"}
 
 
 class Detect(Case):
@@ -374,16 +374,18 @@ class Vocabulary(Case):
         Vocab(self.variant(lambda d: None))
 
     def test_a_bad_detector_refuses_to_load(self):
-        good = det()
+        # appended to the registered list, under an id of its own: replacing the list would
+        # drop D1 and fail decisions.audited_by instead, so the gate under test never ran
+        good = det("DX")
         bad = {"an extra key": dict(good, extra=1), "a missing key": {k: v for k, v in good.items() if k != "doc"},
                "an unknown slot": dict(good, command=["cat", "{home}/x"]), "an empty command": dict(good, command=[]),
                "a kind that holds no detector": dict(good, kind=NOTE), "the reserved id": dict(good, id=FAILED),
                "a bad waits_on": dict(good, waits_on="nosuch:thing"), "a zero cadence": dict(good, cadence_hours=0),
-               "an id with a colon": dict(good, id="a:b")}
+               "an id with a colon": dict(good, id="a:b"), "an audit of no vocab block": dict(good, audits="nowhere")}
         for why, d in bad.items():
             with self.subTest(why):
                 with self.assertRaises(ValueError):
-                    Vocab(self.variant(lambda data: data["detectors"].update(list=[d])))
+                    Vocab(self.variant(lambda data: data["detectors"]["list"].append(d)))
                 self.assertIsNotNone(VOCAB.detector_list_problem([d], FAILED))
         self.assertIsNotNone(VOCAB.detector_list_problem([good, good], FAILED), "an id used twice")
         self.assertIsNone(VOCAB.detector_list_problem([good], FAILED))

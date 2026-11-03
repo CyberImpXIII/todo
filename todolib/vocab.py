@@ -134,10 +134,41 @@ class Vocab:
         self.detector_kinds = [k for k, v in self.kinds.items() if "detector" in v["requires"]]
         if self.roles["stall_kind"] not in self.detector_kinds or self.roles["lag_kind"] not in self.detector_kinds:
             raise ValueError("vocab.json: roles.stall_kind and roles.lag_kind name kinds that require `detector`")
+        self.blocks = sorted(k for k in data if not k.startswith("_"))
         self.detectors = self._detectors(data["detectors"])
+        self.audited = self._audit_pairs(data)
+
+    def _audit_pairs(self, data):
+        """PLAN-hard-gates.md §9 rules 2 and 3, on this file: a block naming `audited_by` names a
+        registered detector that audits it, and every `*_since` key has its `*_until`, a date
+        not before it. {block: its end date or None} for each block a detector audits."""
+        by_block = {det["audits"]: det["id"] for det in self.detectors["list"]}
+        out = {}
+        for name in self.blocks:
+            block = data[name]
+            if not isinstance(block, dict):
+                continue
+            aid = block.get("audited_by")
+            if isinstance(aid, str) and by_block.get(name) != aid:
+                raise ValueError(f"vocab.json: {name}.audited_by names {aid!r}, and no detector in detectors.list with "
+                                 f"that id audits {name}")
+            for k in [k for k, v in block.items() if k.endswith("_since") and isinstance(v, str)]:
+                until = k[:-len("_since")] + "_until"
+                if not (re.match(r"^\d{4}-\d{2}-\d{2}$", str(block.get(until))) and block[until] >= block[k]):
+                    raise ValueError(f"vocab.json: {name}.{k} has no {until}, a date not before it: an exemption "
+                                     "has an end date (PLAN-hard-gates.md §9 rule 3)")
+        for name in by_block:
+            block = data.get(name) if isinstance(data.get(name), dict) else {}
+            ends = sorted(v for k, v in block.items() if k.endswith("_until") and isinstance(v, str))
+            out[name] = ends[0] if ends else None
+        return out
+
+    def end_date(self, block):
+        """The end date of the exemption the detector auditing `block` enforces, or None."""
+        return self.audited.get(block)
 
     SYNC_ACTIONS = ("create", "decide", "list", "skip")
-    DETECTOR_KEYS = ("id", "doc", "command", "kind", "waits_on", "cadence_hours")
+    DETECTOR_KEYS = ("id", "doc", "command", "kind", "waits_on", "cadence_hours", "audits")
     DETECTOR_SLOTS = ("{todo}", "{store}", "{root}")
     DETECTOR_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
 
@@ -188,6 +219,9 @@ class Vocab:
                 return f"{did}: cadence_hours is a positive number"
             if not (isinstance(det["doc"], str) and det["doc"].strip()):
                 return f"{did}: doc says what it finds"
+            if det["audits"] not in self.blocks:
+                return (f"{did}: audits {det['audits']!r} is not a block of vocab.json: it names the rule it audits "
+                        "(PLAN-hard-gates.md §9 rule 2)")
         return None
 
     def _sync_plans(self, d):
@@ -210,7 +244,8 @@ class Vocab:
         """vocab.json `decisions`, every key consumed and checked (todolib/decisions.py reads it)."""
         d = {k: v for k, v in d.items() if not k.startswith("_")}
         want = {"requires", "pointer", "option_name", "status", "waits_on", "verdicts", "table_prefix",
-                "max_listed", "generated_recommend", "row_fields", "row_fields_since", "principle"}
+                "max_listed", "generated_recommend", "row_fields", "row_fields_since", "row_fields_until", "audited_by",
+                "principle"}
         if set(d) != want:
             raise ValueError(f"vocab.json: decisions holds {sorted(d)}, not {sorted(want)}")
         bad = [f for f in d["requires"] if f not in self.fields]

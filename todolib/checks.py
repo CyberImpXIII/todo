@@ -27,6 +27,18 @@ SINGLE_LINE = ["title", "probe", "done_when", "done_check", "retire", "resolutio
 # resolution it never lacks: the import sets vocab.json's import_resolution (td-1),
 # so a closed item without one is red wherever it came from (PLAN §5).
 IMPORT_MAY_LACK = ("done",)
+# PLAN-hard-gates.md §9 rule 4: INFO is not a resting place. Each gate still printing
+# INFO, with why it is not yet a detector's item or a FAIL; tests/test_audits.py
+# holds this to the gates the source prints INFO for, both ways, so a new INFO line
+# cannot land unlisted. Converting the rest is a todo item in this repo.
+INFO_PENDING = {
+    "required": "waiting-jacob items naming no waits_on (legacy) and, before D1's first run, incomplete decisions",
+    "records": "no records file yet, or its append-only audit skipped: a state of this store, not an offender",
+    "tags": "ref: tags naming another service: unchecked until a registry resolves them",
+    "reports": "reports relayed by hand, paired outside the scan, or answered: not yet a detector",
+    "render": "hand edits recorded on the render: a count, not yet a detector",
+    "history": "undated imported items, no git repo, admitted key renames: states of this store, not yet a detector",
+}
 
 
 HAND_STATES = ("hand-edited", "hand-written")
@@ -257,21 +269,40 @@ def check_waiting(store, out):
         out.append(("INFO", "required", "-", f"{len(bare)} {VOCAB.jacob_status} item(s) name no waits_on, so "
                                              f"`todo blockers` cannot group them: {shown} -- todo edit ID --waits-on "
                                              f"({VOCAB.waits_on_forms()})"))
-    lacking = [f"{it['id']} ({', '.join(decide.missing(it))})" for it in store.items
-               if decide.is_decision(it) and decide.missing(it)]
-    if lacking:
-        n = decide.D["max_listed"]
-        out.append(("INFO", "required", "-", f"{len(lacking)} open {VOCAB.role('decision_kind')}(s) lack what "
-                                             f"`todo decisions` tables them by: {'; '.join(lacking[:n])}"
-                                             + (f" (+{len(lacking) - n})" if len(lacking) > n else "")
-                                             + " -- todo edit ID --pointer --hinges-on --recommend"))
-    rows_lacking = [it["id"] for it in store.items if decide.is_decision(it) and not decide.missing(it) and decide.row_missing(it)]
-    if rows_lacking:
-        n = decide.D["max_listed"]
-        out.append(("INFO", "required", "-", f"{len(rows_lacking)} open {VOCAB.role('decision_kind')}(s) carry no today/problem, so their "
-                                             f"table row says so: {', '.join(rows_lacking[:n])}"
-                                             + (f" (+{len(rows_lacking) - n})" if len(rows_lacking) > n else "")
-                                             + " -- todo edit ID --today T --problem P"))
+
+
+def check_decisions(store, ws, out):
+    """PLAN-hard-gates.md §9 rules 2 and 3, PLAN-todo-tool.md §10.3c step 3: an open
+    decision lacking a field add and edit refuse without (decisions.incomplete) is
+    held by the auditing detector's open item in this store until the end date
+    (decisions.row_fields_until), and fails past it. With no such item, once the
+    auditor has run (this store is at zero) or past the end date, each one fails.
+    Before the auditor's first run in any scanned store, one INFO names it."""
+    found = [(it, decide.incomplete(it)) for it in store.items if decide.incomplete(it)]
+    if not found:
+        return
+    until = VOCAB.decisions["row_fields_until"]
+    auditor = next((d for d in detect.registered()[0] if d["id"] == VOCAB.decisions["audited_by"]), None)
+    past = today() > until
+    holder = auditor and next((it for it in store.items if (it.get("detector") or {}).get("id") == auditor["id"]
+                               and it.get("repo") == store.repo), None)
+    if holder:
+        if past:
+            out.append(("FAIL", "required", holder["id"],
+                        f"{len(found)} incomplete {VOCAB.role('decision_kind')}(s) held past decisions.row_fields_until "
+                        f"{until} by {auditor['id']}'s item: {decide.FILL_HINT}"))
+        return
+    ran = auditor and any(((s.runs or {}).get(auditor["id"]) or {}).get("ok") for s in ws.stores)
+    if ran or past or not auditor:
+        why = "this store is at zero" if ran else (f"past decisions.row_fields_until {until}" if past
+                                                   else "no detector audits decisions")
+        for it, lacking in found:
+            out.append(("FAIL", "required", it["id"], f"open {VOCAB.role('decision_kind')} lacks {', '.join(lacking)} "
+                                                      f"({why}): {decide.FILL_HINT}"))
+        return
+    out.append(("INFO", "required", "-", f"{len(found)} open {VOCAB.role('decision_kind')}(s) incomplete, held until "
+                                         f"detector {auditor['id']} first runs (todo detect): "
+                                         + ", ".join(it["id"] for it, _ in found)))
 
 
 def git_show(top, path, sha="HEAD"):
@@ -495,15 +526,11 @@ def children_of(ws, item_id):
 def check_sizes(store, ws, out):
     """PLAN-small-tasks.md §2: an item too big for one checkpoint (the size vocab.json
     marks `ready: false`) is split into children before anyone starts it, so an
-    open one with none fails. An unsized open item is counted: it is never ready."""
-    unsized = 0
+    open one with none fails. Unsized open items are the D2 detector's (`todo audit
+    sizes`), counted in an item per store, not an INFO line (PLAN-hard-gates.md §9 rule 4)."""
     for it in store.items:
-        if it.get("size") is None:
-            unsized += 1
-        elif it["size"] == VOCAB.split_size and not children_of(ws, it["id"]):
+        if it.get("size") == VOCAB.split_size and not children_of(ws, it["id"]):
             out.append(("FAIL", "sizes", it["id"], f"size {VOCAB.split_size} and no children: `todo split {it['id']}` it into {' and '.join(VOCAB.ready_sizes)} items first"))
-    if unsized:
-        out.append(("INFO", "sizes", "-", f"{unsized} open item(s) unsized: never ready until `todo edit ID --size` ({'|'.join(VOCAB.sizes)})"))
 
 
 def check_blockers(store, ws, out):
@@ -781,6 +808,7 @@ def check_store(store, ws):
     for it in store.closed:
         check_item(it, "history", store, out)
     check_waiting(store, out)
+    check_decisions(store, ws, out)
     check_ids(store, out)
     check_parents(store, ws, out)
     check_sizes(store, ws, out)
