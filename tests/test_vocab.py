@@ -144,6 +144,7 @@ class Handled(Case):
             self.todo("-C", a, "add", f"w {w}", "--kind", VOCAB.role("default_kind"), "--work", w)
         self.todo("-C", a, "edit", "aa-2", "--handoff", "h")
         self.todo("-C", a, "approve", "aa-2", "--source", "s")
+        self.todo("-C", a, "priority", "aa-2", list(VOCAB.priorities)[0], "--source", "s")
         self.todo("-C", a, "dispatch", "aa-2")
         self.todo("-C", a, "--root", self.ws, "edit", "aa-2", "--tags", "plan:PLAN-h.md§1", "--pin-plan")
         md = (a / "TODO.md").read_text()

@@ -32,6 +32,8 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                "projects": "PLAN-todo-tool.md §11 step 1: `todo projects` lists each project (tl-722 adds the counts)",
                "project-add": "PLAN-todo-tool.md §11 step 1 (tl-720): a projects row, an unknown area refused",
                "project-edit": "PLAN-todo-tool.md §11 step 1 (tl-720): the triage (step 3) sets areas through it; an unknown pj id refused",
+               "priority": "PLAN-todo-tool.md §11 Shape 4, step 1b (tl-721): Jacob's priority, refused without his words",
+               "area": "PLAN-todo-tool.md §11 step 1b (tl-721): a project's areas, or an item's own",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 # A command name may hold a hyphen (stale-plans); `[a-z]+` read it as "stale".
 PLAN_COMMAND = re.compile(r"(?:^|\s)todo ([a-z][a-z-]*)")

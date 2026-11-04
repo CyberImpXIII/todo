@@ -6,7 +6,7 @@ derived from the item's fields, so they cannot disagree with them: `repo:`,
 `kind:`, `status:`, `todo.work:`, a `ref:todo:<id>` for its parent, its
 blocked_by ids and its report's counterpart, and a `ref:research:rs-<n>` for each
 id in its `research` field. The rest (`plan:`, `origin:`,
-`trust:`, a `ref:` to any other record) are set by hand in the `tags` field.
+`trust:`, `area:`, a `ref:` to any other record) are set by hand in the `tags` field.
 
 One function, `problem()`, judges a tag, so `add`/`edit`, `find` and `check`
 cannot disagree about what a tag may be.
@@ -24,7 +24,7 @@ PREFIX = VOCAB.service + ":"
 # A todo.group: value, a name (rule "name").
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 # The form checks problem() knows; a vocab.json `rule` naming another would check nothing.
-RULES = ("plan", "ref", "name")
+RULES = ("plan", "ref", "name", "area")
 _unknown = {ns: s["rule"] for ns, s in VOCAB.namespaces.items() if "rule" in s and s["rule"] not in RULES}
 if _unknown:
     raise ValueError(f"vocab.json: tag namespace rule(s) {_unknown} are none of {', '.join(RULES)} (todolib/tags.py)")
@@ -86,7 +86,23 @@ def problem(tag, stored=False):
         return f"ref:{value} is not <service>:<id>"
     if spec.get("rule") == "name" and not NAME_RE.match(value):
         return f"{ns}:{value} is not a name: lowercase letters, digits, '.', '_' and '-'"
+    if spec.get("rule") == "area" and not VOCAB.area_id.match(value):
+        return f"{ns}:{value} is not an area id ({VOCAB.area_id.pattern}, vocab.json workspace_tables.area_id)"
     return None
+
+
+def area_namespace():
+    """The tag namespace whose rule is `area` (vocab.json tags), e.g. `area`."""
+    found = [ns for ns, spec in VOCAB.namespaces.items() if spec.get("rule") == "area"]
+    if len(found) != 1:
+        raise ValueError(f"vocab.json: {len(found)} tag namespaces carry rule area; one is needed")
+    return found[0]
+
+
+def area_ids(item):
+    """The area ids the item's own stored tags name, in order (PLAN-todo-tool.md §11)."""
+    head = area_namespace() + ":"
+    return [t[len(head):] for t in (item.get("tags") or []) if isinstance(t, str) and t.startswith(head)]
 
 
 def group_names(item):

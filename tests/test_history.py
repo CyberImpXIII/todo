@@ -21,6 +21,7 @@ class RoundTrip(Case):
                   "--done-when", "suite passes", "--retire", "manifest:nodes", today="2026-10-01")
         self.todo("-C", a, "edit", "aa-1", "--handoff", "done: half; next: the rest", today="2026-10-02")
         self.todo("-C", a, "approve", "aa-1", "--source", "his words", today="2026-10-02")
+        self.todo("-C", a, "priority", "aa-1", list(VOCAB.priorities)[0], "--source", "his words", today="2026-10-02")
         self.todo("-C", a, "dispatch", "aa-1", "--note", "in the day's Dispatch", today="2026-10-02")
         before = self.store(a)["items"][0]
         self.todo("-C", a, "done", "aa-1", "--resolution", "retired by the check")

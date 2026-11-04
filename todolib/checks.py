@@ -189,6 +189,9 @@ def check_item(it, where, store, out):
     if it.get("approved") is not None and not approved_ok(it["approved"]):
         out.append(("FAIL", "schema", iid, f"approved must be {{by ({VOCAB.approval_by}), date (YYYY-MM-DD), "
                                            "source (one non-empty line)}: set it with todo approve"))
+    why = tables.priority_problem(it.get("priority"))
+    if why:
+        out.append(("FAIL", "schema", iid, why + ": set it with todo priority"))
     if it.get("dispatched") is not None:
         if not dispatched_ok(it["dispatched"]):
             out.append(("FAIL", "schema", iid, "dispatched must be {date (YYYY-MM-DD), text (one line, or null)}: "
@@ -581,8 +584,15 @@ def check_tags(store, ws, out):
     """Every stored tag is in the vocabulary and in a namespace that is set by hand,
     and every ref:todo:<id> tag resolves (PLAN-services.md §3: a dangling ref: is a
     failure). A ref: to another service is unchecked until a registry answers for
-    it, and counted, never passed silently."""
+    it, and counted, never passed silently. An area: tag names a row of the areas
+    table (PLAN-todo-tool.md §11); with no table to read, it is counted unchecked."""
     foreign = 0
+    try:
+        known_areas = {a.get("id") for a in tables.home(ws).areas if isinstance(a, dict)}
+    except TodoError:
+        known_areas = None
+    area_head = tags.area_namespace() + ":"
+    unchecked_areas = 0
     for it in list(store.items) + list(store.closed):
         if isinstance(it.get("research"), list):
             foreign += len(it["research"])  # its derived ref:research: tags, as unchecked as a stored one
@@ -597,6 +607,13 @@ def check_tags(store, ws, out):
             if why:
                 out.append(("FAIL", "tags", it["id"], why))
                 continue
+            if t.startswith(area_head):
+                if known_areas is None:
+                    unchecked_areas += 1
+                elif t[len(area_head):] not in known_areas:
+                    out.append(("FAIL", "tags", it["id"], f"{t}: the areas table does not hold {t[len(area_head):]} "
+                                                          "(todo areas lists it)"))
+                continue
             target = tags.ref_target(t)
             if tags.is_foreign_ref(t):
                 foreign += 1
@@ -607,6 +624,9 @@ def check_tags(store, ws, out):
                     out.append(("FAIL", "tags", it["id"], f"{t} is dangling: {target} is in no scanned store or history"))
     if foreign:
         out.append(("INFO", "tags", "-", f"{foreign} ref: tag(s) name another service's record: unchecked until a registry resolves them"))
+    if unchecked_areas:
+        out.append(("INFO", "tags", "-", f"{unchecked_areas} {area_head} tag(s) unchecked: no store at the scan root "
+                                         f"{ws.root} holds the areas table"))
 
 
 def check_groups(store, ws, out):

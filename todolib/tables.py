@@ -5,7 +5,9 @@ Both are records, never names in code: they live in the records file
 the workspace's own store, wherever a command runs from. An area is
 {id, name, doc, added}; a project is {id: pj-N, name, areas, priority, plans,
 repos, added}, its priority null until Jacob sets one (`todo priority`, tl-721)
-and then {value, source, by, date}.
+and then {value, source, by, date}, the shape an item's own `priority` takes too.
+An item reads as its project's priority and areas unless it has its own
+(`effective`, step 1b).
 
 One reader for each rule: `findings` (`problems`, then `references`) is what
 `todo check` reports (gate `records`) and what every write refuses before it
@@ -13,6 +15,7 @@ saves when the write made it, so a write cannot leave a table check would fail;
 `resolve_areas` and `project` refuse an id neither table holds."""
 import re
 
+from . import plans, tags
 from .store import DATE_RE, TodoError
 from .vocab import VOCAB
 
@@ -64,15 +67,18 @@ def area_problem(a):
 
 
 def priority_problem(p):
-    """Why a project's priority is neither null nor {value, source, by, date}, or None."""
+    """Why a project's or an item's priority is neither null nor what `todo priority`
+    writes, {value, source, by, date}, or None. One rule for both, and for the write."""
     if p is None:
         return None
     if not (isinstance(p, dict) and set(p) == set(PRIORITY_KEYS)):
         return f"priority is null or {{{', '.join(PRIORITY_KEYS)}}}"
     if p["value"] not in VOCAB.priorities:
         return f"priority {p['value']!r} is not one of {', '.join(VOCAB.priorities)} (vocab.json priority)"
-    if not (_line(p["source"]) and _line(p["by"])):
-        return "priority source and by are each one non-empty line (only Jacob sets one, with his words)"
+    if not _line(p["source"]):
+        return "priority source is not one non-empty line (only Jacob sets one, with his words)"
+    if p["by"] != VOCAB.approval_by:
+        return f"priority by {p['by']!r} is not {VOCAB.approval_by!r} (vocab.json approval.by: only Jacob sets one)"
     if not (isinstance(p["date"], str) and DATE_RE.match(p["date"])):
         return "priority date is not a YYYY-MM-DD date"
     return None
@@ -193,6 +199,74 @@ def next_project_id(store):
     rx = project_id_re()
     ns = [int(m.group(1)) for m in (rx.match(str(i)) for i in _ids(store.projects)) if m]
     return f"{VOCAB.project_prefix}-{max(ns, default=0) + 1}"
+
+
+def item_project(item, store_repo, projects):
+    """(project row or None, how it was found or why none was): the project whose
+    `plans` hold a file of the item's plan: tags first, else the one whose `repos`
+    hold the item's repo (its `repo` field, else its store's key) -- the nearest wins
+    (PLAN-todo-tool.md §11). Two projects matching at one level is no project, never
+    a pick: the reason says which."""
+    rows = [p for p in projects if isinstance(p, dict)]
+    files = list(dict.fromkeys(plans.split(r)[0] for r in plans.refs(item)))
+    by_plan = [p for p in rows if set(p.get("plans") or []) & set(files)]
+    if len(by_plan) == 1:
+        return by_plan[0], f"by its {plans.namespace()}: tag"
+    if len(by_plan) > 1:
+        return None, f"its {plans.namespace()}: tags match {', '.join(p['id'] for p in by_plan)}: ambiguous, so none"
+    repo = item.get("repo") or store_repo
+    by_repo = [p for p in rows if repo in (p.get("repos") or [])]
+    if len(by_repo) == 1:
+        return by_repo[0], f"by its repo {repo}"
+    if len(by_repo) > 1:
+        return None, f"its repo {repo} is in {', '.join(p['id'] for p in by_repo)}: ambiguous, so none"
+    return None, f"no project names its plan or its repo {repo}"
+
+
+def effective(item, store_repo, projects):
+    """What an item reads as (PLAN-todo-tool.md §11): {project, via, priority:
+    {value, from}, areas: {value, from}}. Its own value wins (`from` "own"), else its
+    project's (`from` the project's id), else the default priority and no area
+    (`from` None). `projects` None means the table could not be read: the project and
+    whatever would come from it are None, never the default."""
+    own_p = item.get("priority")
+    own_a = tags.area_ids(item)
+    if projects is None:
+        row, via = None, None
+    else:
+        row, via = item_project(item, store_repo, projects)
+    if isinstance(own_p, dict) and own_p.get("value"):
+        prio = {"value": own_p["value"], "from": "own"}
+    elif projects is None:
+        prio = {"value": None, "from": None}
+    elif row is not None and isinstance(row.get("priority"), dict):
+        prio = {"value": row["priority"]["value"], "from": row["id"]}
+    else:
+        prio = {"value": VOCAB.default_priority, "from": None}
+    if own_a:
+        areas = {"value": own_a, "from": "own"}
+    elif projects is None:
+        areas = {"value": None, "from": None}
+    elif row is not None:
+        areas = {"value": list(row.get("areas") or []), "from": row["id"]}
+    else:
+        areas = {"value": [], "from": None}
+    return {"project": row["id"] if row else None, "via": via, "priority": prio, "areas": areas}
+
+
+def effective_lines(eff, unread=None):
+    """How `todo show` prints effective(): three lines, each saying where its value
+    came from. `unread` is why the projects table could not be read."""
+    if unread:
+        project = f"unknown: {unread}"
+    else:
+        project = f"{eff['project']} ({eff['via']})" if eff["project"] else f"none ({eff['via']})"
+    p, a = eff["priority"], eff["areas"]
+    prio = "unknown" if p["value"] is None else p["value"]
+    prio += {"own": " (its own)", None: "" if p["value"] is None else " (the default)"}.get(p["from"], f" (from {p['from']})")
+    areas = "unknown" if a["value"] is None else (", ".join(a["value"]) or "none")
+    areas += {"own": " (its own)", None: ""}.get(a["from"], f" (from {a['from']})")
+    return [f"project: {project}", f"effective priority: {prio}", f"effective areas: {areas}"]
 
 
 def findings(store, ws, plans_root):

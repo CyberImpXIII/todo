@@ -50,7 +50,7 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo done ID [--resolution R] [--as rejected --reason R]` | close an item, with exactly one of `--resolution` and `--as`: it moves, every field intact, to `todo-history.json` with today's date. Refused for an id already in history. Also finishes a close that was interrupted between the two writes. `--as rejected` closes a decision Jacob said no to, and puts every open item it blocks, in any scanned store, back to `waiting-jacob` on `decision:<its pointer>` with the reason in its evidence (Decisions, below) |
 | `todo report ID --to REPO [--kind K]` | mark an item reported to REPO and write its counterpart in REPO's store (`parent` pointing back). If REPO already holds an item with that parent, open or closed, it pairs with that one instead of reporting again. With no store for REPO yet, the report stays unpaired (a warning) until it has one; if the scan finds exactly one git repo named REPO, the report is also filed in its hand-written `TODO.md`: one bullet marked `todo:ID` under the heading `report_fallback.heading` (vocab.json), written once however often it is re-run, and recorded in the item's evidence (PLAN-architecture.md §11 S4). That file is left uncommitted in REPO for its owner to commit; two repos of that name, or none, get nothing. Once REPO has a store, `todo import TODO.md` there makes that bullet the counterpart (Import, below) and a re-run of this command pairs with it |
 | `todo list [--kind K] [--status S] [--repo R] [--mine] [--all] [--ready] [--blocked] [--cites C] [--json]` | open items, one line each; `--all` or `--repo` across every scanned store. `--ready` (not with `--blocked`) keeps the items whose `blocked_by` ids are all closed (or that have none), `--blocked` the rest. `--cites "FILE §n"` keeps, across every scanned store, the items citing that plan section or one inside it (§3 holds §3.1): by a `plan:` tag, a `plan-step`'s `plan_step`, or a decision's `pointer`; `--cites FILE` any section of it. `--json` is one document `{root, items, unreadable, count}`, the text form's rows in its order, each `{id` (as `todo:ID`), `local_id, store, record}` with `record` the item whole, as the store holds it on either backing: what a reader outside this tool uses instead of opening `todo.json` (td-59). Across stores, one that could not be read makes either form `UNCHECKED` (exit 3) |
-| `todo show ID` | one item in full, any repo; a closed id is read from history, and says so |
+| `todo show ID` | one item in full, any repo; a closed id is read from history, and says so. Its last three lines are what it reads as (Areas and projects, below): `project:`, `effective priority:` and `effective areas:`, each saying where it came from; `unknown` when no store at the scan root holds the tables |
 | `todo render [--all] [--history] [--force]` | write `TODO.md` from the store. Refused over a hand edit unless `--force`, which keeps the diff in `todo.json` `hand_edits`. `--history` writes `TODO-HISTORY.md` instead: read-only, gitignored, never checked |
 | `todo tree [ID]` | items and their children across repos, closed ones marked |
 | `todo check [--all] [--json]` | every gate below over this store (`--all`: every scanned store); exit 1 on a FAIL. `--json` prints one document instead, `{ok, failed, warnings, stores}`, each store `{repo, dir, open_items, closed_items, ok, failed, warnings, gates, findings}`: `gates` names every gate with its worst level (`ok`, `WARN`, `FAIL`), `findings` each line as `{level, gate, where, message}`; same exit code |
@@ -84,6 +84,8 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo projects [--json]` | the projects table: each project's id, name, areas, priority (unset reads as `next`), plans and repos |
 | `todo project-add NAME --area A ... [--plan P ...] [--repo R ...]` | add a project, id `pj-N`, in one or more areas; refused when an area is no row of the areas table, a plan is no `PLAN-<name>.md` file at the scan root, a repo is no scanned store's key (`todo repos`), or the name is another project's. Its priority starts unset |
 | `todo project-edit PJ [--name N] [--area A ...] [--plan [P ...]] [--repo [R ...]]` | change a project: each list given replaces the row's (`--plan` or `--repo` with none clears it); refused for an id the table does not hold, and checked as `project-add` |
+| `todo priority ID VALUE --source S [--date D] [--clear]` | Jacob's priority (Areas and projects, below) on a project `pj-N` or on an open item of this store, `{value, source, by, date}`: refused without `--source` (one line, his words or a pointer to them) and for a value outside `vocab.json` `priority`; `by` is `approval.by`, `--date` (default today) no later than today. An item's own wins over its project's. `--clear` removes it: the item reads as its project's again, a project as the default |
+| `todo area ID AREA ... [--clear]` | the areas of a project `pj-N` (one or more, replacing its own, as `project-edit --area`), or of an open item of this store, kept as its `area:` tags and replacing what it inherits; `--clear` drops an item's own. An area the table does not hold is refused |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -277,8 +279,9 @@ each have one setter and are refused everywhere else:
 | `handoff` | `{date, text, commit}`: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief` |
 | `approved` | `{by, date, source}`: Jacob's go-ahead, the day he gave it and where; set by `todo approve`, or by `todo import` from "approved: Jacob <date>" in an item's lead, read by `todo dispatchable`. While an item is dispatched it may hold rule TD-B1's approval instead (its `source` the rule's), written by `todo dispatch` only |
 | `dispatched` | `{date, text}`: the day it was handed out, and a one-line note that never names who; set and cleared by `todo dispatch` only |
+| `priority` | `{value, source, by, date}`: the item's own priority, which wins over its project's; set and cleared by `todo priority` only, `by` `approval.by` |
 | `retire` | the check that retires an interim rule |
-| `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:`, `ref:` and `todo.group:` (below); the rest are derived from the fields and never stored |
+| `tags` | the tags set by hand, `<namespace>:<value>`: `plan:`, `origin:`, `trust:`, `ref:`, `area:` and `todo.group:` (below); the rest are derived from the fields and never stored |
 | `plan_pins` | `[{plan, digest, date}]`: for each `plan:FILE§n` tag, the sha256 of that section's text and the day it was read; set by `--pin-plan` only, read by `todo stale-plans` |
 | `detector` | `{id, subject, count, clears_with, seen}`: the finding a `stall` or `lag` item stands for, keyed `detector:<id>:<repo>:<subject>` with the item's `repo`; set, updated and cleared by `todo detect` only; `seen` is the last day a run reported it (Detectors, below) |
 | `plan_step` | `{file, section, step, hash, text}`: the plan step a `plan-step` item was made from, as `setup plans steps --json` read it; set and kept by `todo sync-plans` only (Plan steps, below) |
@@ -301,9 +304,17 @@ runs. A records file anywhere else that holds them fails check (`records`).
   a store's prefix and check fails as one). `areas` holds one or more area ids,
   `plans` `PLAN-<name>.md` files at the scan root, `repos` the keys `todo repos`
   prints; `todo rename-repo` rewrites them with the rest. `priority` is null (it reads
-  as the default) until Jacob sets one, `{value, source, by, date}` (tl-721).
+  as the default) until Jacob sets one with `todo priority pj-N VALUE --source "..."`:
+  `{value, source, by, date}`, `by` `approval.by`.
 - **An id neither table holds is refused at the write**, and a write that would leave
   a row check fails is refused whole (`todolib/tables.py`, one rule for both).
+- **An item inherits its project's priority and areas** (`tables.effective`). Its
+  project is the one whose `plans` hold a file of its `plan:` tags, else the one whose
+  `repos` hold its repo (its `repo` field, else its store's key): the nearest wins.
+  Two projects at one level are no project, never a pick. Its own `priority`
+  (`todo priority ID ...`) and its own `area:` tags (`todo area ID ...`) replace what
+  it inherits; with neither and no project it reads as the default priority and no
+  area. `todo show` prints all three with where each came from.
 
 A priority is one value of a closed list, each a different behaviour, not a finer
 rank:
@@ -336,13 +347,14 @@ Every `parent`, `blocked_by` id and report counterpart also gives a
 | `trust` | whether its text may be read as instructions: `untrusted` (closed) | set by hand |
 | `status` | its state in its owner's vocabulary | the `status` field |
 | `ref` | another record it points at, by id: `<service>:<id>` | set by hand, and from `parent`, `blocked_by`, `reported_to` |
+| `area` | which of Jacob's areas it serves, one or more: an id of the areas table, refused at the write (and failed by check) when the table does not hold it; an item's own replace its project's | set by hand, or by `todo area` |
 | `todo.work` | the item's work (this service's own namespace) | the `work` field |
 | `todo.group` | a group the item belongs to, by name (lowercase letters, digits, `.`, `_`, `-`), such as the id of the heading it replaced; this service's own namespace, so a group outlives its heading | set by hand |
 
 A namespace of this service's own is under its prefix (`todo.`), as PLAN-services.md
 §3 row 2 says, so the plan's `group:` (PLAN-todo-tool.md §10.2 step 4) is
 `todo.group:` here; `vocab.json` refuses an own namespace outside the prefix.
-The first seven are a local copy of PLAN-services.md §3's shared table:
+The first eight are a local copy of PLAN-services.md §3's shared table:
 `tests/test_tags.py` holds them equal to it, in order, when the plan is present.
 The shared vocabulary belongs to the architecture service, which does not exist
 yet; once it does, this table is read from there (TODO.md). `get`, `find` and

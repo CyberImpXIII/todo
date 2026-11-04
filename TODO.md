@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (62 open, 49 closed in todo-history.json; seal 52e1fa48670e): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (65 open, 49 closed in todo-history.json; seal c2e774fe4e80): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -409,4 +409,16 @@
   tl-720 built area-add, project-add, project-edit only (PLAN-todo-tool.md §11 step 1a); a removed area would leave projects naming it, which tables.problems fails
   · work: code
   · size: S
+  · added: 2026-11-03
+
+- **td-112 · areas: an item's own area: tags REPLACE its project's (tl-721 built this, per PLAN-todo-tool.md §11 Shape and gate 'overrides'); §11 suggestion 2 says 'add' -- ask Jacob which**
+  tables.effective: own_a wins whole; test_priority test_the_items_own_value_wins pins it; plan text disagrees with itself
+  · added: 2026-11-03
+
+- **td-113 · §11 'items with no project listed by check' is not built (tl-721 shows 'project: none' in todo show only)**
+  grep of todolib/checks.py: no such listing; tl-721 scope was the verbs and inheritance
+  · added: 2026-11-03
+
+- **td-114 · todo.priority get namespace not added: own vs effective priority is open, left to tl-722**
+  vocab.json shared/own namespaces unchanged by tl-721; todo get shape kept {id, closed, tags, record}
   · added: 2026-11-03

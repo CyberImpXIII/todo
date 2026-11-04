@@ -122,7 +122,8 @@ def validate(item, where="store", require_waits=True, require_decision=False):
     if missing:
         flags = ", ".join("--" + f.replace("_", "-") for f in missing)
         raise TodoError(f"a {item['kind']} that is {item['status']} needs {flags}")
-    why = checks.waits_on_problem(item, require_waits) or checks.research_problem(item.get("research"))
+    why = (checks.waits_on_problem(item, require_waits) or checks.research_problem(item.get("research"))
+           or tables.priority_problem(item.get("priority")))
     if why:
         raise TodoError(why)
     bad = decide.field_problems(item) + detect.field_problems(item)
@@ -220,7 +221,8 @@ def resolve_blockers(ws, item_id, blockers):
 def resolve_tags(ws, given):
     """Refuse a tag `check` would fail: one outside the vocabulary, one derived from
     a field (repo:, kind:, status:, todo.work:), or a ref:todo:<id> that resolves in
-    no scanned store or history. A ref: to another service is kept unchecked (no
+    no scanned store or history, or an area: id the areas table does not hold (or
+    with no table to read it from). A ref: to another service is kept unchecked (no
     registry answers for it yet). Returns the tags without repeats, or None."""
     if not given:
         return None
@@ -232,6 +234,9 @@ def resolve_tags(ws, given):
         target = tagging.ref_target(t)
         if target is not None and ws.find(target)[0] is None:
             raise TodoError(f"tag {t}: {target} resolves in no scanned store or history")
+    areas = tagging.area_ids({"tags": out})
+    if areas:
+        tables.resolve_areas(tables.home(ws), areas)
     return out
 
 
@@ -484,7 +489,7 @@ def print_item(it, where, store, ws):
             for ln in v.split("\n"):
                 print("  " + ln)
             continue
-        if name in ("handoff", "approved", "dispatched", "plan_pins", "options", "jacob_words"):
+        if name in ("handoff", "approved", "dispatched", "priority", "plan_pins", "options", "jacob_words"):
             v = field_value(name, v)
         elif isinstance(v, dict):
             v = ", ".join(f"{k}={v[k]}" for k in v)
@@ -1010,6 +1015,19 @@ def cmd_show(args):
     if it is None:
         raise TodoError(f"{args.id} is in no scanned store or history")
     print_item(it, where, s, ws)
+    for line in effective_lines(ws, it, s):
+        print(line)
+
+
+def effective_lines(ws, item, store):
+    """What the item reads as (tables.effective): its project, priority and areas,
+    each saying where it came from; unknown, never the default, when the projects
+    table cannot be read."""
+    try:
+        projects = tables.home(ws).projects
+    except TodoError as e:
+        return tables.effective_lines(tables.effective(item, store.repo, None), unread=str(e).split(":")[0])
+    return tables.effective_lines(tables.effective(item, store.repo, projects))
 
 
 def cmd_render(args):
@@ -2348,6 +2366,95 @@ def cmd_project_edit(args):
     print(f"edited {row['id']}: {row['name']} [{', '.join(row['areas'])}]")
 
 
+# -- priority and areas of a project or an item (PLAN-todo-tool.md §11 step 1b) --
+
+def is_project_id(text):
+    return bool(tables.project_id_re().match(text or ""))
+
+
+@contextlib.contextmanager
+def priority_target(args):
+    """(the record to change, its label) under the lock of the store that keeps it:
+    a project row of the table at the scan root for pj-N, else an open item of this
+    store (as todo approve finds it). Saved when the block ends without an error."""
+    if is_project_id(args.id):
+        with tables_write(args) as (ws, home):
+            yield tables.project(home, args.id), ws, home
+        return
+    store = open_store(args)
+    with store.lock():
+        store.load()
+        require_clean(store)
+        item = open_item(store, args.id)
+        yield item, workspace(args, store), None
+        validate(item, require_waits=False)
+        commit(store)
+
+
+def priority_arg(args):
+    """The {value, source, by, date} `todo priority` writes, or a TodoError: a value
+    of vocab.json priority, his words as a one-line --source (refused without one),
+    --date (default today) no later than today. The shape is tables.priority_problem's."""
+    if args.value not in VOCAB.priorities:
+        raise TodoError(f"priority {args.value!r}: one of {', '.join(VOCAB.priorities)} (vocab.json priority)")
+    source = (args.source or "").strip()
+    if not source or "\n" in source:
+        raise TodoError("--source: one line saying where Jacob set it (his words, or a pointer to them); "
+                        "only he sets a priority")
+    date = args.date or today()
+    if not checks.DATE_RE.match(date) or date > today():
+        raise TodoError(f"--date {date!r}: a YYYY-MM-DD no later than today ({today()})")
+    value = {"value": args.value, "source": source, "by": VOCAB.approval_by, "date": date}
+    why = tables.priority_problem(value)
+    if why:
+        raise TodoError(why)
+    return value
+
+
+def cmd_priority(args):
+    """`todo priority ID VALUE --source S [--date D]`, or `todo priority ID --clear`:
+    Jacob's priority on a project (pj-N) or on an open item, which then wins over its
+    project's. Refused without --source and for a value outside vocab.json priority."""
+    if args.clear:
+        if args.value is not None or args.source is not None or args.date is not None:
+            raise TodoError("--clear takes no VALUE, --source or --date")
+        value = None
+    elif args.value is None:
+        raise TodoError(f"VALUE: one of {', '.join(VOCAB.priorities)}, or --clear")
+    else:
+        value = priority_arg(args)
+    with priority_target(args) as (row, _, _):
+        if value is None and row.get("priority") is None:
+            raise TodoError(f"{args.id} carries no priority to clear")
+        row["priority"] = value
+    print(f"{args.id}: priority " + (f"{field_value('priority', value)}" if value else
+                                     "cleared: it reads as its project's, else the default"))
+
+
+def cmd_area(args):
+    """`todo area ID AREA...`, or `todo area ID --clear`: the areas of a project
+    (pj-N; one or more, replacing its own) or of an open item, kept as its area:
+    tags and replacing what it inherits; --clear drops an item's own. An area the
+    table does not hold is refused."""
+    if args.clear == bool(args.areas):
+        raise TodoError("name one or more areas (todo areas lists them), or --clear an item's own")
+    with priority_target(args) as (row, ws, home):
+        if home is not None:
+            if args.clear:
+                raise TodoError(f"--clear: a project has one or more areas; give {args.id} its areas instead")
+            row["areas"] = tables.resolve_areas(home, args.areas)
+            shown = row["areas"]
+        else:
+            areas = [] if args.clear else tables.resolve_areas(tables.home(ws), args.areas)
+            head = tagging.area_namespace() + ":"
+            if args.clear and not tagging.area_ids(row):
+                raise TodoError(f"{args.id} carries no area of its own to clear")
+            kept = [t for t in (row.get("tags") or []) if not t.startswith(head)]
+            row["tags"] = (kept + [head + a for a in areas]) or None
+            shown = areas
+    print(f"{args.id}: areas " + (", ".join(shown) if shown else "cleared: it reads as its project's"))
+
+
 # -- the parser --------------------------------------------------------------
 
 COMMANDS = {
@@ -2391,6 +2498,8 @@ COMMANDS = {
     "projects": (cmd_projects, "the workspace's projects table: each project's areas, priority, plans and repos"),
     "project-add": (cmd_project_add, "add a project (pj-N) in one or more areas; an unknown area is refused"),
     "project-edit": (cmd_project_edit, "change a project's name, areas, plans or repos; an unknown project id is refused"),
+    "priority": (cmd_priority, "Jacob's priority on a project or an item, with his words as --source; an item's own wins over its project's"),
+    "area": (cmd_area, "the areas of a project, or an item's own (area: tags), which replace its project's"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -2421,7 +2530,7 @@ def add_item_fields(p, editing):
                         "(todo steps --run runs it in this store's folder)")
     p.add_argument("--retire")
     p.add_argument("--tags", nargs="*", metavar="TAG",
-                   help="plan:, origin:, trust: and ref: tags (the rest derive from the fields); no tags clears them")
+                   help="plan:, origin:, trust:, area: and ref: tags (the rest derive from the fields); no tags clears them")
     dk = VOCAB.role("decision_kind")
     p.add_argument("--pointer", metavar="'FILE §n'",
                    help=f"a {dk}'s plan section, which must resolve (plans show)" + ("; \"\" clears it" if editing else ""))
@@ -2593,6 +2702,15 @@ def build_parser():
                               help="PLAN-<name>.md files at the scan root" + ("; none clears them" if editing else ""))
         ps[name].add_argument("--repo", nargs="*" if editing else "+", metavar="R",
                               help="store keys (todo repos)" + ("; none clears them" if editing else ""))
+    ps["priority"].add_argument("id", metavar="ID", help=f"a project ({VOCAB.project_prefix}-N) or an open item of this store")
+    ps["priority"].add_argument("value", nargs="?", metavar="VALUE", help=f"one of {', '.join(VOCAB.priorities)}")
+    ps["priority"].add_argument("--source", help="one line: where Jacob set it (his words, or a pointer to them); required")
+    ps["priority"].add_argument("--date", help="the day he set it, YYYY-MM-DD (default today)")
+    ps["priority"].add_argument("--clear", action="store_true",
+                                help="remove it: an item then reads as its project's, a project as the default")
+    ps["area"].add_argument("id", metavar="ID", help=f"a project ({VOCAB.project_prefix}-N) or an open item of this store")
+    ps["area"].add_argument("areas", nargs="*", metavar="AREA", help="area ids (todo areas); replace the record's own")
+    ps["area"].add_argument("--clear", action="store_true", help="an item's own areas: it then reads as its project's")
     for name in ("add", "edit", "stale-plans", "import", "sync-plans"):
         ps[name].add_argument("--plans-dir", dest="plans_dir", metavar="DIR",
                               help="where the PLAN-*.md files are (default: the scan root)")

@@ -52,6 +52,8 @@ def field_value(name, value):
         return f"{value.get('text')} ({value.get('date')}, at {value.get('commit') or 'no recorded commit'})"
     if name == "approved" and isinstance(value, dict):
         return f"{value.get('by')} {value.get('date')}: {value.get('source')}"
+    if name == "priority" and isinstance(value, dict):
+        return f"{value.get('value')} ({value.get('by')} {value.get('date')}: {value.get('source')})"
     if name == "dispatched" and isinstance(value, dict):
         return f"{value.get('date')}" + (f": {value['text']}" if value.get("text") else "")
     if name == "plan_pins" and isinstance(value, list):

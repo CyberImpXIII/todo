@@ -210,8 +210,9 @@
     "handoff":     {"doc": "{date, text, commit}: the last checkpoint's note (done; next; how to verify), the day it was written and the work repo's commit then (null when that repo is not found); set by `todo edit ID --handoff`, carried by `todo brief`", "label": "handoff", "optional": true},
     "approved":    {"doc": "{by, date, source}: Jacob's go-ahead to start the work (`by` is `approval.by` below), the day he gave it and where (his words, or a pointer to them); set by `todo approve`, or by `todo import` from \"approved: Jacob <date>\" in an item's lead (import.approval), read by `todo dispatchable`", "label": "approved", "optional": true},
     "dispatched":  {"doc": "{date, text}: the day the item was handed to someone to do, and an optional one-line note (never an agent's name: items name repos); set by `todo dispatch` only, cleared by `todo dispatch --clear` when it comes back unfinished; `todo dispatchable` leaves it out while set", "label": "dispatched", "optional": true},
+    "priority":    {"doc": "{value, source, by, date}: the item's own priority, one of `priority` above, overriding its project's (PLAN-todo-tool.md §11); `by` is `approval.by` below (only Jacob sets one), source his words; set by `todo priority ID VALUE --source ...` only, cleared by its --clear; null reads as the project's, else the default", "label": "priority", "optional": true},
     "retire":      {"doc": "the check that retires an interim rule", "label": "retire"},
-    "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:, todo.group:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
+    "tags":        {"doc": "the tags set by hand, `<namespace>:<value>`, in the namespaces `tags` below marks `stored` (plan:, origin:, trust:, ref:, area:, todo.group:); repo:, kind:, status:, todo.work: and the ref: of parent, blocked_by and reported_to are derived from the fields and never stored", "label": "tags", "optional": true},
     "plan_pins":   {"doc": "[{plan, digest, date}]: for each plan:PLAN-<name>.md§<n> tag, the sha256 of that section's text (read by `setup plans show`) and the day it was read; set by `todo add/edit --pin-plan` only, read by `todo stale-plans`, which lists the item once its section changes or is gone", "label": "plan pins", "optional": true},
     "detector":    {"doc": "{id, subject, count, clears_with, seen}: the finding a stall or lag item stands for, keyed `detector:<id>:<repo>:<subject>` with the item's repo; set, updated and cleared by `todo detect` only (PLAN-todo-tool.md §10.5); seen is the last day a run reported it", "label": "detector", "optional": true},
     "plan_step":   {"doc": "{file, section, step, hash, text}: the plan step a plan-step item was made from, as `setup plans steps --json` read it (hash is that tool's sha256 of the step's text); set and kept by `todo sync-plans` only, which matches a step by hash first, then by section and number", "label": "plan step", "optional": true},
@@ -221,7 +222,7 @@
     "imported":    {"doc": "{sha, section, title_from, sep}: set by todo import (the block's sha, its headings, where the title came from), null otherwise", "label": null}
   },
   "tags": {
-    "_comment": "Ids and tags (PLAN-services.md §3, PLAN-todo-tool.md §9 step 4). An item's id outside this tool is `<service>:<id>` (todo:td-3); every command taking an id also takes that form. `shared` is a local copy of the seven namespaces of PLAN-services.md §3's table, meaning for meaning: the shared vocabulary lives in the architecture service (S3), which does not exist yet, so this table is read from there once it does (TODO.md). `from` derives a namespace from an item field (never stored); `values` closes a namespace; `rule` names the form check in todolib/tags.py. `own` are this service's, under its prefix.",
+    "_comment": "Ids and tags (PLAN-services.md §3, PLAN-todo-tool.md §9 step 4). An item's id outside this tool is `<service>:<id>` (todo:td-3); every command taking an id also takes that form. `shared` is a local copy of the eight namespaces of PLAN-services.md §3's table, meaning for meaning: the shared vocabulary lives in the architecture service (S3), which does not exist yet, so this table is read from there once it does (TODO.md). `from` derives a namespace from an item field (never stored); `values` closes a namespace; `rule` names the form check in todolib/tags.py. `own` are this service's, under its prefix.",
     "service": "todo",
     "shared": {
       "repo":   {"doc": "which repo it concerns", "from": "repo"},
@@ -230,7 +231,8 @@
       "origin": {"doc": "who produced it", "values": ["jacob", "model", "tool"]},
       "trust":  {"doc": "whether its text may be read as instructions", "values": ["untrusted"]},
       "status": {"doc": "its state in its owner's vocabulary", "from": "status"},
-      "ref":    {"doc": "another record it points at, by id: `<service>:<id>`", "rule": "ref"}
+      "ref":    {"doc": "another record it points at, by id: `<service>:<id>`", "rule": "ref"},
+      "area":   {"doc": "which of Jacob's areas it serves, one or more: an id of the areas table (`todo areas`); set by `todo area` or --tags, refused at the write when the table does not hold it; an item's own replace its project's", "rule": "area"}
     },
     "own": {
       "todo.work": {"doc": "the item's work", "from": "work"},
