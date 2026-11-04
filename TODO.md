@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (56 open, 49 closed in todo-history.json; seal 78af6c8e3795): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (62 open, 49 closed in todo-history.json; seal 52e1fa48670e): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -174,6 +174,13 @@
   · parent: tl-685
   · added: 2026-11-03
 
+- **td-110 · areas and projects tables have no append-only audit: the root store is not a git repo, so check's records audit against HEAD is skipped there (INFO); a row lost by hand edit would not be caught**
+  2026-11-03, after seeding projects/devtools/lifestyle: INFO records todo-records.json not a git repo: the append-only audit against HEAD is skipped
+  · probe: ./todo -C /Users/Specter/Desktop/claudeTest check | grep records
+  · work: audit
+  · size: M
+  · added: 2026-11-03
+
 ## Reported to other owners
 
 - **td-4 · The roster-name copy in devtools/audit.json can go stale**
@@ -259,6 +266,13 @@
   · reported to: checks on 2026-10-19 (no counterpart yet)
   · added: 2026-10-19
 
+- **td-111 · the area: tag (PLAN-todo-tool.md §11, tl-721) waits on PLAN-services.md §3's namespace table gaining an area: row; tests/test_tags.py holds vocab's shared namespaces equal to that table**
+  tl-720 handback, 2026-11-03
+  · reported to: claudeTest on 2026-11-03 as tl-729
+  · work: decision
+  · size: S
+  · added: 2026-11-03
+
 ## Interim rules
 
 - **td-24 · The tag table in vocab.json is a local copy; read it from the architecture service once it exists**
@@ -280,6 +294,13 @@
   c400088: detect is manual. Do not run it on this store by hand until it is scheduled: check then fails S7 stale (stale_factor x cadence_hours) once the run ages.
   · retire: a session-start run and an hourly entry exist (reported to their owners)
   · added: 2026-10-16
+
+## Stalls
+
+- **td-108 · D2: unsized open items (49)**
+  oldest 2026-10-04: td-4; td-7; td-8; td-9; td-25; td-42; td-44; td-45; td-46; td-48; td-49; td-50; td-51; td-52; td-53; td-54; td-55; td-56; td-57; td-63; td-65; td-66; td-68; td-69; td-72; td-73; td-74; td-75; td-76; td-77; td-78; td-80; td-81; td-83; td-84; td-85; td-86; td-87; td-88; td-91; td-94; td-95; td-96; td-99; td-100; td-101; td-102; td-103; td-104
+  · detector: D2 on unsized open items, count 49, last seen 2026-11-03; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
+  · added: 2026-11-03
 
 ## Notes
 
@@ -371,3 +392,21 @@
   · files: hygiene.json, hygienelib/counts.py
   · done when: todo offers a read-only form of the decisions table (e.g. todo decisions --json --no-record) that records nothing; then statusline.counts.sources decisions gets those args, files:counts:decisions is ok, and tests/test_statusline.py CountsAsShipped's decisions test is changed to the new args
   · added: 2026-10-22
+
+- **td-106 · turn the gates left in checks.INFO_PENDING (required, records, tags, reports, render, history) into detectors with an audited_by and an *_until, as D1/D2 did for decisions and sizes (PLAN-hard-gates.md §9 rule 4)**
+  · work: code
+  · size: M
+  · done when: checks.INFO_PENDING is empty and tests.test_audits.InfoLines passes
+  · added: 2026-11-03
+
+- **td-107 · todo detect now writes AUDITS.md (read-only) beside the detect host's store; in claudeTest it will appear untracked after the next hourly detect. The repo holding it decides: commit it like TODO.md, or gitignore it**
+  · work: code
+  · size: S
+  · done when: claudeTest's git status shows no untracked AUDITS.md: it is committed or gitignored
+  · added: 2026-11-03
+
+- **td-109 · areas and projects: no verb renames or removes an area or project row (area-edit, project removal); a typo'd area id stays until one exists or the records file is edited by the CLI**
+  tl-720 built area-add, project-add, project-edit only (PLAN-todo-tool.md §11 step 1a); a removed area would leave projects naming it, which tables.problems fails
+  · work: code
+  · size: S
+  · added: 2026-11-03

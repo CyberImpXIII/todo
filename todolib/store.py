@@ -41,6 +41,9 @@ RECORDS_FILE = "todo-records.json"
 # §9), rendered read-only by `todo detect` in the store it ran from, after every run.
 AUDITS_FILE = "AUDITS.md"
 RECORDS_KEYS = ["format", "repo", "tables", "runs", SEAL_KEY]
+# The workspace's areas and projects (PLAN-todo-tool.md §11, todolib/tables.py):
+# present only in the records of the store at the scan root, absent reads as empty.
+RECORDS_TABLE_KEYS = ["areas", "projects"]
 # The write log (ELABORATION-2.4-2.6.md §2.3 part 1): one JSON row per CLI write that
 # changed a file, appended under the store's lock, 0444 like the store:
 # {at, verb, ids, by, why, seal_before, seal_after}. `todo check` holds todo.json's seal
@@ -452,6 +455,14 @@ class Store:
     def runs(self):
         return (self.records or {}).get("runs", {})
 
+    @property
+    def areas(self):
+        return (self.records or {}).get("areas", [])
+
+    @property
+    def projects(self):
+        return (self.records or {}).get("projects", [])
+
     def ensure_records(self):
         """The records file's content, made empty on first use; save() writes it."""
         if self.records is None:
@@ -551,6 +562,9 @@ class Store:
             raise TodoError(f"{self.path} already exists")
         if not PREFIX_RE.match(prefix):
             raise TodoError(f"prefix {prefix!r}: 1-8 characters, a lowercase letter then letters or digits")
+        if prefix == VOCAB.project_prefix:
+            raise TodoError(f"prefix {prefix!r} is the projects table's (vocab.json workspace_tables): "
+                            f"{prefix}-N names a project, so no store's items may take it")
         if not repo or "/" in repo:
             raise TodoError(f"repo name {repo!r}: a folder-style name, no slash")
         if never_scanned(repo):

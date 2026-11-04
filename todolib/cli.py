@@ -21,6 +21,7 @@ from . import names as naming
 from .blockers import BRIEF_NEEDS, BRIEF_REFUSES_WITHOUT, is_split, size_refusal
 from . import steps as stepping
 from . import syncplans
+from . import tables
 from . import tags as tagging
 from .render import field_value, render_history, render_item, render_store, history_order
 from .store import (AUDITS_FILE, DB_FILE,EXIT_NO_STORE, HISTORY_RENDER_FILE, STORE_FILE, NoStore, Store, TodoError, Workspace, add_days, commit_subject, head_commit,
@@ -2240,6 +2241,113 @@ def cmd_migrate(args):
         raise TodoError(f"dry run: {bad} of {len(results) + (len(ws.errors) if args.all else 0)} stores would not migrate")
 
 
+# -- areas and projects (PLAN-todo-tool.md §11, todolib/tables.py) -------------
+
+def one_line_arg(flag, value):
+    if not (isinstance(value, str) and value.strip() and "\n" not in value):
+        raise TodoError(f"{flag}: one non-empty line")
+    return value.strip()
+
+
+@contextlib.contextmanager
+def tables_write(args):
+    """The store at the scan root, locked and reloaded, for one write to its tables;
+    saved only when the write added no finding check's records gate would print
+    (tables.findings)."""
+    ws = read_workspace(args)
+    home = tables.home(ws)
+    with home.lock():
+        home.load()
+        require_clean(home)
+        before = tables.findings(home, ws, ws.root)
+        yield ws, home
+        tables.refuse_problems(home, ws, ws.root, before)
+        commit(home)
+
+
+def cmd_areas(args):
+    """`todo areas [--json]`: the areas table."""
+    home = tables.home(read_workspace(args))
+    if args.json:
+        print(json.dumps({"store": home.repo, "areas": home.areas}, indent=1, ensure_ascii=False))
+        return
+    for a in home.areas:
+        print(f"  {a.get('id'):<12} {a.get('name')}: {a.get('doc')}")
+    print(f"{len(home.areas)} area(s), in {home.repo}'s {store_mod.RECORDS_FILE}")
+
+
+def cmd_area_add(args):
+    """`todo area-add ID --name N --doc D`: one row of the areas table."""
+    name, doc = one_line_arg("--name", args.name), one_line_arg("--doc", args.doc)
+    if not VOCAB.area_id.match(args.area):
+        raise TodoError(f"area id {args.area!r} is not of the form {VOCAB.area_id.pattern} (vocab.json workspace_tables)")
+    with tables_write(args) as (ws, home):
+        if args.area in [a.get("id") for a in home.areas]:
+            raise TodoError(f"area {args.area} exists")
+        home.ensure_records().setdefault("areas", []).append(
+            {"id": args.area, "name": name, "doc": doc, "added": today()})
+    print(f"added area {args.area}: {name}")
+
+
+def project_lists(args, ws, home, row):
+    """--area, --plan and --repo into the row: each given list replaces the row's,
+    every area a row of the areas table (refused otherwise)."""
+    if args.area is not None:
+        if not args.area:
+            raise TodoError("--area: a project has one or more areas")
+        row["areas"] = tables.resolve_areas(home, args.area)
+    for key, given in (("plans", args.plan), ("repos", args.repo)):
+        if given is not None:
+            row[key] = list(given)
+    if args.repo and ws.errors:
+        raise Unchecked(f"--repo {args.repo}: {len(ws.errors)} scanned store(s) could not be read, so a repo key "
+                        "cannot be judged: " + "; ".join(ws.errors))
+
+
+def cmd_projects(args):
+    """`todo projects [--json]`: the projects table, each with its priority (unset
+    reads as vocab.json priority.default) and areas. tl-722 adds the counts."""
+    home = tables.home(read_workspace(args))
+    if args.json:
+        print(json.dumps({"store": home.repo, "default_priority": VOCAB.default_priority, "projects": home.projects},
+                         indent=1, ensure_ascii=False))
+        return
+    for p in home.projects:
+        pr = p.get("priority")
+        prio = pr["value"] if isinstance(pr, dict) and pr.get("value") else f"{VOCAB.default_priority} (unset)"
+        print(f"  {p.get('id'):<6} {p.get('name')}  [{', '.join(p.get('areas') or [])}]  priority {prio}"
+              + (f"  plans {', '.join(p['plans'])}" if p.get("plans") else "")
+              + (f"  repos {', '.join(p['repos'])}" if p.get("repos") else ""))
+    print(f"{len(home.projects)} project(s), in {home.repo}'s {store_mod.RECORDS_FILE}")
+
+
+def cmd_project_add(args):
+    """`todo project-add NAME --area A... [--plan P...] [--repo R...]`: one row of the
+    projects table, id pj-N. Its priority is unset: only Jacob sets one (tl-721)."""
+    name = one_line_arg("NAME", args.name)
+    with tables_write(args) as (ws, home):
+        row = {"id": tables.next_project_id(home), "name": name, "areas": [], "priority": None,
+               "plans": [], "repos": [], "added": today()}
+        project_lists(args, ws, home, row)
+        home.ensure_records().setdefault("projects", []).append(row)
+    print(f"added {row['id']}: {name} [{', '.join(row['areas'])}]")
+
+
+def cmd_project_edit(args):
+    """`todo project-edit pj-N [--name N] [--area A...] [--plan [P...]] [--repo [R...]]`:
+    each list given replaces the row's (no plans or repos clears them); an id the
+    table does not hold is refused."""
+    with tables_write(args) as (ws, home):
+        row = tables.project(home, args.project)
+        before = json.dumps(row, sort_keys=True)
+        if args.name is not None:
+            row["name"] = one_line_arg("--name", args.name)
+        project_lists(args, ws, home, row)
+        if json.dumps(row, sort_keys=True) == before:
+            raise TodoError(f"{args.project}: nothing to change (--name, --area, --plan, --repo)")
+    print(f"edited {row['id']}: {row['name']} [{', '.join(row['areas'])}]")
+
+
 # -- the parser --------------------------------------------------------------
 
 COMMANDS = {
@@ -2278,6 +2386,11 @@ COMMANDS = {
     "rename-repo": (cmd_rename_repo, "one store's key, and every record naming it in every scanned store, renamed in one pass; --apply writes it"),
     "migrate": (cmd_migrate, "the move to todo.db: moves this store once no reader names the JSON files; --dry-run says per repo whether it would; --readers lists those readers"),
     "export": (cmd_export, "rewrite todo.db's static exports (todo.*.jsonl) from it"),
+    "areas": (cmd_areas, "the workspace's areas table (kept by the store at the scan root)"),
+    "area-add": (cmd_area_add, "add an area: an id, a name and one line of meaning"),
+    "projects": (cmd_projects, "the workspace's projects table: each project's areas, priority, plans and repos"),
+    "project-add": (cmd_project_add, "add a project (pj-N) in one or more areas; an unknown area is refused"),
+    "project-edit": (cmd_project_edit, "change a project's name, areas, plans or repos; an unknown project id is refused"),
     "help": (cmd_help, "this list of commands"),
 }
 
@@ -2465,6 +2578,21 @@ def build_parser():
                                        "judges the items of a plan file no longer there)")
     ps["sync-plans"].add_argument("--dry-run", dest="dry_run", action="store_true", help="say what it would do; write nothing")
     ps["sync-plans"].add_argument("--json", action="store_true", help="every action, uncapped")
+    for name in ("areas", "projects"):
+        ps[name].add_argument("--json", action="store_true")
+    ps["area-add"].add_argument("area", metavar="ID", help=f"the area's id ({VOCAB.area_id.pattern})")
+    ps["area-add"].add_argument("--name", required=True, help="one line")
+    ps["area-add"].add_argument("--doc", required=True, help="one line: what the area holds")
+    ps["project-add"].add_argument("name", metavar="NAME")
+    ps["project-edit"].add_argument("project", metavar="PJ", help=f"a project id, {VOCAB.project_prefix}-N")
+    ps["project-edit"].add_argument("--name")
+    for name, editing in (("project-add", False), ("project-edit", True)):
+        ps[name].add_argument("--area", nargs="+", required=not editing, metavar="A",
+                              help="area ids (todo areas); replaces the project's" if editing else "area ids (todo areas)")
+        ps[name].add_argument("--plan", nargs="*" if editing else "+", metavar="PLAN",
+                              help="PLAN-<name>.md files at the scan root" + ("; none clears them" if editing else ""))
+        ps[name].add_argument("--repo", nargs="*" if editing else "+", metavar="R",
+                              help="store keys (todo repos)" + ("; none clears them" if editing else ""))
     for name in ("add", "edit", "stale-plans", "import", "sync-plans"):
         ps[name].add_argument("--plans-dir", dest="plans_dir", metavar="DIR",
                               help="where the PLAN-*.md files are (default: the scan root)")

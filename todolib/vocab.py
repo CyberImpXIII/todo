@@ -24,6 +24,24 @@ class Vocab:
             raise ValueError(f"vocab.json: exactly one size is `ready: false` (the one split first), not {too_big}")
         self.split_size = too_big[0]
         self.ready_sizes = [k for k, v in self.sizes.items() if v["ready"]]
+        pr = {k: v for k, v in data["priority"].items() if not k.startswith("_")}
+        if set(pr) != {"default", "values"} or not isinstance(pr["values"], dict) or not pr["values"]:
+            raise ValueError("vocab.json: priority holds `default` and a non-empty `values` object, nothing else")
+        self.priorities = {k: v for k, v in pr["values"].items() if not k.startswith("_")}
+        bad = [k for k, v in self.priorities.items() if not (isinstance(v, dict) and str(v.get("doc") or "").strip())]
+        if bad:
+            raise ValueError(f"vocab.json: priority value(s) {bad} carry no doc")
+        if pr["default"] not in self.priorities:
+            raise ValueError(f"vocab.json: priority.default {pr['default']!r} is not one of {list(self.priorities)}")
+        self.default_priority = pr["default"]
+        wt = {k: v for k, v in data["workspace_tables"].items() if not k.startswith("_")}
+        if set(wt) != {"area_id", "project_prefix"}:
+            raise ValueError(f"vocab.json: workspace_tables holds {sorted(wt)}, not area_id and project_prefix")
+        self.area_id = re.compile(wt["area_id"])
+        if not re.match(r"^[a-z][a-z0-9]{0,7}$", str(wt["project_prefix"])):
+            raise ValueError("vocab.json: workspace_tables.project_prefix is an id prefix (a lowercase letter, then "
+                             "letters or digits, 8 at most)")
+        self.project_prefix = wt["project_prefix"]
         self.brief = {k: v for k, v in data["brief"].items() if not k.startswith("_")}
         for rule in ("stop_rule", "iterate_rule"):
             if not str(self.brief.get(rule) or "").strip():

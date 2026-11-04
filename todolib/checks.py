@@ -10,12 +10,12 @@ import subprocess
 
 from . import approval, deps, plans, tags
 from . import decisions as decide
-from . import detect, syncplans
+from . import detect, syncplans, tables
 from . import migrate as migrating
 from . import rename as renaming
 from . import names as naming
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
-from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
+from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, RECORDS_TABLE_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
                     HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today, WRITE_KEYS, WRITES_FILE)
 from .vocab import VOCAB
 
@@ -401,17 +401,21 @@ def check_writes(store, out):
                     f"`todo reseal --reason R` accepts it, recorded in hand_edits and logged"))
 
 
-def check_records(store, out):
+def check_records(store, ws, out):
     """The decision tables (PLAN-todo-tool.md §10.3b): the keys, each table's shape,
     and append-only against git's HEAD -- a table committed keeps its id, date, rows
-    and supersedes, and its answers only grow."""
+    and supersedes, and its answers only grow. Then the areas and projects tables
+    (§11, todolib/tables.py), held by the store at the scan root alone."""
     if store.records is None:
         out.append(("INFO", "records", "-", f"no {RECORDS_FILE}: no table recorded yet"))
         return
     data = store.records
-    if set(data) != set(RECORDS_KEYS) or data.get("repo") != store.repo:
-        out.append(("FAIL", "records", "-", f"{RECORDS_FILE} must hold exactly {RECORDS_KEYS}, repo {store.repo}"))
+    extra = set(data) - set(RECORDS_KEYS)
+    if not set(RECORDS_KEYS) <= set(data) or extra - set(RECORDS_TABLE_KEYS) or data.get("repo") != store.repo:
+        out.append(("FAIL", "records", "-", f"{RECORDS_FILE} must hold exactly {RECORDS_KEYS} (and, at the scan root "
+                    f"alone, {RECORDS_TABLE_KEYS}), repo {store.repo}"))
         return
+    check_workspace_tables(store, ws, extra, out)
     tables = data["tables"] if isinstance(data["tables"], list) else []
     ids = []
     for t in tables:
@@ -436,6 +440,25 @@ def check_records(store, out):
             out.append(("FAIL", "records", str(tid), "changed since HEAD: a table record never changes"))
         elif (cur.get("answers") or [])[:len(old.get("answers") or [])] != (old.get("answers") or []):
             out.append(("FAIL", "records", str(tid), "an answer committed at HEAD changed or is gone: answers are appended only"))
+
+
+def check_workspace_tables(store, ws, held, out):
+    """The areas and projects tables: only the store at the scan root holds them, every
+    row is what the CLI writes (tables.problems, the rule every write refuses by), and
+    every repo and plan a project names resolves (tables.references)."""
+    if not held:
+        return
+    if not tables.is_home(store, ws):
+        out.append(("FAIL", "records", "-", f"holds {sorted(held)}, which only the store at the scan root {ws.root} "
+                    "holds (PLAN-todo-tool.md §11): one areas table and one projects table per workspace"))
+        return
+    for where, why in tables.problems(store.records):
+        out.append(("FAIL", "records", where, why))
+    refs = tables.references(store.projects, ws, ws.root)
+    if refs is None:
+        out.append(("INFO", "records", "-", "the repos the projects name are unjudged: a scanned store could not be read"))
+    for where, why in refs or []:
+        out.append(("FAIL", "records", where, why))
 
 
 def check_detectors(store, out):
@@ -666,6 +689,9 @@ def check_reports(store, ws, out):
 
 
 def check_workspace(store, ws, out):
+    if store.prefix == VOCAB.project_prefix:
+        out.append(("FAIL", "workspace", "-", f"prefix {store.prefix} is the projects table's (vocab.json "
+                    "workspace_tables): an item id would read as a project id"))
     for s in ws.stores:
         if s is store or not s.data:
             continue
@@ -819,7 +845,7 @@ def check_store(store, ws):
     check_workspace(store, ws, out)
     check_render(store, out)
     check_history(store, out)
-    check_records(store, out)
+    check_records(store, ws, out)
     check_detectors(store, out)
     check_writes(store, out)
     check_keys(store, out)

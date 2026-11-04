@@ -23,7 +23,7 @@ RUNNER_DEV = workspace_file("tools/checks/dev.sh")
 # dev.sh passes on its full check and no brief iterates with, so the rule's wording
 # stands), flag -> the value it takes, or None. IterateRule holds it equal to the
 # runner's own when the runner is here.
-RUNNER_RUN_OPTIONS = {"--resume": None, "--only": "<name>", "--jobs": "<n>", "--json": None, "--record": None}
+RUNNER_RUN_OPTIONS = {"--resume": None, "--only": "<name>", "--full": None, "--jobs": "<n>", "--json": None, "--record": None}
 COMMAND_HEADS = ("./dev.sh", "dev.sh", "check")
 
 

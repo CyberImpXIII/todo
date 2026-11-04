@@ -9,6 +9,7 @@ from pathlib import Path
 from tests.helpers import ROOT, WAITS, Case
 from todolib import cli, render
 from todolib.vocab import VOCAB, Vocab
+from todolib.store import STORE_KEYS
 
 RAW = json.loads((ROOT / "vocab.json").read_text())
 
@@ -30,7 +31,8 @@ class Declared(Case):
         names are allowed where they act as such: a key, a .get() argument, a tuple of
         field names, a COMMANDS key."""
         names = (set(VOCAB.kinds) | set(VOCAB.statuses) | set(VOCAB.works) | set(VOCAB.resolutions) | set(VOCAB.sizes)
-                 | set(VOCAB.waits_on))
+                 | set(VOCAB.waits_on) | (set(VOCAB.priorities) - set(STORE_KEYS)))
+        # a priority word that is also a store key (`next`, the id counter) is read as that key
         sections = set(RAW)  # vocab.json's own sections, read by key: data["approval"]
         fields = set(VOCAB.field_names())
         commands = set(cli.COMMANDS)
@@ -177,7 +179,7 @@ class Documented(Case):
     def test_readme_vocab_tables_equal_vocab_json(self):
         for name, declared in (("kinds", VOCAB.kinds), ("statuses", VOCAB.statuses),
                                ("works", VOCAB.works), ("sizes", VOCAB.sizes), ("resolutions", VOCAB.resolutions), ("waits_on", VOCAB.waits_on), ("blockers", VOCAB.blocker_roots),
-                               ("fields", VOCAB.fields), ("tags", VOCAB.namespaces)):
+                               ("fields", VOCAB.fields), ("tags", VOCAB.namespaces), ("priority", VOCAB.priorities)):
             doc = readme_table(name)
             self.assertIsNotNone(doc, f"README.md has no <!-- vocab:{name} --> table")
             self.assertEqual(doc, list(declared), f"README vocab:{name} vs vocab.json")

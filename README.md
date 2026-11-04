@@ -79,6 +79,11 @@ hold it (tests/test_repo_filter.py). `history --repo` names a store.
 | `todo rename-repo OLD NEW [--apply]` | the store keyed OLD, if one is, takes the key NEW, and every record naming OLD (an item's `repo`, a report's `reported_to`), open or closed, in this store and every scanned one, is rewritten in the same pass, each store under its lock and in its write log; no old spelling is kept (PLAN-architecture.md §13.1 step 3). NEW is the repo's own `services.json` name where it has one. With no store keyed OLD the rename is of fields alone (a path or an old key naming a location), and needs the names file (`--names FILE` or `TODO_NAMES`) so that NEW is a location's name. Refused whole before any write; without `--apply` it only says what would change |
 | `todo migrate [--dry-run] [--all] [--readers] [--json]` | the move to `todo.db` (The move to todo.db, below). `--dry-run`: this store (`--all`: every scanned one) into a throwaway `todo.db`, its exports, and a second `todo.db` made from them; one line per repo, `ok` or `NOT` with why; exit 1 when any would not migrate; writes nothing in any repo. `--readers`: every line outside this tool naming the JSON files. Neither: moves this store to `todo.db` (`--all` is refused: one repo at a time), and only while that list is empty and git ignores `todo.db`; else refused (exit 1), nothing changed. `--json` gives `{ok, root, repos, unreadable, readers}`, with `--readers` `{root, hits, skipped, files}`, and for a move `{ok, repo, dir, exports, open_items, closed_items}` |
 | `todo export` | on `todo.db`: rewrite its four exports from it (`cli.json`'s `export` verb and the exports' `regen`). Puts back one missing or writable; refuses one edited by hand or stale (`todo reseal --reason R` rewrites those, recorded) |
+| `todo areas [--json]` | the areas table (Areas and projects, below), from the store at the scan root wherever it runs |
+| `todo area-add ID --name N --doc D` | add an area: an id of `vocab.json`'s `workspace_tables.area_id` form, a name and one line of meaning; refused when the id exists. Writes the store at the scan root |
+| `todo projects [--json]` | the projects table: each project's id, name, areas, priority (unset reads as `next`), plans and repos |
+| `todo project-add NAME --area A ... [--plan P ...] [--repo R ...]` | add a project, id `pj-N`, in one or more areas; refused when an area is no row of the areas table, a plan is no `PLAN-<name>.md` file at the scan root, a repo is no scanned store's key (`todo repos`), or the name is another project's. Its priority starts unset |
+| `todo project-edit PJ [--name N] [--area A ...] [--plan [P ...]] [--repo [R ...]]` | change a project: each list given replaces the row's (`--plan` or `--repo` with none clears it); refused for an id the table does not hold, and checked as `project-add` |
 | `todo help` | the commands, one per line: what tools/checks reads to hold `cli.json`'s verbs to this CLI |
 
 `tests/test_docs.py` holds this table equal to the parser, command by command and
@@ -281,6 +286,35 @@ each have one setter and are refused everywhere else:
 | `done` | date closed; null while open |
 | `resolution` | how it closed; null while open |
 | `imported` | `{sha, section, title_from, sep}`, set by `todo import` |
+
+## Areas and projects
+
+What Jacob wants first, and what each piece of work is for (PLAN-todo-tool.md §11,
+approved 2026-10-22). Both are workspace records, never names in code: they live in
+the `todo-records.json` of the store at the scan root (`areas` and `projects`, absent
+reads as empty), and every command reads and writes that store's tables wherever it
+runs. A records file anywhere else that holds them fails check (`records`).
+
+- **An area** is `{id, name, doc, added}`: `todo area-add`.
+- **A project** is `{id, name, areas, priority, plans, repos, added}`, its id
+  `pj-N` (`vocab.json` `workspace_tables.project_prefix`, which `todo init` refuses as
+  a store's prefix and check fails as one). `areas` holds one or more area ids,
+  `plans` `PLAN-<name>.md` files at the scan root, `repos` the keys `todo repos`
+  prints; `todo rename-repo` rewrites them with the rest. `priority` is null (it reads
+  as the default) until Jacob sets one, `{value, source, by, date}` (tl-721).
+- **An id neither table holds is refused at the write**, and a write that would leave
+  a row check fails is refused whole (`todolib/tables.py`, one rule for both).
+
+A priority is one value of a closed list, each a different behaviour, not a finer
+rank:
+
+<!-- vocab:priority -->
+| priority | meaning |
+|---|---|
+| `now` | tabled first in `todo decisions`; dispatched first |
+| `next` | the default (unset reads as next): tabled and dispatched after now |
+| `later` | not tabled (one count per project); dispatched only when its folder has nothing now or next ready |
+| `parked` | not tabled (one total count); never dispatched. Reopening it is a priority change |
 
 ## Ids and tags
 
@@ -896,10 +930,10 @@ gate that stopped running shows as a missing line:
 | tags | a stored tag outside the vocabulary, in a namespace derived from a field, with a value a closed namespace does not hold, or of the wrong form; a `ref:todo:<id>` that resolves nowhere (dangling). A `ref:` to another service's record is counted (`INFO`), unchecked until a registry resolves it; a `ref:todo:` prefix no scanned store holds is a `WARN`, as for parents |
 | groups | a `WARN`, never red: an open item with no `work` (split or not), not a report, that open items use as a group (as their `parent`, or by a `todo.group:<its id>` tag). A heading is not an item (PLAN-todo-tool.md §10.2 step 4): tag its children `todo.group:<name>` and close it |
 | reports | a report's owner has a store but no counterpart, or the counterpart's parent points elsewhere. In the owner's store, a counterpart whose report names this repo but no `their_id` yet is a `WARN` naming the `todo report` that pairs them: the item is right, and the report's own store fails |
-| workspace | two stores share a prefix or a repo name |
+| workspace | two stores share a prefix or a repo name, or a store's prefix is the projects table's (`pj`) |
 | render | `TODO.md` is not the render of `todo.json`: missing, stale (an unedited render of another store or format), hand-edited or hand-written |
 | history | the file is missing or malformed, or an entry was removed or changed since a commit |
-| records | `todo-records.json` is malformed, or a decision table committed was removed or changed, or an answer to it changed |
+| records | `todo-records.json` is malformed, or a decision table committed was removed or changed, or an answer to it changed; it holds the areas or projects table outside the store at the scan root; a row of either is not what the CLI writes, names an area the areas table does not hold, shares an id (or a project's name), or names a repo that is no scanned store's key or a plan with no file at the scan root (Areas and projects) |
 | detectors | a detector's recorded run is malformed; a registered detector has not run within `stale_factor` times its cadence (or never) in a store where any detector has run; two open items hold one detector key |
 | writes | a row of `todo-writes.jsonl` does not parse or lacks a key, or `todo.json`'s seal is not the one the newest row left: it was replaced around the CLI (below) |
 | keys | only with a names file handed (`--names FILE` or `TODO_NAMES`): the store's key, or an item's `repo` or `reported_to.repo`, open or closed, names a location by a spelling other than its name (a path, an old key, a remote). Prose is never read here: fields are data, prose is a quotation (PLAN-architecture.md §13.1 G3) |

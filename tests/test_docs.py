@@ -27,6 +27,11 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                "rename-repo": "PLAN-architecture.md §13.1 step 3: one store's key renamed everywhere, no old spelling kept",
                "pair": "PLAN-architecture.md §13.1 G4, PLAN-todo-tool.md §8 decision 4: the owner of a store the scan never enters pulls its reports",
                "export": "PLAN-services.md §3 ST5: todo.db's static exports, the `export` verb cli.json names",
+               "areas": "PLAN-todo-tool.md §11 step 1 (tl-720): the areas table, read",
+               "area-add": "PLAN-todo-tool.md §11 step 1 (tl-720): an areas row, refused when it exists",
+               "projects": "PLAN-todo-tool.md §11 step 1: `todo projects` lists each project (tl-722 adds the counts)",
+               "project-add": "PLAN-todo-tool.md §11 step 1 (tl-720): a projects row, an unknown area refused",
+               "project-edit": "PLAN-todo-tool.md §11 step 1 (tl-720): the triage (step 3) sets areas through it; an unknown pj id refused",
                "help": "cli.json: tools/checks reads the verbs from `todo help`"}
 # A command name may hold a hyphen (stale-plans); `[a-z]+` read it as "stale".
 PLAN_COMMAND = re.compile(r"(?:^|\s)todo ([a-z][a-z-]*)")

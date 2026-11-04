@@ -384,7 +384,7 @@
      "file": "todolib/checks.py", "old": "        if state == \"legacy\":", "new": "        if False:",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Legacy"]},
     {"id": "cli-json-verb-drift", "gate": "cli.json's verbs are the CLI's commands",
-     "file": "cli.json", "old": "\"migrate\", \"export\", \"help\"]", "new": "\"migrate\", \"help\"]",
+     "file": "cli.json", "old": "\"project-edit\", \"help\"]", "new": "\"help\"]",
      "run": ["python3", "-m", "unittest", "tests.test_seal.Declared"]},
     {"id": "ready-takes-a-large-item", "gate": "todo ready lists only the sizes one checkpoint holds",
      "file": "todolib/blockers.py", "old": "    if it[\"size\"] not in VOCAB.ready_sizes:", "new": "    if False:",
@@ -1187,6 +1187,14 @@
      "run": ["python3", "-m", "unittest", "tests.test_audit.Direction.test_the_store_files_are_data_and_a_code_file_is_not"]},
     {"id": "practices-measured-read-as-rows", "gate": "brief: an answer carrying measured cells is refused, never read as the rows view (PLAN-O27 step 4, td-97)",
      "file": "todolib/practices.py", "old": "    if any(k in doc for k in (\"ratchet\", \"measured\", \"locations\")) or any(isinstance(x, dict) and \"cells\" in x for x in got):", "new": "    if False:",
-     "run": ["python3", "-m", "unittest", "tests.test_practices.Fixture.test_an_answer_carrying_measured_cells_is_refused"]}
+     "run": ["python3", "-m", "unittest", "tests.test_practices.Fixture.test_an_answer_carrying_measured_cells_is_refused"]},
+    {"id": "tables-unknown-area-written", "gate": "an area the areas table does not hold is refused at the write (PLAN-todo-tool.md §11, tl-720)", "edits": [{"file": "todolib/tables.py", "old": "    unknown = [a for a in given if a not in known]\n", "new": "    unknown = []\n"}, {"file": "todolib/tables.py", "old": "    unknown = [a for a in p[\"areas\"] if a not in area_ids]\n", "new": "    unknown = []\n"}], "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_an_unknown_area_is_refused_at_the_write"]},
+    {"id": "tables-unknown-project-edited", "gate": "a project id the projects table does not hold is refused at the write (tl-720)", "file": "todolib/tables.py", "old": "        if isinstance(p, dict) and p.get(\"id\") == pid:\n", "new": "        if isinstance(p, dict):\n", "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_an_unknown_project_id_is_refused_at_the_write"]},
+    {"id": "tables-unresolved-repo-written", "gate": "a project's repo that is no scanned store's key is refused at the write and red in check", "file": "todolib/tables.py", "old": "            if r not in keys:\n", "new": "            if False:\n", "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_a_repo_or_plan_that_does_not_resolve_is_refused"]},
+    {"id": "tables-write-refuses-nothing", "gate": "a write to the tables that leaves a finding check would print is refused whole", "file": "todolib/tables.py", "old": "    if new:\n        raise TodoError(\"refused, nothing written: \"", "new": "    if False:\n        raise TodoError(\"refused, nothing written: \"", "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_a_repo_or_plan_that_does_not_resolve_is_refused"]},
+    {"id": "tables-priority-any-value", "gate": "records: a project's priority outside vocab.json priority is red", "file": "todolib/tables.py", "old": "    if p[\"value\"] not in VOCAB.priorities:\n", "new": "    if False:\n", "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_check_fails_a_priority_outside_the_list"]},
+    {"id": "tables-outside-root-quiet", "gate": "records: the areas or projects table outside the store at the scan root is red", "file": "todolib/checks.py", "old": "    if not tables.is_home(store, ws):\n", "new": "    if False:\n", "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_check_fails_the_tables_outside_the_store_at_the_scan_root"]},
+    {"id": "tables-project-prefix-taken", "gate": "init refuses the projects table's prefix, and check fails a store holding it", "edits": [{"file": "todolib/store.py", "old": "        if prefix == VOCAB.project_prefix:\n", "new": "        if False:\n"}, {"file": "todolib/checks.py", "old": "    if store.prefix == VOCAB.project_prefix:\n", "new": "    if False:\n"}], "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_the_project_prefix_is_no_stores"]},
+    {"id": "tables-rename-skips-projects", "gate": "rename-repo rewrites a project's repos with every other record naming the key", "file": "todolib/rename.py", "old": "            p[\"repos\"] = [new if r == old else r for r in p[\"repos\"]]\n", "new": "            p[\"repos\"] = list(p[\"repos\"])\n", "run": ["python3", "-m", "unittest", "tests.test_tables.Tables.test_rename_repo_rewrites_a_projects_repos"]}
   ]
 }

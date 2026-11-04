@@ -36,6 +36,21 @@
     "M": {"doc": "a few steps, still one checkpoint: one done_when, one commit, one report", "ready": true},
     "L": {"doc": "more than one checkpoint: `todo split` it into S and M children before anyone starts it", "ready": false}
   },
+  "priority": {
+    "_comment": "What Jacob wants first (PLAN-todo-tool.md §11, approved 2026-10-22, tl-566): one value from a closed list, each a different behaviour, not a finer rank. Render order is the order here. `default` is what an unset priority reads as. Only Jacob sets one, with his words as its source (tl-721, step 1b).",
+    "default": "next",
+    "values": {
+      "now":    {"doc": "tabled first in `todo decisions`; dispatched first"},
+      "next":   {"doc": "the default (unset reads as next): tabled and dispatched after now"},
+      "later":  {"doc": "not tabled (one count per project); dispatched only when its folder has nothing now or next ready"},
+      "parked": {"doc": "not tabled (one total count); never dispatched. Reopening it is a priority change"}
+    }
+  },
+  "workspace_tables": {
+    "_comment": "The areas and projects tables (PLAN-todo-tool.md §11): workspace records, never names in code, kept in the records file of the store at the scan root (keys `areas` and `projects`, absent reads as empty). `area_id` is the form of an area's id; a project's id is `project_prefix`-N, so no store may take that prefix. An id neither table holds is refused at the write.",
+    "area_id": "^[a-z][a-z0-9-]{0,23}$",
+    "project_prefix": "pj"
+  },
   "brief": {
     "_comment": "What every `todo brief` carries besides the item (PLAN-small-tasks.md §2.3, §3.5, §4.1): `stop_rule` is the plan's words, verbatim (tests/test_handoff.py holds them equal when the plan is present). `iterate_rule` is §3.5 worded to the shared runner's real commands (tools/checks checkslib/parts.py), not the plan's sketch: each backticked command in it must be `./dev.sh check` plus options the runner's `run` takes, or `./dev.sh test <part>` (dev.sh's `check --only <part>`), held to the runner's `usage --json` (tests/test_handoff.py IterateRule).",
     "stop_rule": "Commit after each step that passes. If the full check fails twice, stop and report what passed, what failed and where. Do not start the suite a third time.",

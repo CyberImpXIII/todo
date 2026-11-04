@@ -6,7 +6,7 @@ always be prioritized over building exceptions to facilitate a change").
 
 What a key names: the store's own `repo` (todo.json, todo-history.json,
 todo-records.json), each item's `repo`, and each report's `reported_to.repo`,
-open or closed. `plan` refuses before anything is written; the CLI then takes
+open or closed, and each project row's `repos` (todolib/tables.py). `plan` refuses before anything is written; the CLI then takes
 each store under its lock and saves it, so every write is in its write log."""
 import json
 import re
@@ -15,7 +15,7 @@ from . import names as naming
 from .store import TodoError
 
 KEY = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
-FIELDS = ("key", "items", "history")
+FIELDS = ("key", "items", "history", "projects")
 
 
 def services_name(store_dir):
@@ -45,7 +45,8 @@ def _hits(items, old):
 
 def count(store, old):
     """{key, items, history}: how many fields of this store name `old`."""
-    return {"key": int(store.repo == old), "items": _hits(store.items, old), "history": _hits(store.closed, old)}
+    return {"key": int(store.repo == old), "items": _hits(store.items, old), "history": _hits(store.closed, old),
+            "projects": sum(old in (p.get("repos") or []) for p in store.projects if isinstance(p, dict))}
 
 
 def plan(ws, old, new):
@@ -111,6 +112,9 @@ def apply(store, old, new):
     _rewrite(store.closed, old, new)
     if isinstance(store.records, dict):
         _rewrite(store.records.get("runs", {}).values() if isinstance(store.records.get("runs"), dict) else [], old, new)
+    for p in store.projects:
+        if isinstance(p, dict) and isinstance(p.get("repos"), list):
+            p["repos"] = [new if r == old else r for r in p["repos"]]
 
 
 def renamed(item, renames):
@@ -128,5 +132,6 @@ def renamed(item, renames):
 
 def describe(store, c):
     parts = (["key"] if c["key"] else []) + [f"{c['items']} item field(s)"] * bool(c["items"]) \
-        + [f"{c['history']} history field(s)"] * bool(c["history"])
+        + [f"{c['history']} history field(s)"] * bool(c["history"]) \
+        + [f"{c['projects']} project row(s)"] * bool(c["projects"])
     return f"  {store.repo} ({store.dir}): " + ", ".join(parts)
