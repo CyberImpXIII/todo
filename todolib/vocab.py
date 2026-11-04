@@ -31,8 +31,20 @@ class Vocab:
         bad = [k for k, v in self.priorities.items() if not (isinstance(v, dict) and str(v.get("doc") or "").strip())]
         if bad:
             raise ValueError(f"vocab.json: priority value(s) {bad} carry no doc")
+        for k, v in self.priorities.items():
+            # The reads' behaviour (tl-722): tabled and dispatched, and how an untabled one is counted.
+            if not (isinstance(v.get("tabled"), bool) and isinstance(v.get("dispatched"), bool)):
+                raise ValueError(f"vocab.json: priority {k!r} needs `tabled` and `dispatched`, each true or false")
+            if v["tabled"] == ("count" in v) or ("count" in v and v["count"] not in ("project", "total")):
+                raise ValueError(f"vocab.json: priority {k!r}: an untabled value says `count` (project or total), "
+                                 "a tabled one does not")
+            extra = set(v) - {"doc", "tabled", "dispatched", "count"}
+            if extra:
+                raise ValueError(f"vocab.json: priority {k!r} holds {sorted(extra)}, which nothing reads")
         if pr["default"] not in self.priorities:
             raise ValueError(f"vocab.json: priority.default {pr['default']!r} is not one of {list(self.priorities)}")
+        if not (self.priorities[pr["default"]]["tabled"] and self.priorities[pr["default"]]["dispatched"]):
+            raise ValueError("vocab.json: priority.default is tabled and dispatched: an unset priority hides nothing")
         self.default_priority = pr["default"]
         wt = {k: v for k, v in data["workspace_tables"].items() if not k.startswith("_")}
         if set(wt) != {"area_id", "project_prefix"}:

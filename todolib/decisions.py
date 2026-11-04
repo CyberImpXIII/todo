@@ -276,7 +276,7 @@ def latest_table(tables):
 def table_lines(table, counts=None):
     """The Decisions section, in the shape a plan's question gate parses."""
     out = ["## Decisions", "",
-           f"{table['id']} ({table['date']}): {len(table['rows'])} decision(s), the one freeing most items first. "
+           f"{table['id']} ({table['date']}): {len(table['rows'])} decision(s), by priority, then the one freeing most items first. "
            f"Answer: todo answer \"1) yes 2) no\" (or an option's name; other words are kept as his words, applying nothing)",
            HEADER, SEPARATOR]
     out += [f"| {r['n']} | " + " | ".join(r["cells"]) + " |" for r in table["rows"]]

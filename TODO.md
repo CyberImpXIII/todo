@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (65 open, 49 closed in todo-history.json; seal c2e774fe4e80): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (67 open, 49 closed in todo-history.json; seal 9eb7a57cf2d5): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -297,9 +297,9 @@
 
 ## Stalls
 
-- **td-108 · D2: unsized open items (49)**
-  oldest 2026-10-04: td-4; td-7; td-8; td-9; td-25; td-42; td-44; td-45; td-46; td-48; td-49; td-50; td-51; td-52; td-53; td-54; td-55; td-56; td-57; td-63; td-65; td-66; td-68; td-69; td-72; td-73; td-74; td-75; td-76; td-77; td-78; td-80; td-81; td-83; td-84; td-85; td-86; td-87; td-88; td-91; td-94; td-95; td-96; td-99; td-100; td-101; td-102; td-103; td-104
-  · detector: D2 on unsized open items, count 49, last seen 2026-11-03; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
+- **td-108 · D2: unsized open items (54)**
+  oldest 2026-10-04: td-4; td-7; td-8; td-9; td-25; td-42; td-44; td-45; td-46; td-48; td-49; td-50; td-51; td-52; td-53; td-54; td-55; td-56; td-57; td-63; td-65; td-66; td-68; td-69; td-72; td-73; td-74; td-75; td-76; td-77; td-78; td-80; td-81; td-83; td-84; td-85; td-86; td-87; td-88; td-91; td-94; td-95; td-96; td-99; td-100; td-101; td-102; td-103; td-104; td-112; td-113; td-114; td-115; td-116
+  · detector: D2 on unsized open items, count 54, last seen 2026-11-03; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
   · added: 2026-11-03
 
 ## Notes
@@ -421,4 +421,13 @@
 
 - **td-114 · todo.priority get namespace not added: own vs effective priority is open, left to tl-722**
   vocab.json shared/own namespaces unchanged by tl-721; todo get shape kept {id, closed, tags, record}
+  · added: 2026-11-03
+
+- **td-115 · todo dispatch marks a parked item dispatched (only notes NOT READY): the refusal is left to the harness, PLAN-todo-tool.md §11 step 2**
+  tl-722: ready, dispatchable and brief leave out or flag a priority never dispatched (vocab.json priority.*.dispatched); cmd_dispatch shares not_ready_reasons, so it prints NOT READY but still writes dispatched. Unchanged on purpose: step 2 gives dispatch-time refusal to the harness
+  · probe: todo -C <repo> priority ID parked --source s; todo -C <repo> dispatch ID; todo show ID shows dispatched set
+  · added: 2026-11-03
+
+- **td-116 · tl-722 read choices to confirm: list keeps parked items (ordered last), unknown priority (no store at scan root) ordered and kept as the default with a stderr note, later decisions counted per project; td-114 (todo.priority get namespace) still not added**
+  tests/test_priority_reads.py pins each choice (Reads, Unread); README Areas and projects says them. None was named in the tl-722 done-when, so each is a reading of PLAN-todo-tool.md §11, not Jacob's words
   · added: 2026-11-03

@@ -975,9 +975,12 @@ def cmd_list(args):
             raise TodoError(f"--cites {args.cites!r}: FILE §n or FILE, e.g. 'PLAN-x.md §3'")
     many = bool(args.all or args.repo or cited)
     scope = ws.stores if many else [store]
+    prio = tables.Reader(ws)
+    area = prio.area(args.area)
     # td-59: the one way a reader outside this tool gets the open items as data, on
     # either backing (the JSON files or todo.db), so none opens todo.json itself.
-    view = {"root": str(ws.root), "items": [], "unreadable": list(ws.errors) if many else []}
+    view = {"root": str(ws.root), "items": [], "unreadable": list(ws.errors) if many else [],
+            "priority_unread": prio.unread}
     for s in scope:
         for it in s.items:
             if cited and not syncplans.cites(it, *cited):
@@ -992,8 +995,12 @@ def cmd_list(args):
                 continue
             if (args.ready or args.blocked) and bool(deps.open_blockers(ws, it)) != args.blocked:
                 continue
-            view["items"].append({"id": tagging.global_id(it["id"]), "local_id": it["id"], "store": str(s.dir),
-                                  "record": it})
+            if not prio.in_area(it, s.repo, area):
+                continue
+            view["items"].append(dict({"id": tagging.global_id(it["id"]), "local_id": it["id"], "store": str(s.dir),
+                                       "record": it}, **prio.row(it, s.repo), _rank=prio.rank(it, s.repo)))
+    # priority order (PLAN-todo-tool.md §11), stable: within one priority, the store's order
+    view["items"].sort(key=lambda r: r.pop("_rank"))
     view["count"] = len(view["items"])
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
@@ -1004,9 +1011,18 @@ def cmd_list(args):
             print("(no open items match)")
         for e in view["unreadable"]:
             print(f"UNREADABLE  {e}")
+    priority_unknown_note(prio, view["items"])
     if view["unreadable"]:
         print("todo: UNCHECKED: a store could not be read, so the list may be missing its items", file=sys.stderr)
         sys.exit(3)
+
+
+def priority_unknown_note(prio, rows):
+    """One line on stderr when a read listed items whose priority it could not read
+    (tables.Reader): kept in, in the store's order, never guessed."""
+    if prio.unread and rows:
+        print(f"todo: priority unknown, so in the store's order and none left out as not dispatched: {prio.unread}",
+              file=sys.stderr)
 
 
 def cmd_show(args):
@@ -1220,10 +1236,16 @@ def cmd_repos(args):
         print(f"  UNREADABLE  {e}")
 
 
-def not_ready_reasons(ws, it):
+def not_ready_reasons(ws, it, store, prio=None):
     """Why `todo brief` would call this open item NOT READY, or []: one list, so
-    brief and dispatchable never disagree on what ready means."""
+    brief and dispatchable never disagree on what ready means. A priority that is
+    never dispatched (vocab.json, PLAN-todo-tool.md §11) is one reason."""
     why = []
+    prio = prio or tables.Reader(ws)
+    if not prio.dispatched(it, store.repo):
+        e = prio.of(it, store.repo)["priority"]
+        why.append(f"priority {e['value']} ({'its own' if e['from'] == 'own' else 'from ' + str(e['from'])}): "
+                   "never dispatched; a priority change reopens it")
     missing = [f for f in BRIEF_NEEDS if not it.get(f)]
     if missing:
         why.append(f"missing {', '.join(missing)}")
@@ -1263,27 +1285,61 @@ def ready_items(ws, repo=None, work=None, refused=None):
             yield it, s
 
 
-def ready_view(ws, repo=None, work=None):
+def prio_cell(value):
+    """A read's priority column: the effective value, `?` when unknown."""
+    return f"{value or '?':<{max(map(len, VOCAB.priorities))}}"
+
+
+def priority_out(counts):
+    """The `priority_out` list of a view: [{priority, count}] in vocab.json's order,
+    from {value: count}, for the items a priority never dispatched leaves out."""
+    return [{"priority": v, "count": counts[v]} for v in VOCAB.priorities if counts.get(v)]
+
+
+def priority_out_line(view):
+    out = view.get("priority_out") or []
+    if not out:
+        return None
+    return ("(left out, never dispatched: " + ", ".join(f"{o['count']} {o['priority']}" for o in out)
+            + "; todo projects counts them by project, and a priority change reopens one)")
+
+
+def ready_view(ws, repo=None, work=None, area=None, prio=None):
     """`todo ready` as one document (PLAN-routing-tree.md §25 step 2): the rows the
     text form prints, in its order, each with what a caller needs to act on it
-    without a second read: its store, whether it is handed out already, and who
-    approves it (Jacob, rule TD-B1, or nobody: null). Ready is not dispatchable:
-    `todo dispatchable` is the approved, not-dispatched subset."""
-    view = {"root": str(ws.root), "ready": [], "refused": [], "unreadable": list(ws.errors)}
-    refused, tabled = [], {}
+    without a second read: its store, whether it is handed out already, who
+    approves it (Jacob, rule TD-B1, or nobody: null) and its effective priority.
+    Ready is not dispatchable: `todo dispatchable` is the approved, not-dispatched
+    subset. Priority order (PLAN-todo-tool.md §11, vocab.json's): an item whose
+    priority is never dispatched is left out and counted (`priority_out`)."""
+    prio = prio or tables.Reader(ws)
+    view = {"root": str(ws.root), "ready": [], "refused": [], "unreadable": list(ws.errors),
+            "priority_unread": prio.unread}
+    refused, tabled, out, ranks = [], {}, {}, {}
     for it, s in ready_items(ws, repo, work, refused):
         if naming.tabled(it.get("repo")):   # a tabled location's items are left out, counted below
             tabled[it["repo"]] = tabled.get(it["repo"], 0) + 1
             continue
+        if not prio.in_area(it, s.repo, area):
+            continue
+        if not prio.dispatched(it, s.repo):
+            v = prio.value(it, s.repo)
+            out[v] = out.get(v, 0) + 1
+            continue
         appr, by_rule = approval.effective(it, s.repo)
         gid = tagging.global_id(it["id"])
-        view["ready"].append({"id": gid, "local_id": it["id"], "repo": it["repo"], "work": it["work"],
-                              "size": it.get("size"), "title": it["title"], "store": str(s.dir),
-                              "dispatched": it.get("dispatched"), "approved": appr, "by_rule": by_rule,
-                              "brief": f"todo brief {gid}"})
-    view["refused"] = [{"id": tagging.global_id(it["id"]), "local_id": it["id"], "why": why} for it, why in refused]
+        ranks[gid] = prio.rank(it, s.repo)
+        view["ready"].append(dict({"id": gid, "local_id": it["id"], "repo": it["repo"], "work": it["work"],
+                                   "size": it.get("size"), "title": it["title"], "store": str(s.dir),
+                                   "dispatched": it.get("dispatched"), "approved": appr, "by_rule": by_rule,
+                                   "brief": f"todo brief {gid}"}, **prio.row(it, s.repo)))
+    view["ready"].sort(key=lambda r: ranks[r["id"]])   # stable: within a priority, the scan's order
+    # a refused item has its repo set (BRIEF_NEEDS), which finds its project before its store's key would
+    view["refused"] = [{"id": tagging.global_id(it["id"]), "local_id": it["id"], "why": why}
+                       for it, why in refused if prio.in_area(it, it["repo"], area)]
     view["count"] = len(view["ready"])
     view["tabled_out"] = naming.tabled_out(tabled)
+    view["priority_out"] = priority_out(out)
     return view
 
 
@@ -1292,7 +1348,9 @@ def cmd_ready(args):
     # root, say) every scanned store answers, as dispatchable and blockers do.
     ws = read_workspace(args)
     known_repo(ws, args.repo)
-    view = ready_view(ws, args.repo, args.work)
+    prio = tables.Reader(ws)
+    view = ready_view(ws, args.repo, args.work, prio.area(args.area), prio)
+    priority_unknown_note(prio, view["ready"])
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
     else:
@@ -1301,7 +1359,8 @@ def cmd_ready(args):
             # handed out already must not read as free (`todo dispatchable` leaves it out)
             d = r["dispatched"]
             mark = f"[dispatched {d.get('date')}] " if isinstance(d, dict) else ""
-            print(f"{r['local_id']:<8} {r['repo']:<20} {r['work']:<9} {r['size']:<2} {mark}{r['title'][:TITLE_WIDTH]}")
+            print(f"{r['local_id']:<8} {r['repo']:<20} {r['work']:<9} {r['size']:<2} {prio_cell(r['priority'])} "
+                  f"{mark}{r['title'][:TITLE_WIDTH]}")
         if not view["ready"]:
             print(f"(nothing ready: an open item needs repo, work and done_when set, size {' or '.join(VOCAB.ready_sizes)}, "
                   "and every blocked_by id closed)")
@@ -1311,6 +1370,8 @@ def cmd_ready(args):
                 print(f"  {r['local_id']:<8} {r['why']}")
         if naming.tabled_line(view):
             print(naming.tabled_line(view))
+        if priority_out_line(view):
+            print(priority_out_line(view))
         for e in view["unreadable"]:
             print(f"UNREADABLE  {e}")
     if view["unreadable"]:
@@ -1398,7 +1459,7 @@ def cmd_approve(args):
 
 def cmd_decisions(args):
     """The open decisions of every scanned store as a plan's Decisions table,
-    numbered 1..n, the one freeing most items first (PLAN-todo-tool.md §10.3), and
+    numbered 1..n, by priority then the one freeing most items first (§10.3, §11), and
     recorded in this store as a table `todo answer` reads (§10.3a, §10.3b). The
     same rows as an earlier table return that table's id; --from dt-N tables only
     the rows of dt-N still open, recording which rows each supersedes."""
@@ -1408,6 +1469,14 @@ def cmd_decisions(args):
         require_clean(store)
         ws = workspace(args, store)
         complete, incomplete, counts = decide.open_rows(ws)
+        # PLAN-todo-tool.md §11: --area keeps that area's; a priority vocab.json does not
+        # table is counted, never a row; priority first, then (stable) most freed as before.
+        prio = tables.Reader(ws)
+        area = prio.area(args.area)
+        complete = [r for r in complete if prio.in_area(r[0], r[1].repo, area)]
+        incomplete = [r for r in incomplete if prio.in_area(r[0], r[1].repo, area)]
+        (complete, incomplete), untabled = tables.untabled(prio, complete, incomplete)
+        complete.sort(key=lambda r: prio.rank(r[0], r[1].repo))
         supersedes = []
         if args.from_:
             old = decide.find_table(store.tables, args.from_)
@@ -1416,6 +1485,7 @@ def cmd_decisions(args):
                                 f"({', '.join(t['id'] for t in store.tables) or 'none recorded'})")
             by_id = {it["id"]: (it, s) for it, s in complete}
             kept = [(r, by_id[r["item"]]) for r in old["rows"] if r["item"] in by_id]
+            kept.sort(key=lambda k: prio.rank(k[1][0], k[1][1].repo))
             complete = [found for _, found in kept]
             supersedes = [{"n": n, "table": old["id"], "row": r["n"]} for n, (r, _) in enumerate(kept, 1)]
         rows = decide.record_rows(complete)
@@ -1427,11 +1497,14 @@ def cmd_decisions(args):
             store.ensure_records()["tables"].append(table)
             commit(store)
     listed = [{"id": tagging.global_id(it["id"]), "repo": s.repo, "missing": why} for it, s, why in incomplete]
+    row_prio = {it["id"]: prio.value(it, s.repo) for it, s in complete}
+    priority_unknown_note(prio, rows)
     if args.json:
         out = {"table": table and table["id"], "date": table and table["date"], "new": new,
-               "rows": [dict(r, id=tagging.global_id(r["item"]), frees=counts.get(r["item"], 0)) for r in rows],
+               "rows": [dict(r, id=tagging.global_id(r["item"]), frees=counts.get(r["item"], 0),
+                             priority=row_prio[r["item"]]) for r in rows],
                "supersedes": table["supersedes"] if table else [], "incomplete": listed,
-               "unreadable": list(ws.errors)}
+               "untabled": untabled, "priority_unread": prio.unread, "unreadable": list(ws.errors)}
         print(json.dumps(out, indent=1, ensure_ascii=False))
     else:
         if table:
@@ -1445,6 +1518,8 @@ def cmd_decisions(args):
         footer = decide.untabled_lines(listed)
         if footer:
             print("\n" + "\n".join(footer))
+        if prio.untabled_line(untabled):
+            print("\n" + prio.untabled_line(untabled))
         for e in ws.errors:
             print(f"UNREADABLE  {e}")
     if ws.errors:
@@ -1576,21 +1651,25 @@ def cmd_dispatch(args):
             if by_rule:
                 item["approved"] = appr
                 msg += f", approved by rule {VOCAB.approval_rule['id']}, not by Jacob"
-            why = not_ready_reasons(workspace(args, store), item)
+            why = not_ready_reasons(workspace(args, store), item, store)
             if why:
                 msg += f"; note: todo brief calls it NOT READY ({'; '.join(why)})"
         commit(store)
     print(msg)
 
 
-def dispatch_view(ws, repo=None):
+def dispatch_view(ws, repo=None, area=None, prio=None):
     """What can be dispatched now, across every scanned store: open items Jacob
-    approved, not dispatched, and ready as `todo brief` judges it. Every approved
-    open item is accounted for: listed, held (with why), or dispatched; the open
-    items with no approval are counted, never silently dropped."""
+    approved, not dispatched, and ready as `todo brief` judges it, in priority
+    order (PLAN-todo-tool.md §11). Every approved open item is accounted for:
+    listed, held (with why), or dispatched; the open items with no approval are
+    counted, never silently dropped, and so are those whose priority is never
+    dispatched (`priority_out`), approved or not. One handed out already stays in
+    `dispatched` whatever its priority now: that it was handed out is a fact."""
+    prio = prio or tables.Reader(ws)
     view = {"dispatchable": [], "by_rule": [], "held": [], "dispatched": [], "unapproved": 0,
-            "unreadable": list(ws.errors)}
-    tabled = {}
+            "unreadable": list(ws.errors), "priority_unread": prio.unread}
+    tabled, out = {}, {}
     for s in ws.stores:
         for it in s.items:
             if repo and it.get("repo") != repo:
@@ -1599,6 +1678,12 @@ def dispatch_view(ws, repo=None):
                 continue  # its work lives in the owner's store, under the counterpart's id
             if naming.tabled(it.get("repo")):   # the location is tabled (names file): left out, counted
                 tabled[it["repo"]] = tabled.get(it["repo"], 0) + 1
+                continue
+            if not prio.in_area(it, s.repo, area):
+                continue
+            if not it.get("dispatched") and not prio.dispatched(it, s.repo):
+                v = prio.value(it, s.repo)
+                out[v] = out.get(v, 0) + 1
                 continue
             # Jacob's own yes, or rule TD-B1's (todolib/approval.py), never mistaken for his.
             appr, by_rule = approval.effective(it, s.repo)
@@ -1616,28 +1701,35 @@ def dispatch_view(ws, repo=None):
                 continue
             if is_split(ws, it):
                 continue  # split: its children carry the approval and the work
-            why = not_ready_reasons(ws, it)
+            why = not_ready_reasons(ws, it, s, prio)
             if why:
                 view["held"].append({"id": gid, "why": why, "by_rule": by_rule})
                 continue
-            view["by_rule" if by_rule else "dispatchable"].append(
+            view["by_rule" if by_rule else "dispatchable"].append(dict(
                 {"id": gid, "repo": it["repo"], "work": it["work"], "size": it["size"],
                  "title": it["title"], "approved": appr, "store": str(s.dir),
-                 "brief": f"todo brief {gid}", "mark": f"todo -C {s.dir} dispatch {it['id']}"})
+                 "brief": f"todo brief {gid}", "mark": f"todo -C {s.dir} dispatch {it['id']}"},
+                **prio.row(it, s.repo)))
+    order = list(VOCAB.priorities)
+    for key in ("dispatchable", "by_rule"):   # stable: within a priority, the scan's order
+        view[key].sort(key=lambda r: order.index(r["priority"] or VOCAB.default_priority))
     view["tabled_out"] = naming.tabled_out(tabled)
+    view["priority_out"] = priority_out(out)
     return view
 
 
 def cmd_dispatchable(args):
     ws = read_workspace(args)
     known_repo(ws, args.repo)
-    view = dispatch_view(ws, args.repo)
+    prio = tables.Reader(ws)
+    view = dispatch_view(ws, args.repo, prio.area(args.area), prio)
+    priority_unknown_note(prio, view["dispatchable"] + view["by_rule"])
     if args.json:
         print(json.dumps(view, indent=1, ensure_ascii=False))
     else:
         def row(r, approved):
             print(f"{r['id']:<11} repo {r['repo']:<16} work {r['work']:<9} size {r['size']}  "
-                  f"{approved}  {r['title'][:TITLE_WIDTH]}")
+                  f"priority {prio_cell(r['priority'])}  {approved}  {r['title'][:TITLE_WIDTH]}")
             print(f"{'':<11} brief: {r['brief']}   mark it handed out: {r['mark']}")
         for r in view["dispatchable"]:
             row(r, f"approved {r['approved']['date']}")
@@ -1648,6 +1740,8 @@ def cmd_dispatchable(args):
                 row(r, f"rule {rule['id']}")
         if naming.tabled_line(view):
             print(naming.tabled_line(view))
+        if priority_out_line(view):
+            print(priority_out_line(view))
         if not view["dispatchable"] and not view["by_rule"]:
             # PLAN-todo-tool.md §10.2 step 3: what holds the rest, not a bare count.
             n = VOCAB.blocker_bounds["dispatchable_lines"]
@@ -2108,6 +2202,8 @@ def cmd_brief(args):
                           f"{'; '.join(approval.rule_misses(it, s.repo))})"))
     if it.get("dispatched"):
         print(f"Dispatched: {field_value('dispatched', it['dispatched'])}")
+    prio = tables.Reader(ws)
+    print(f"Priority: {prio.source_line(it, s.repo)}")
     print(handoff_line(it, work_dir(ws, s, it)))
     todo_bin = Path(sys.argv[0]).resolve()
     print(f"Hand off at each checkpoint: {todo_bin} -C {s.dir} edit {it['id']} --handoff \"done; next; how to verify\"")
@@ -2116,7 +2212,7 @@ def cmd_brief(args):
     print(f"Stop rule: {VOCAB.brief['stop_rule']}")
     for ln in practicing.brief_lines(args.checks_cli, ws.root, work_dir(ws, s, it), it.get("repo"), VOCAB.practices):
         print(ln)
-    why = not_ready_reasons(ws, it)
+    why = not_ready_reasons(ws, it, s, prio)
     if why:
         print(f"NOT READY: {'; '.join(why)}")
         sys.exit(1)
@@ -2322,21 +2418,59 @@ def project_lists(args, ws, home, row):
                         "cannot be judged: " + "; ".join(ws.errors))
 
 
+def project_counts(ws, prio):
+    """{project id or None: {items, ready, by_priority}} over every scanned store's
+    items (PLAN-todo-tool.md §11; a store holds only open ones, closed ones are in
+    its history): `items` every item whose project it is (None: it resolves to
+    none), `ready` those `todo ready` lists, and `by_priority` the items by effective
+    priority, each value of vocab.json counted; an unknown priority (no table read)
+    is counted in none of them, never as the default."""
+    def blank():
+        return {"items": 0, "ready": 0, "by_priority": {v: 0 for v in VOCAB.priorities}}
+    counts = {p.get("id"): blank() for p in prio.projects if isinstance(p, dict)}
+    for s in ws.stores:
+        for it in s.items:
+            c = counts.setdefault(prio.of(it, s.repo)["project"], blank())
+            c["items"] += 1
+            value = prio.value(it, s.repo)
+            if value is not None:
+                c["by_priority"][value] += 1
+    for r in ready_view(ws, prio=prio)["ready"]:
+        counts.setdefault(r["project"], blank())["ready"] += 1
+    return counts
+
+
 def cmd_projects(args):
     """`todo projects [--json]`: the projects table, each with its priority (unset
-    reads as vocab.json priority.default) and areas. tl-722 adds the counts."""
-    home = tables.home(read_workspace(args))
+    reads as vocab.json priority.default) and areas, and its open, ready and
+    not-dispatched (parked) counts across every scanned store (tl-722)."""
+    ws = read_workspace(args)
+    home = tables.home(ws)
+    prio = tables.Reader(ws)
+    counts = project_counts(ws, prio)
+    held = [v for v, b in VOCAB.priorities.items() if not b["dispatched"]]
     if args.json:
-        print(json.dumps({"store": home.repo, "default_priority": VOCAB.default_priority, "projects": home.projects},
+        print(json.dumps({"store": home.repo, "default_priority": VOCAB.default_priority,
+                          "projects": [dict(p, counts=counts[p.get("id")]) for p in home.projects],
+                          "no_project": counts.get(None), "unreadable": list(ws.errors)},
                          indent=1, ensure_ascii=False))
-        return
-    for p in home.projects:
-        pr = p.get("priority")
-        prio = pr["value"] if isinstance(pr, dict) and pr.get("value") else f"{VOCAB.default_priority} (unset)"
-        print(f"  {p.get('id'):<6} {p.get('name')}  [{', '.join(p.get('areas') or [])}]  priority {prio}"
-              + (f"  plans {', '.join(p['plans'])}" if p.get("plans") else "")
-              + (f"  repos {', '.join(p['repos'])}" if p.get("repos") else ""))
-    print(f"{len(home.projects)} project(s), in {home.repo}'s {store_mod.RECORDS_FILE}")
+    else:
+        def tally(c):
+            return f"open {c['items']}, ready {c['ready']}" + "".join(f", {v} {c['by_priority'][v]}" for v in held)
+        for p in home.projects:
+            pr = p.get("priority")
+            value = pr["value"] if isinstance(pr, dict) and pr.get("value") else f"{VOCAB.default_priority} (unset)"
+            print(f"  {p.get('id'):<6} {p.get('name')}  [{', '.join(p.get('areas') or [])}]  priority {value}"
+                  f"  ({tally(counts[p.get('id')])})"
+                  + (f"  plans {', '.join(p['plans'])}" if p.get("plans") else "")
+                  + (f"  repos {', '.join(p['repos'])}" if p.get("repos") else ""))
+        print(f"{len(home.projects)} project(s), in {home.repo}'s {store_mod.RECORDS_FILE}"
+              + (f"; in no project: {tally(counts[None])}" if counts.get(None) else ""))
+        for e in ws.errors:
+            print(f"UNREADABLE  {e}")
+    if ws.errors:
+        print("todo: UNCHECKED: a store could not be read, so the counts may be missing its items", file=sys.stderr)
+        sys.exit(3)
 
 
 def cmd_project_add(args):
@@ -2484,7 +2618,7 @@ COMMANDS = {
     "blockers": (cmd_blockers, "every open item not dispatchable, grouped by its root blocker, most items freed first; every store"),
     "stale-plans": (cmd_stale_plans, "open items whose plan section changed, is gone, or was never pinned"),
     "steps": (cmd_steps, "Jacob's open steps, numbered; --run closes each whose done_check exits 0"),
-    "decisions": (cmd_decisions, "open decisions as a numbered table for Jacob, most items freed first; recorded as dt-N"),
+    "decisions": (cmd_decisions, "open decisions as a numbered table for Jacob, by priority then most items freed; recorded as dt-N"),
     "answer": (cmd_answer, "apply Jacob's reply to a decisions table: 1) yes 2) no 3) <option>; other words kept"),
     "sync-plans": (cmd_sync_plans, "make and update the step items of each plan's steps; list stale, gone, unplaced; fails open"),
     "detect": (cmd_detect, "run the detectors: file, update and close their stall and lag items; record each run; render AUDITS.md"),
@@ -2495,7 +2629,7 @@ COMMANDS = {
     "export": (cmd_export, "rewrite todo.db's static exports (todo.*.jsonl) from it"),
     "areas": (cmd_areas, "the workspace's areas table (kept by the store at the scan root)"),
     "area-add": (cmd_area_add, "add an area: an id, a name and one line of meaning"),
-    "projects": (cmd_projects, "the workspace's projects table: each project's areas, priority, plans and repos"),
+    "projects": (cmd_projects, "the workspace's projects table: each project's areas, priority, plans, repos and open, ready and parked counts"),
     "project-add": (cmd_project_add, "add a project (pj-N) in one or more areas; an unknown area is refused"),
     "project-edit": (cmd_project_edit, "change a project's name, areas, plans or repos; an unknown project id is refused"),
     "priority": (cmd_priority, "Jacob's priority on a project or an item, with his words as --source; an item's own wins over its project's"),
@@ -2618,7 +2752,7 @@ def build_parser():
     ps["ready"].add_argument("--repo")
     ps["ready"].add_argument("--work", choices=list(VOCAB.works))
     ps["ready"].add_argument("--json", action="store_true",
-                             help="one document: {root, ready, refused, unreadable, count}")
+                             help="one document: {root, ready, refused, unreadable, count, tabled_out, priority_out, priority_unread}")
     ps["brief"].add_argument("id")
     ps["brief"].add_argument("--checks-cli", dest="checks_cli", metavar="PATH",
                              help="the checks tool whose `checks practices --rows --json` lists the practice rows (default: "
@@ -2689,6 +2823,9 @@ def build_parser():
     ps["sync-plans"].add_argument("--json", action="store_true", help="every action, uncapped")
     for name in ("areas", "projects"):
         ps[name].add_argument("--json", action="store_true")
+    for name in ("list", "ready", "decisions", "dispatchable"):
+        ps[name].add_argument("--area", metavar="A",
+                              help="only items whose effective areas hold A, an id of the areas table (todo areas)")
     ps["area-add"].add_argument("area", metavar="ID", help=f"the area's id ({VOCAB.area_id.pattern})")
     ps["area-add"].add_argument("--name", required=True, help="one line")
     ps["area-add"].add_argument("--doc", required=True, help="one line: what the area holds")

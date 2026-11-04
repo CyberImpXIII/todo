@@ -44,7 +44,7 @@ class ReadyJson(Case):
         with self.assertRaises(json.JSONDecodeError):
             json.loads(text)  # without --json: lines, not a document
         d = self.doc()
-        self.assertEqual(sorted(d), ["count", "ready", "refused", "root", "tabled_out", "unreadable"])
+        self.assertEqual(sorted(d), ["count", "priority_out", "priority_unread", "ready", "refused", "root", "tabled_out", "unreadable"])
         self.assertEqual([r["local_id"] for r in d["ready"]], text_ids(text))
         self.assertEqual(sorted(r["id"] for r in d["ready"]), ["todo:aa-1", "todo:bb-1", "todo:bb-2"])
         self.assertEqual(d["count"], 3)

@@ -269,6 +269,120 @@ def effective_lines(eff, unread=None):
     return [f"project: {project}", f"effective priority: {prio}", f"effective areas: {areas}"]
 
 
+class Reader:
+    """What the reads (`list`, `ready`, `decisions`, `dispatchable`, `brief`,
+    `projects`; PLAN-todo-tool.md §11 step 1c, tl-722) know of an item's priority and
+    areas: one place, so no two of them order or leave out an item differently.
+
+    Each behaviour is vocab.json's (`tabled`, `count`, `dispatched`), never a value's
+    name. When the projects table cannot be read (`unread` says why), an item without
+    its own priority reads as unknown (None): it is ordered with the default and left
+    in, never guessed parked, and each read says so once."""
+
+    def __init__(self, ws):
+        try:
+            self.home = home(ws)
+            self.projects, self.unread = self.home.projects, None
+        except TodoError as e:
+            self.home, self.projects, self.unread = None, None, str(e)
+        self.order = list(VOCAB.priorities)
+        self._memo = {}
+
+    def of(self, item, store_repo):
+        key = (store_repo, item.get("id"))
+        if key not in self._memo:
+            self._memo[key] = effective(item, store_repo, self.projects)
+        return self._memo[key]
+
+    def value(self, item, store_repo):
+        """The effective priority, or None: unknown (the table could not be read)."""
+        return self.of(item, store_repo)["priority"]["value"]
+
+    def rank(self, item, store_repo):
+        """Its place in vocab.json's order; unknown takes the default's."""
+        return self.order.index(self.value(item, store_repo) or VOCAB.default_priority)
+
+    def behaviour(self, item, store_repo):
+        return VOCAB.priorities[self.value(item, store_repo) or VOCAB.default_priority]
+
+    def tabled(self, item, store_repo):
+        return self.behaviour(item, store_repo)["tabled"]
+
+    def dispatched(self, item, store_repo):
+        return self.behaviour(item, store_repo)["dispatched"]
+
+    def area(self, given):
+        """The --area a read was given, checked against the areas table, or None.
+        Refused without a table: an area filter over areas nobody can read is a guess."""
+        if given is None:
+            return None
+        if self.home is None:
+            raise TodoError(f"--area {given}: {self.unread}")
+        return resolve_areas(self.home, [given])[0]
+
+    def in_area(self, item, store_repo, area):
+        return area is None or area in (self.of(item, store_repo)["areas"]["value"] or [])
+
+    def row(self, item, store_repo):
+        """What a read's JSON row carries: {priority, priority_from, project}."""
+        e = self.of(item, store_repo)
+        return {"priority": e["priority"]["value"], "priority_from": e["priority"]["from"], "project": e["project"]}
+
+    def source_line(self, item, store_repo):
+        """`todo brief`'s Priority line: the effective value and where it came from,
+        with Jacob's words when he set it."""
+        if self.projects is None and not (isinstance(item.get("priority"), dict) and item["priority"].get("value")):
+            return f"unknown ({self.unread})"
+        e = self.of(item, store_repo)
+        value, frm = e["priority"]["value"], e["priority"]["from"]
+        if frm == "own":
+            return f"{value} (its own: {_said(item['priority'])})"
+        if frm is not None:
+            row = next(p for p in self.projects if isinstance(p, dict) and p.get("id") == frm)
+            return f"{value} (from {frm} {row.get('name')}, {e['via']}: {_said(row['priority'])})"
+        if e["project"]:
+            return f"{value} (the default: {e['project']}, {e['via']}, has none set)"
+        return f"{value} (the default: {e['via']})"
+
+    def untabled_line(self, untabled):
+        """The count line for decisions a priority keeps off the table (`untabled`:
+        [{priority, project, count}]), or None."""
+        if not untabled:
+            return None
+        parts = [f"{u['count']} {u['priority']}" + (f" in {u['project'] or 'no project'}"
+                                                     if VOCAB.priorities[u["priority"]].get("count") == "project" else "")
+                 for u in untabled]
+        return "not tabled, by priority: " + ", ".join(parts)
+
+
+def _said(p):
+    return f"{p.get('by')} {p.get('date')}, \"{p.get('source')}\""
+
+
+def untabled(reader, *lists):
+    """Each list of [(item, store, ...)] cut to the rows `todo decisions` tables, and
+    the counts of the rest over all of them, [{priority, project, count}]: a value
+    whose `count` is project is counted per project (project None: it has none), one
+    whose `count` is total in one line, project None (vocab.json)."""
+    kept_lists, counts = [], {}
+    for found in lists:
+        kept = []
+        for row in found:
+            it, s = row[0], row[1]
+            if reader.tabled(it, s.repo):
+                kept.append(row)
+                continue
+            v = reader.value(it, s.repo)
+            per = VOCAB.priorities[v]["count"] == "project"
+            key = (v, reader.of(it, s.repo)["project"] if per else None)
+            counts[key] = counts.get(key, 0) + 1
+        kept_lists.append(kept)
+    order = list(VOCAB.priorities)
+    out = [{"priority": v, "project": pj, "count": n}
+           for (v, pj), n in sorted(counts.items(), key=lambda kv: (order.index(kv[0][0]), kv[0][1] or ""))]
+    return kept_lists, out
+
+
 def findings(store, ws, plans_root):
     """What check's records gate says of the tables: problems, then references."""
     return problems(store.records) + (references(store.projects, ws, plans_root) or [])

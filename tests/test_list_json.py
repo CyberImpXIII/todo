@@ -37,7 +37,7 @@ class ListJson(Case):
         with self.assertRaises(json.JSONDecodeError):
             json.loads(text)  # without --json: lines, not a document
         d = self.doc()
-        self.assertEqual(sorted(d), ["count", "items", "root", "unreadable"])
+        self.assertEqual(sorted(d), ["count", "items", "priority_unread", "root", "unreadable"])
         self.assertEqual([r["local_id"] for r in d["items"]], text_ids(text))
         self.assertEqual([r["id"] for r in d["items"]], ["todo:aa-1", "todo:aa-2"])
         self.assertEqual((d["count"], d["unreadable"], d["root"]), (2, [], str(self.ws.resolve())))

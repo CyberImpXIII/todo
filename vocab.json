@@ -37,13 +37,13 @@
     "L": {"doc": "more than one checkpoint: `todo split` it into S and M children before anyone starts it", "ready": false}
   },
   "priority": {
-    "_comment": "What Jacob wants first (PLAN-todo-tool.md §11, approved 2026-10-22, tl-566): one value from a closed list, each a different behaviour, not a finer rank. Render order is the order here. `default` is what an unset priority reads as. Only Jacob sets one, with his words as its source (tl-721, step 1b).",
+    "_comment": "What Jacob wants first (PLAN-todo-tool.md §11, approved 2026-10-22, tl-566): one value from a closed list, each a different behaviour, not a finer rank. Render order is the order here. `default` is what an unset priority reads as. Only Jacob sets one, with his words as its source (tl-721, step 1b). The reads (step 1c, tl-722) take each value's behaviour from here, never a value's name: the order here is the order of `list`, `ready`, `decisions` and `dispatchable`; `tabled` false leaves a decision out of `todo decisions`, counted per project (`count` project) or in one total (`count` total); `dispatched` false leaves an item out of `ready` and `dispatchable`, one count, and `todo brief` calls it NOT READY.",
     "default": "next",
     "values": {
-      "now":    {"doc": "tabled first in `todo decisions`; dispatched first"},
-      "next":   {"doc": "the default (unset reads as next): tabled and dispatched after now"},
-      "later":  {"doc": "not tabled (one count per project); dispatched only when its folder has nothing now or next ready"},
-      "parked": {"doc": "not tabled (one total count); never dispatched. Reopening it is a priority change"}
+      "now":    {"doc": "tabled first in `todo decisions`; dispatched first", "tabled": true, "dispatched": true},
+      "next":   {"doc": "the default (unset reads as next): tabled and dispatched after now", "tabled": true, "dispatched": true},
+      "later":  {"doc": "not tabled (one count per project); dispatched only when its folder has nothing now or next ready", "tabled": false, "count": "project", "dispatched": true},
+      "parked": {"doc": "not tabled (one total count); never dispatched. Reopening it is a priority change", "tabled": false, "count": "total", "dispatched": false}
     }
   },
   "workspace_tables": {
