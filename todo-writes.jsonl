@@ -24,3 +24,5 @@
 {"at": "2026-11-04T02:13:11Z", "verb": "add", "ids": ["td-115"], "by": "unattributed", "why": null, "seal_before": "a4e83a08c3b654ec", "seal_after": "b37613227606a62e", "rename": null}
 {"at": "2026-11-04T02:13:11Z", "verb": "add", "ids": ["td-116"], "by": "unattributed", "why": null, "seal_before": "b37613227606a62e", "seal_after": "9ddf43bb0b17de64", "rename": null}
 {"at": "2026-11-04T02:22:51Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "9ddf43bb0b17de64", "seal_after": "74fa50ce0ce68172", "rename": null}
+{"at": "2026-11-19T01:03:35Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "74fa50ce0ce68172", "seal_after": "646c4e003f45a12c", "rename": null}
+{"at": "2026-11-19T01:35:19Z", "verb": "done", "ids": ["td-64"], "by": "unattributed", "why": null, "seal_before": "646c4e003f45a12c", "seal_after": "32b6b296de8b3dbb", "rename": null}

@@ -842,51 +842,6 @@
       "imported": null
     },
     {
-      "id": "td-64",
-      "title": "Brief reads practice rows via a synthetic --from report; switch to a rows-only checks verb when one exists",
-      "kind": "note",
-      "status": "open",
-      "evidence": "tl-311: todolib/practices.py pipes {repos:[{rel:LOC,results:[]}]} to checks practices --json --from /dev/stdin and reads only .rows (a live run takes ~41 s). Reported to checks: no rows-only verb.\n2026-10-22: still no rows-only verb: checks --help lists none; checks practices --row ID prints measured: live (a run); tools/checks HEAD 0be97db (2026-10-19) and its TODO.md hold no request for one. The synthetic --from read took 3 s and printed 53222 bytes, of which only .rows is read. Reported to checks again from this dispatch.",
-      "probe": null,
-      "reported_to": null,
-      "parent": null,
-      "blocked_by": null,
-      "waits_on": null,
-      "pointer": null,
-      "hinges_on": null,
-      "recommend": null,
-      "options": null,
-      "chosen": null,
-      "jacob_words": null,
-      "repo": "todo",
-      "work": "code",
-      "size": "S",
-      "files": null,
-      "research": null,
-      "done_when": "practices.rows calls a checks verb that prints the rows without a run, and tests/test_practices.py passes",
-      "done_check": null,
-      "handoff": {
-        "date": "2026-10-22",
-        "text": "done: nothing in code, blocked on tools/checks; next: when checks serves the rows by their own verb (e.g. checks practices --rows --json, no run, no cells), point practices.ARGS at it, drop the --from report, keep the UNCHECKED paths; verify: python3 -m unittest tests.test_practices and ./dev.sh check",
-        "commit": "0bce7b4"
-      },
-      "approved": {
-        "by": "jacob",
-        "date": "2026-10-20",
-        "source": "Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284"
-      },
-      "dispatched": null,
-      "retire": null,
-      "tags": null,
-      "plan_pins": null,
-      "detector": null,
-      "plan_step": null,
-      "added": "2026-10-19",
-      "done": null,
-      "resolution": null,
-      "imported": null
-    },
-    {
       "id": "td-65",
       "title": "Practice rows in the brief lack the rule text: checks practices --json omits rule",
       "kind": "report",
@@ -2190,7 +2145,7 @@
         "subject": "unsized open items",
         "count": 54,
         "clears_with": "todo edit ID --size S|M|L (never ready until sized), or close it",
-        "seen": "2026-11-03"
+        "seen": "2026-11-18"
       },
       "plan_step": null,
       "added": "2026-11-03",
@@ -2528,5 +2483,5 @@
       "imported": null
     }
   ],
-  "seal": "74fa50ce0ce68172"
+  "seal": "32b6b296de8b3dbb"
 }

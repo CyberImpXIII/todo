@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (67 open, 49 closed in todo-history.json; seal 9eb7a57cf2d5): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (66 open, 50 closed in todo-history.json; seal 9435bb0a051f): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -299,7 +299,7 @@
 
 - **td-108 · D2: unsized open items (54)**
   oldest 2026-10-04: td-4; td-7; td-8; td-9; td-25; td-42; td-44; td-45; td-46; td-48; td-49; td-50; td-51; td-52; td-53; td-54; td-55; td-56; td-57; td-63; td-65; td-66; td-68; td-69; td-72; td-73; td-74; td-75; td-76; td-77; td-78; td-80; td-81; td-83; td-84; td-85; td-86; td-87; td-88; td-91; td-94; td-95; td-96; td-99; td-100; td-101; td-102; td-103; td-104; td-112; td-113; td-114; td-115; td-116
-  · detector: D2 on unsized open items, count 54, last seen 2026-11-03; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
+  · detector: D2 on unsized open items, count 54, last seen 2026-11-18; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
   · added: 2026-11-03
 
 ## Notes
@@ -341,16 +341,6 @@
   · parent: tl-308
   · work: code
   · done when: stale report clears after re-pin, or the cause is documented
-  · added: 2026-10-19
-
-- **td-64 · Brief reads practice rows via a synthetic --from report; switch to a rows-only checks verb when one exists**
-  tl-311: todolib/practices.py pipes {repos:[{rel:LOC,results:[]}]} to checks practices --json --from /dev/stdin and reads only .rows (a live run takes ~41 s). Reported to checks: no rows-only verb.
-  2026-10-22: still no rows-only verb: checks --help lists none; checks practices --row ID prints measured: live (a run); tools/checks HEAD 0be97db (2026-10-19) and its TODO.md hold no request for one. The synthetic --from read took 3 s and printed 53222 bytes, of which only .rows is read. Reported to checks again from this dispatch.
-  · work: code
-  · size: S
-  · done when: practices.rows calls a checks verb that prints the rows without a run, and tests/test_practices.py passes
-  · handoff: done: nothing in code, blocked on tools/checks; next: when checks serves the rows by their own verb (e.g. checks practices --rows --json, no run, no cells), point practices.ARGS at it, drop the --from report, keep the UNCHECKED paths; verify: python3 -m unittest tests.test_practices and ./dev.sh check (2026-10-22, at 0bce7b4)
-  · approved: jacob 2026-10-20: Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284
   · added: 2026-10-19
 
 - **td-68 · PLAN-architecture.md §9 step 10.3: your services.json registry draft is in RESEARCH-registry-drafts.md, section `tools/todo`; write it in, then checks one registered**

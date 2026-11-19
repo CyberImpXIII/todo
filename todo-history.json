@@ -1416,7 +1416,52 @@
       "done": "2026-11-03",
       "resolution": "duplicate of td-104 (filed by the dispatch ledger a moment earlier)",
       "imported": null
+    },
+    {
+      "id": "td-64",
+      "title": "Brief reads practice rows via a synthetic --from report; switch to a rows-only checks verb when one exists",
+      "kind": "note",
+      "status": "done",
+      "evidence": "tl-311: todolib/practices.py pipes {repos:[{rel:LOC,results:[]}]} to checks practices --json --from /dev/stdin and reads only .rows (a live run takes ~41 s). Reported to checks: no rows-only verb.\n2026-10-22: still no rows-only verb: checks --help lists none; checks practices --row ID prints measured: live (a run); tools/checks HEAD 0be97db (2026-10-19) and its TODO.md hold no request for one. The synthetic --from read took 3 s and printed 53222 bytes, of which only .rows is read. Reported to checks again from this dispatch.",
+      "probe": null,
+      "reported_to": null,
+      "parent": null,
+      "blocked_by": null,
+      "waits_on": null,
+      "pointer": null,
+      "hinges_on": null,
+      "recommend": null,
+      "options": null,
+      "chosen": null,
+      "jacob_words": null,
+      "repo": "todo",
+      "work": "code",
+      "size": "S",
+      "files": null,
+      "research": null,
+      "done_when": "practices.rows calls a checks verb that prints the rows without a run, and tests/test_practices.py passes",
+      "done_check": null,
+      "handoff": {
+        "date": "2026-10-22",
+        "text": "done: nothing in code, blocked on tools/checks; next: when checks serves the rows by their own verb (e.g. checks practices --rows --json, no run, no cells), point practices.ARGS at it, drop the --from report, keep the UNCHECKED paths; verify: python3 -m unittest tests.test_practices and ./dev.sh check",
+        "commit": "0bce7b4"
+      },
+      "approved": {
+        "by": "jacob",
+        "date": "2026-10-20",
+        "source": "Jacob 2026-10-20 via auto-relay (origin jacob), Dispatch lines 270-284"
+      },
+      "dispatched": null,
+      "retire": null,
+      "tags": null,
+      "plan_pins": null,
+      "detector": null,
+      "plan_step": null,
+      "added": "2026-10-19",
+      "done": "2026-11-18",
+      "resolution": "fixed by td-97 (todo 91fbb55, 2026-11-02): practices.ARGS = (practices, --rows, --json), stdin DEVNULL, no --from report; UNCHECKED paths kept, measured cells refused (mutant practices-measured-read-as-rows). Verified 2026-11-18: tools/checks/checks practices --rows --json exit 0, <1 s, 29070 bytes, 120 ids, 0 cells, no ratchet/measured/locations keys (was 3 s / 53222 bytes via --from, 41 s live); python3 -m unittest tests.test_practices: 14 OK",
+      "imported": null
     }
   ],
-  "seal": "38818459a84ce915"
+  "seal": "369d542b0808e29c"
 }
