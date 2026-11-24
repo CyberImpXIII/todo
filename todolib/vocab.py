@@ -117,6 +117,8 @@ class Vocab:
             raise ValueError("vocab.json: steps.shell is an absolute path to a shell")
         if not (isinstance(self.step_timeout, (int, float)) and not isinstance(self.step_timeout, bool) and self.step_timeout > 0):
             raise ValueError(f"vocab.json: steps.timeout_s is {self.step_timeout!r}, not a positive number of seconds")
+        self.home_path = re.compile(data["leaks"]["home_path"])
+        self.home_path_source = "vocab.json leaks.home_path"
         self.import_rules = data["import"]["headings"]
         imp = data["import"]
         self.done_marker = re.compile(imp["done_marker"])

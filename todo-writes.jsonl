@@ -26,3 +26,13 @@
 {"at": "2026-11-04T02:22:51Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "9ddf43bb0b17de64", "seal_after": "74fa50ce0ce68172", "rename": null}
 {"at": "2026-11-19T01:03:35Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "74fa50ce0ce68172", "seal_after": "646c4e003f45a12c", "rename": null}
 {"at": "2026-11-19T01:35:19Z", "verb": "done", "ids": ["td-64"], "by": "unattributed", "why": null, "seal_before": "646c4e003f45a12c", "seal_after": "32b6b296de8b3dbb", "rename": null}
+{"at": "2026-11-19T17:36:23Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "32b6b296de8b3dbb", "seal_after": "f6b737594cb9be6a", "rename": null}
+{"at": "2026-11-20T12:03:17Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "f6b737594cb9be6a", "seal_after": "418a5dc92ebd53d6", "rename": null}
+{"at": "2026-11-21T17:29:28Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "418a5dc92ebd53d6", "seal_after": "e40645875e8ab8d3", "rename": null}
+{"at": "2026-11-24T15:29:42Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "e40645875e8ab8d3", "seal_after": "c6c0e51060af5990", "rename": null}
+{"at": "2026-11-24T16:09:33Z", "verb": "report", "ids": ["td-117"], "by": "unattributed", "why": null, "seal_before": "c6c0e51060af5990", "seal_after": "1fe4b6f69fe73848", "rename": null}
+{"at": "2026-11-24T16:41:59Z", "verb": "detect", "ids": ["td-108"], "by": "unattributed", "why": null, "seal_before": "1fe4b6f69fe73848", "seal_after": "c8fad8ec80fcd16a", "rename": null}
+{"at": "2026-11-24T16:44:13Z", "verb": "done", "ids": ["td-104"], "by": "unattributed", "why": null, "seal_before": "c8fad8ec80fcd16a", "seal_after": "ebbe028c46993e9c", "rename": null}
+{"at": "2026-11-24T16:44:14Z", "verb": "add", "ids": ["td-118"], "by": "unattributed", "why": null, "seal_before": "ebbe028c46993e9c", "seal_after": "f4ca51ec1c5862c0", "rename": null}
+{"at": "2026-11-24T16:44:15Z", "verb": "add", "ids": ["td-119"], "by": "unattributed", "why": null, "seal_before": "f4ca51ec1c5862c0", "seal_after": "e9d74f10bbc8083d", "rename": null}
+{"at": "2026-11-24T16:44:16Z", "verb": "add", "ids": ["td-120"], "by": "unattributed", "why": null, "seal_before": "e9d74f10bbc8083d", "seal_after": "c6dc0389265d67d2", "rename": null}

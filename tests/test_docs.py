@@ -17,6 +17,7 @@ BEYOND_PLAN = {"init": "a store has to be started; §3 assumes one exists",
                # accepted only by a recorded verb; `help` is what tools/checks reads for cli.json.
                "reseal": "§9: accept a broken seal, recorded in hand_edits",
                "split": "PLAN-small-tasks.md §2.1: an L item into children, each one checkpoint",
+               "correct": "PLAN-todo-tool.md §2a: the one exception, a closed entry's resolution corrected and logged (its name left to the tool)",
                "steps": "PLAN-architecture.md §11 S7: Jacob's steps, closed by their done_check",
                "decisions": "PLAN-todo-tool.md §10.3a/b: the numbered table Jacob reads, recorded as dt-N",
                "audit": "PLAN-hard-gates.md §9 step 2: one audit's findings, the count its detector files",

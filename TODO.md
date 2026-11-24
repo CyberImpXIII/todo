@@ -1,4 +1,4 @@
-<!-- rendered by todo from todo.json (66 open, 50 closed in todo-history.json; seal 9435bb0a051f): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
+<!-- rendered by todo from todo.json (69 open, 51 closed in todo-history.json; seal 3bcf32cf50a9): do not edit by hand, `todo check` fails on a hand edit. Change items with the todo CLI; a hand edit is recovered with `todo import`. -->
 # todo TODO
 
 ## Own bugs
@@ -79,10 +79,10 @@
   · parent: tl-683
   · added: 2026-11-03
 
-- **td-104 · `todo done --resolution` accepts a home-folder path that the leak audit then fails on, and a clos...**
-  reported from tools/hub to tools/todo in dispatch toolu_01QeceaiAtk3FPtKHdzH6msC, filed from the dispatch ledger by the delegation layer's report filer: `todo done --resolution` accepts a home-folder path that the leak audit then fails on, and a closed entry can't be corrected afterwards -- input: `todo -C tools/hub done hb-2 --resolution "...githooks.checks=/Users/<home>/.../tools/checks/checks..."` -- expected: done refuses home-folder paths, or a recorded verb amends a closed item's resolution.
-  · parent: tl-687
-  · added: 2026-11-03
+- **td-117 · `todo list --all --json --root R` fails with "no todo.json in <cwd>" when run from a folder with ...**
+  reported from .claude to tools/todo in dispatch toolu_01Ci8msCGaxZWwXvL68WQn79, filed from the dispatch ledger by the delegation layer's report filer: `todo list --all --json --root R` fails with "no todo.json in <cwd>" when run from a folder with no store, although it lists every store it scans -- input: cd addon-bench && ../tools/todo/todo --root /Users/Specter/Desktop/claudeTest list --all --json -- expected: the workspace listing, whatever the working directory (harness now works around it by running from ROOT)
+  · parent: tl-759
+  · added: 2026-11-24
 
 ## Open decisions
 
@@ -297,9 +297,9 @@
 
 ## Stalls
 
-- **td-108 · D2: unsized open items (54)**
-  oldest 2026-10-04: td-4; td-7; td-8; td-9; td-25; td-42; td-44; td-45; td-46; td-48; td-49; td-50; td-51; td-52; td-53; td-54; td-55; td-56; td-57; td-63; td-65; td-66; td-68; td-69; td-72; td-73; td-74; td-75; td-76; td-77; td-78; td-80; td-81; td-83; td-84; td-85; td-86; td-87; td-88; td-91; td-94; td-95; td-96; td-99; td-100; td-101; td-102; td-103; td-104; td-112; td-113; td-114; td-115; td-116
-  · detector: D2 on unsized open items, count 54, last seen 2026-11-18; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
+- **td-108 · D2: unsized open items (55)**
+  oldest 2026-10-04: td-4; td-7; td-8; td-9; td-25; td-42; td-44; td-45; td-46; td-48; td-49; td-50; td-51; td-52; td-53; td-54; td-55; td-56; td-57; td-63; td-65; td-66; td-68; td-69; td-72; td-73; td-74; td-75; td-76; td-77; td-78; td-80; td-81; td-83; td-84; td-85; td-86; td-87; td-88; td-91; td-94; td-95; td-96; td-99; td-100; td-101; td-102; td-103; td-104; td-112; td-113; td-114; td-115; td-116; td-117
+  · detector: D2 on unsized open items, count 55, last seen 2026-11-24; clears with: todo edit ID --size S|M|L (never ready until sized), or close it
   · added: 2026-11-03
 
 ## Notes
@@ -421,3 +421,18 @@
 - **td-116 · tl-722 read choices to confirm: list keeps parked items (ordered last), unknown priority (no store at scan root) ordered and kept as the default with a stderr note, later decisions counted per project; td-114 (todo.priority get namespace) still not added**
   tests/test_priority_reads.py pins each choice (Reads, Unread); README Areas and projects says them. None was named in the tl-722 done-when, so each is a reading of PLAN-todo-tool.md §11, not Jacob's words
   · added: 2026-11-03
+
+- **td-118 · todo correct is refused on todo.db: its history triggers refuse any change**
+  tl-756 added todo correct for todo-history.json only. migrate.py's history_no_update trigger and store_documents refuse a changed entry, so a store moved to todo.db cannot correct a resolution; tests/test_correct.py OnTodoDb holds the refusal. Needs a schema change admitting a logged resolution-only update.
+  · size: M
+  · added: 2026-11-24
+
+- **td-119 · a home-folder path in evidence, handoff, --why or another stored field is not refused (PLAN-todo-tool.md §2a, not covered by its approval)**
+  tl-756 refuses one in todo done --resolution and in todo correct's texts only. Read from the code, not run: tools/hub devtools/hubcheck.py leaks_in scans every line of every file it audits, so the same path in any other stored field would fail the hub's leak audit for a store the hub scans. Needs Jacob's decision whether to extend the refusal to every free-text field.
+  · size: S
+  · added: 2026-11-24
+
+- **td-120 · todo history ID --json carries no correction: only the text form prints the corrected lines**
+  tl-756: history_document returns each record whole, and a correction lives in todo-writes.jsonl, not in the record. A reader of --json cannot see that an entry was corrected unless it reads the log. Adding it changes the --json shape, which tests/test_history.py HistoryJson holds.
+  · size: S
+  · added: 2026-11-24

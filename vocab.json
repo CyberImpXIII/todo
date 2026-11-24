@@ -244,6 +244,10 @@
     "service": "research",
     "id": "^rs-[1-9][0-9]*$"
   },
+  "leaks": {
+    "_comment": "What a stored text may not carry (PLAN-todo-tool.md §2a). `home_path`, a home-folder path naming a user: `todo done --resolution` and `todo correct` refuse it and write nothing. The same expression as tools/hub's leak audit (devtools/hubcheck.py HOME_RX); tests/test_correct.py runs that audit on the same lines when the hub is present, so the two cannot drift apart unseen.",
+    "home_path": "(?<![\\w.])(/Users/|/home/)[A-Za-z0-9_][A-Za-z0-9._-]*"
+  },
   "import": {
     "_comment": "Kind and status of an imported block come from its section headings, deepest heading first, first rule that matches (case-insensitive, from a word start: `confirmed` does not match 'Unconfirmed'). A block whose own text starts with the done marker goes to history whatever its heading. `confirmed` → done: a confirmed finding is settled work (PLAN-todo-tool.md §9 step 1, td-22, Jacob 2026-10-09).",
     "headings": [

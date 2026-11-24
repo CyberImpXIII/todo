@@ -751,6 +751,7 @@ def cmd_done(args):
         return cmd_reject(args)
     if args.reason is not None:
         raise TodoError("--reason goes with --as; --resolution says how it closed")
+    refuse_home_path("--resolution", args.resolution)
     store = open_store(args)
     if args.resolution.strip() == VOCAB.role("detector_resolution"):
         raise TodoError(f"resolution {args.resolution!r} is set by todo detect only, when the detector no longer "
@@ -778,16 +779,7 @@ def cmd_done(args):
         if item is None:
             raise TodoError(f"{args.id} is not in {store.where}" + ("" if store.owns(args.id) else
                             f" (its prefix is not {store.prefix}: close it in its own repo)"))
-        if args.resolution.strip() == VOCAB.role("import_resolution"):
-            raise TodoError(f"resolution {args.resolution!r} is set by todo import only, for a closed bullet "
-                            "that carried none: say how this one closed")
-        if args.resolution.strip() == VOCAB.role("step_resolution"):
-            raise TodoError(f"resolution {args.resolution!r} is set by todo steps --run only, when the step's "
-                            "done_check exits 0: run that, or say how this one closed")
-        if args.resolution.strip() in [VOCAB.role(r) for r in DECISION_RESOLUTION_ROLES]:
-            raise TodoError(f"resolution {args.resolution!r} closes a decision on Jacob's answer: todo approve ID "
-                            f"[--option NAME], todo done ID --as {VOCAB.role('decision_rejected_resolution')} "
-                            "--reason R, or todo answer")
+        refuse_reserved_resolution(args.resolution)
         closed = dict(item, status=VOCAB.closed, done=today(), resolution=args.resolution)
         validate(closed, "history")
         store.history["items"].append(closed)
@@ -797,6 +789,74 @@ def cmd_done(args):
     print(f"closed {args.id}, moved to {store.history_where.name}")
     if parent_note:
         print(parent_note)
+
+
+def refuse_reserved_resolution(text):
+    """A resolution another verb sets (an import, a step, a decision's answer) is
+    never typed: `todo done` and `todo correct` refuse it alike."""
+    if text.strip() == VOCAB.role("import_resolution"):
+        raise TodoError(f"resolution {text!r} is set by todo import only, for a closed bullet "
+                        "that carried none: say how this one closed")
+    if text.strip() == VOCAB.role("step_resolution"):
+        raise TodoError(f"resolution {text!r} is set by todo steps --run only, when the step's "
+                        "done_check exits 0: run that, or say how this one closed")
+    if text.strip() in [VOCAB.role(r) for r in DECISION_RESOLUTION_ROLES]:
+        raise TodoError(f"resolution {text!r} closes a decision on Jacob's answer: todo approve ID "
+                        f"[--option NAME], todo done ID --as {VOCAB.role('decision_rejected_resolution')} "
+                        "--reason R, or todo answer")
+
+
+def refuse_home_path(flag, text):
+    """A home-folder path naming a user is never stored in a resolution (PLAN-todo-tool.md
+    §2a): refused before anything is read or written, naming what matched and the one
+    source of the pattern."""
+    m = VOCAB.home_path.search(text or "")
+    if m:
+        raise TodoError(f"{flag} holds a home-folder path ({m.group(0)!r} matches {VOCAB.home_path_source}): "
+                        "nothing written. Name the file relative to its repo, or write `~/...`")
+
+
+def cmd_correct(args):
+    """Replace one closed entry's resolution, and only that (PLAN-todo-tool.md §2a): the
+    one change made to history after a close. The write log's row carries the id, the
+    date, the reason and the replaced text's SHA-256, never the text; check_history
+    admits the change because that row exists."""
+    reason = (args.reason or "").strip()
+    if not reason or "\n" in reason:
+        raise TodoError("--reason is one line: why the resolution is corrected")
+    refuse_home_path("--resolution", args.resolution)
+    refuse_home_path("--reason", reason)
+    if not args.resolution.strip() or "\n" in args.resolution:
+        raise TodoError("--resolution is one line, not empty: what the entry's resolution becomes")
+    if args.resolution.strip() == VOCAB.role("detector_resolution"):
+        raise TodoError(f"resolution {args.resolution!r} is set by todo detect only")
+    refuse_reserved_resolution(args.resolution)
+    store = open_store(args)
+    if store.on_db:
+        raise TodoError(f"{store.dir.name} is on todo.db, whose history table refuses any change (its triggers): "
+                        "todo correct works on todo-history.json only for now")
+    with store.lock():
+        store.load()
+        require_clean(store)
+        item, where = store.find(args.id)
+        if where == "store":
+            raise TodoError(f"{args.id} is open: todo correct changes a closed entry's resolution; close it with todo done")
+        if item is None:
+            raise TodoError(f"{args.id} is not in {store.history_where.name}" + ("" if store.owns(args.id) else
+                            f" (its prefix is not {store.prefix}: correct it in its own repo)"))
+        old = item.get("resolution")
+        if not isinstance(old, str):
+            raise TodoError(f"{args.id} carries no resolution to correct ({old!r})")
+        if old == args.resolution:
+            raise TodoError(f"{args.id}'s resolution is that already: nothing written")
+        corrected = dict(item, resolution=args.resolution)
+        validate(corrected, "history")
+        items = store.history["items"]
+        items[items.index(item)] = corrected
+        store_mod.WRITER[store_mod.CORRECTION_KEY] = {"id": args.id, "sha256": store_mod.resolution_sha(old), "reason": reason}
+        commit(store)
+    print(f"corrected {args.id}'s resolution in {store.history_where.name}; the write log holds the replaced text's "
+          f"SHA-256 and the reason, never the text")
 
 
 def close_finished_parent(args, store, child):
@@ -2236,6 +2296,8 @@ def cmd_history(args):
             print(json.dumps(history_document(ws, s, [it]), indent=1, ensure_ascii=False))
             return
         print_item(it, where, s, ws)
+        for c in s.logged_corrections().get(it["id"], []):
+            print(f"corrected {c['at']}: {c['reason']} (todo correct; the replaced resolution's SHA-256 is {c['sha256'][:16]}...)")
         return
     store = open_store(args)
     ws = workspace(args, store)
@@ -2596,6 +2658,7 @@ COMMANDS = {
     "add": (cmd_add, "add an open item"),
     "edit": (cmd_edit, "change fields of an open item"),
     "done": (cmd_done, "close an item: it moves to todo-history.json"),
+    "correct": (cmd_correct, "replace a closed entry's resolution, logged with its reason and the old text's SHA-256"),
     "report": (cmd_report, "mark an item reported; create its counterpart in the owner's store"),
     "list": (cmd_list, "open items, one line each"),
     "show": (cmd_show, "one item in full, open or closed, any repo"),
@@ -2721,6 +2784,9 @@ def build_parser():
                      help=f"a {VOCAB.role('decision_kind')} Jacob said no to: close it and put every item it "
                           "blocks back to waiting on him (with --reason)")
     ps["done"].add_argument("--reason", help="with --as: one line, why (his words, or a pointer to them)")
+    ps["correct"].add_argument("id")
+    ps["correct"].add_argument("--resolution", required=True, help="what the closed entry's resolution becomes, one line")
+    ps["correct"].add_argument("--reason", required=True, help="one line, why: logged with the replaced text's SHA-256")
     ps["report"].add_argument("id")
     ps["report"].add_argument("--to", required=True)
     ps["report"].add_argument("--kind", choices=list(VOCAB.kinds), help="the counterpart's kind (default: the item's)")
@@ -2885,7 +2951,8 @@ def set_writer(args):
     for name, v in (("--by", by), ("--why", why)):
         if v is not None and (not v.strip() or "\n" in v):
             raise TodoError(f"{name}: one non-empty line")
-    store_mod.WRITER.update(verb=args.command, by=by.strip(), why=why.strip() if why else None)
+    store_mod.WRITER.update(verb=args.command, by=by.strip(), why=why.strip() if why else None,
+                            rename=None, **{store_mod.CORRECTION_KEY: None})  # set by their own verb alone
 
 
 def main(argv=None):

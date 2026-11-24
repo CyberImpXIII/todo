@@ -13,7 +13,7 @@
     "todo.records.jsonl": "not exported now (dt-36 row 12, not-exported-now): an export of todo.db, which no repo has yet. PLAN-services.md §4 step 10.1 adds `verify --json` and removes this not_exported in the same change"
   },
   "cli": "todo",
-  "verbs": ["init", "add", "edit", "done", "report", "list", "show", "render", "tree", "check", "import", "repos",
+  "verbs": ["init", "add", "edit", "done", "correct", "report", "list", "show", "render", "tree", "check", "import", "repos",
             "ready", "brief", "history", "get", "find", "refs", "split", "reseal", "approve", "dispatch", "dispatchable", "blockers", "stale-plans", "steps",
             "decisions", "answer", "sync-plans", "detect", "audit", "pair", "rename-repo", "migrate", "export", "areas", "area-add", "projects", "project-add", "project-edit", "priority", "area", "help"],
   "kinds": {

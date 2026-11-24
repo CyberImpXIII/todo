@@ -34,6 +34,8 @@
    "always": "reads PLAN-small-tasks.md and tools/checks' runner in the workspace"},
   {"name": "test.history", "run": "python3 -m unittest tests.test_history", "files": ["tests/test_history.py"], "except": ["tests/", "TODO.md"],
    "always": "resolves plan tags through the workspace's setup tool"},
+  {"name": "test.correct", "run": "python3 -m unittest tests.test_correct", "files": ["tests/test_correct.py"], "except": ["tests/", "TODO.md"],
+   "always": "runs tools/hub's leak audit, outside this repo, on the same lines as vocab.json's home_path"},
   {"name": "test.hooks_gate", "run": "python3 -m unittest tests.test_hooks_gate", "files": ["tests/test_hooks_gate.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.import", "run": "python3 -m unittest tests.test_import", "files": ["tests/test_import.py"], "except": ["tests/", "TODO.md"]},
   {"name": "test.import_rules", "run": "python3 -m unittest tests.test_import_rules", "files": ["tests/test_import_rules.py"], "except": ["tests/", "TODO.md"],

@@ -53,7 +53,12 @@ RECORDS_TABLE_KEYS = ["areas", "projects"]
 WRITES_FILE = "todo-writes.jsonl"
 WRITE_KEYS = ["at", "verb", "ids", "by", "why", "seal_before", "seal_after", "rename"]
 # rename: {old, new} on a rename-repo row, the one change check_history admits in history
-WRITER = {"verb": None, "by": None, "why": None, "rename": None}
+# correction: {id, sha256, reason} on a `todo correct` row alone (PLAN-todo-tool.md §2a),
+# the other change check_history admits: that id's resolution, replaced. The row holds the
+# replaced text's SHA-256, never the text. Every other row has WRITE_KEYS exactly.
+CORRECTION_KEY = "correction"
+CORRECTION_KEYS = ["id", "sha256", "reason"]
+WRITER = {"verb": None, "by": None, "why": None, "rename": None, CORRECTION_KEY: None}
 # The move to todo.db (PLAN-todo-tool.md §10.6, todolib/migrate.py): one SQLite file,
 # gitignored, and one static export per table, committed, sealed and 0444, which a
 # fresh clone imports on its first command. A folder is on todo.db when either is
@@ -108,6 +113,12 @@ def add_days(date, days):
 def id_number(item_id):
     m = ID_RE.match(item_id or "")
     return int(m.group(2)) if m else -1
+
+
+def resolution_sha(text):
+    """The digest `todo correct` logs for a replaced resolution, and check_history
+    recomputes from the committed text: one function, so the two cannot disagree."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def new_item(**values):
@@ -512,9 +523,9 @@ class Store:
         except (ValueError, AttributeError):
             return None
 
-    def logged_renames(self):
-        """[{old, new}] from the write log's rename-repo rows, oldest first: the key
-        renames this store's records went through (check_history admits exactly these)."""
+    def _logged(self, key):
+        """Each parsed write log row's `key` value that is a dict, oldest first; a row
+        that does not parse is skipped here (check_writes reports it)."""
         try:
             lines = [ln for ln in self.writes_path.read_text().splitlines() if ln.strip()]
         except FileNotFoundError:
@@ -522,11 +533,28 @@ class Store:
         out = []
         for ln in lines:
             try:
-                r = json.loads(ln).get("rename")
+                row = json.loads(ln)
+                v = row.get(key)
             except (ValueError, AttributeError):
                 continue
-            if isinstance(r, dict) and isinstance(r.get("old"), str) and isinstance(r.get("new"), str):
-                out.append({"old": r["old"], "new": r["new"]})
+            if isinstance(v, dict):
+                out.append((row, v))
+        return out
+
+    def logged_renames(self):
+        """[{old, new}] from the write log's rename-repo rows, oldest first: the key
+        renames this store's records went through (check_history admits exactly these)."""
+        return [{"old": r["old"], "new": r["new"]} for _, r in self._logged("rename")
+                if isinstance(r.get("old"), str) and isinstance(r.get("new"), str)]
+
+    def logged_corrections(self):
+        """{id: [{at, sha256, reason}]} from the write log's `todo correct` rows, oldest
+        first: the resolutions replaced in history (check_history admits exactly these,
+        and `todo history ID` shows them)."""
+        out = {}
+        for row, c in self._logged(CORRECTION_KEY):
+            if all(isinstance(c.get(k), str) for k in CORRECTION_KEYS):
+                out.setdefault(c["id"], []).append({"at": row.get("at"), "sha256": c["sha256"], "reason": c["reason"]})
         return out
 
     def replaced(self):
@@ -540,6 +568,8 @@ class Store:
                "verb": WRITER["verb"], "ids": self._changed_ids(), "by": WRITER["by"], "why": WRITER["why"],
                "seal_before": getattr(self, "_loaded_seal", None), "seal_after": self.data.get(SEAL_KEY),
                "rename": WRITER.get("rename")}
+        if WRITER.get(CORRECTION_KEY) is not None:
+            row[CORRECTION_KEY] = WRITER[CORRECTION_KEY]
         try:
             old = self.writes_path.read_text()
         except FileNotFoundError:

@@ -16,7 +16,8 @@ from . import rename as renaming
 from . import names as naming
 from .render import HEADER_PREFIX, is_sealed, render_store, unseal
 from .store import (DB_FILE, DATE_RE, EXPORT_FILES, EXPORT_STATES, HISTORY_KEYS, ID_RE, RECORDS_FILE, RECORDS_KEYS, RECORDS_TABLE_KEYS, SEAL_KEY, SEAL_STATES, STORE_KEYS,
-                    HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today, WRITE_KEYS, WRITES_FILE)
+                    HISTORY_FILE, RENDER_FILE, TodoError, git_ignores, git_toplevel, id_number, never_scanned, seal_state, today, WRITE_KEYS, WRITES_FILE,
+                    CORRECTION_KEY, CORRECTION_KEYS, resolution_sha)
 from .vocab import VOCAB
 
 GATES = ["schema", "seal", "vocab", "required", "ids", "parents", "sizes", "blockers", "tags", "groups", "reports",
@@ -392,9 +393,18 @@ def check_writes(store, out):
         except ValueError as e:
             out.append(("FAIL", "writes", f"line {n}", f"{WRITES_FILE} line {n} does not parse ({e})"))
             continue
-        if not isinstance(row, dict) or sorted(row) != sorted(WRITE_KEYS):
-            out.append(("FAIL", "writes", f"line {n}", f"{WRITES_FILE} line {n}: keys {sorted(row) if isinstance(row, dict) else type(row).__name__}, expected {WRITE_KEYS}"))
+        if not isinstance(row, dict) or sorted(set(row) - {CORRECTION_KEY}) != sorted(WRITE_KEYS):
+            out.append(("FAIL", "writes", f"line {n}", f"{WRITES_FILE} line {n}: keys {sorted(row) if isinstance(row, dict) else type(row).__name__}, "
+                                                       f"expected {WRITE_KEYS} (and {CORRECTION_KEY} on a `todo correct` row)"))
             continue
+        if CORRECTION_KEY in row:
+            c = row[CORRECTION_KEY]
+            if not (isinstance(c, dict) and sorted(c) == sorted(CORRECTION_KEYS) and all(isinstance(c[k], str) and c[k] for k in CORRECTION_KEYS)
+                    and re.fullmatch(r"[0-9a-f]{64}", c["sha256"]) and "\n" not in c["reason"] and c["id"] in (row.get("ids") or [])):
+                out.append(("FAIL", "writes", f"line {n}", f"{WRITES_FILE} line {n}: {CORRECTION_KEY} must be {{{', '.join(CORRECTION_KEYS)}}}: "
+                                                           f"the corrected id (one of the row's ids), the replaced resolution's SHA-256 "
+                                                           f"(64 hex), a one-line reason"))
+                continue
         rows.append(row)
     if rows and rows[-1]["seal_after"] != store.data.get(SEAL_KEY):
         out.append(("FAIL", "writes", "-",
@@ -792,8 +802,11 @@ def check_history(store, out):
         out.append(("INFO", "history", "-", "not a git repo: the append-only audit against the git log is skipped here"))
         return
     now = {it.get("id"): it for it in store.closed}
-    renames = store.logged_renames()   # the one admitted change: a key rename the write log recorded
-    admitted = set()
+    # the two admitted changes, each one the write log recorded: a key rename, and a
+    # resolution replaced by `todo correct` (PLAN-todo-tool.md §2a)
+    renames = store.logged_renames()
+    corrections = {iid: {c["sha256"] for c in cs} for iid, cs in store.logged_corrections().items()}
+    admitted, corrected = set(), set()
     for sha, name, items in versions:
         if items is None:
             out.append(("FAIL", "history", "-", f"{name} at {sha} does not parse"))
@@ -802,13 +815,36 @@ def check_history(store, out):
             if iid not in now:
                 out.append(("FAIL", "history", iid, f"was in {name} at {sha} and is gone: history is append-only"))
             elif now[iid] != it:
-                if renames and now[iid] == renaming.renamed(it, renames):
+                was = renaming.renamed(it, renames) if renames else it
+                if now[iid] == was:
                     admitted.add(iid)
+                elif logged_correction(now[iid], (it, was), corrections.get(iid, set())):
+                    corrected.add(iid)
+                    if was != it:
+                        admitted.add(iid)
                 else:
                     out.append(("FAIL", "history", iid, f"changed since {sha}: history entries are never edited"))
     if admitted:
         out.append(("INFO", "history", "-", f"{len(admitted)} history entr(ies) differ from a committed version only by a key "
                                             f"rename the write log recorded ({', '.join(r['old'] + ' -> ' + r['new'] for r in renames)})"))
+    if corrected:
+        out.append(("INFO", "history", "-", f"{len(corrected)} history entr(ies) carry a resolution replaced by `todo correct`, "
+                                            f"as the write log recorded ({', '.join(sorted(corrected, key=id_number))}; "
+                                            f"`todo history ID` shows when and why)"))
+
+
+def logged_correction(entry, committed, hashes):
+    """True when `entry` differs from a committed version only in its resolution, and
+    the SHA-256 of that version's resolution is one the write log recorded for this
+    id: the replaced text, hashed by `todo correct`. `committed` is the version as
+    committed and as renamed since; either may be the one the correction replaced."""
+    for was in committed:
+        old = was.get("resolution")
+        if (isinstance(old, str) and {k: v for k, v in entry.items() if k != "resolution"}
+                == {k: v for k, v in was.items() if k != "resolution"}
+                and resolution_sha(old) in hashes):
+            return True
+    return False
 
 
 def expected_keys(data, keys):
